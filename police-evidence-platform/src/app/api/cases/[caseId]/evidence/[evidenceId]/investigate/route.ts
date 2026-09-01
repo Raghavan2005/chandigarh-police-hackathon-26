@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { appendCheckpoint, writeAuditEntryInTx } from "@/lib/audit";
 import { resolveEvidencePath, writeHeatmap } from "@/lib/storage";
-import { detectImage, detectVideoFrame } from "@/lib/ml-client";
+import { detectAudio, detectImage, detectVideoFrame } from "@/lib/ml-client";
 import { sampleVideoFrames } from "@/lib/frame-extract";
 import { computePerceptualHash } from "@/lib/perceptual-hash";
 import { findMatches } from "@/lib/matching";
@@ -37,12 +37,14 @@ export async function POST(
 
   const isImage = evidence.mimeType.startsWith("image/");
   const isVideo = evidence.mimeType.startsWith("video/");
-  if (!isImage && !isVideo) {
-    // Honest scope boundary, not a bug — per the plan, audio/document
-    // detection is explicitly deprioritized below image/video for the MVP
-    // timeline. Say so plainly rather than forcing a fake score through.
+  const isAudio = evidence.mimeType.startsWith("audio/");
+  if (!isImage && !isVideo && !isAudio) {
+    // Honest scope boundary, not a bug — document detection is metadata/
+    // text extraction only (src/lib/metadata.ts), not run through a
+    // classifier here, since there's no real document-tamper ML model
+    // behind it. Say so plainly rather than forcing a fake score through.
     return NextResponse.json(
-      { error: "Detection is not available for this evidence type yet (image/video only in this build)." },
+      { error: "Detection is not available for this evidence type yet (image/video/audio only in this build)." },
       { status: 422 },
     );
   }
@@ -54,15 +56,18 @@ export async function POST(
   // transaction below, not inside it; a network call has no place holding a
   // SQLite transaction open). ---
   let classifierScore: number;
-  let heatmapPngBase64: string;
-  let hashSourceBuffer: Buffer; // what gets perceptual-hashed — the image itself, or the representative video frame
+  let heatmapPngBase64: string | null = null;
+  // What gets perceptual-hashed — the image itself, or the representative
+  // video frame. Audio has no perceptual-hash equivalent (schema comment
+  // on Evidence.phash: "null for audio/document") — stays null.
+  let hashSourceBuffer: Buffer | null = null;
 
   if (isImage) {
     const result = await detectImage(fileBuffer, evidence.mimeType);
     classifierScore = result.probability;
     heatmapPngBase64 = result.heatmapPngBase64;
     hashSourceBuffer = fileBuffer;
-  } else {
+  } else if (isVideo) {
     const durationSeconds = evidence.metadataResult?.duration ? parseFloat(evidence.metadataResult.duration) : 0;
     const frames = await sampleVideoFrames(absolutePath, durationSeconds);
     if (frames.length === 0) {
@@ -79,6 +84,12 @@ export async function POST(
     classifierScore = worst.probability;
     heatmapPngBase64 = worst.heatmapPngBase64;
     hashSourceBuffer = frames[frameResults.indexOf(worst)];
+  } else {
+    // Audio: a 1D waveform classifier has no spatial heatmap/perceptual-hash
+    // equivalent — those stay null/absent rather than fabricating a
+    // meaningless visualization or hash.
+    const result = await detectAudio(fileBuffer, evidence.mimeType);
+    classifierScore = result.probability;
   }
 
   // --- Stage 3: provenance (C2PA), Stage 4a: perceptual hash — both local,
@@ -88,10 +99,13 @@ export async function POST(
   // still image extracted from it. ---
   const [provenance, phash] = await Promise.all([
     checkProvenance(fileBuffer, evidence.mimeType),
-    computePerceptualHash(hashSourceBuffer, "image/jpeg"),
+    hashSourceBuffer ? computePerceptualHash(hashSourceBuffer, "image/jpeg") : Promise.resolve(null),
   ]);
 
-  const heatmapPath = writeHeatmap(evidence.id, heatmapPngBase64);
+  const heatmapPath = heatmapPngBase64 ? writeHeatmap(evidence.id, heatmapPngBase64) : null;
+
+  const modelName = isAudio ? "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification" : "not-lain/deepfake";
+  const modelVersion = isAudio ? "wav2vec2-large-xlsr-53" : "InceptionResnetV1-vggface2";
 
   const { fusionVerdict, matchCounts, auditEntry } = await db.$transaction(async (tx) => {
     await tx.detectionResult.upsert({
@@ -100,10 +114,10 @@ export async function POST(
         evidenceId: evidence.id,
         manipulationProbability: classifierScore,
         heatmapPath,
-        modelName: "not-lain/deepfake",
-        modelVersion: "InceptionResnetV1-vggface2",
+        modelName,
+        modelVersion,
       },
-      update: { manipulationProbability: classifierScore, heatmapPath },
+      update: { manipulationProbability: classifierScore, heatmapPath, modelName, modelVersion },
     });
 
     await tx.provenanceResult.upsert({

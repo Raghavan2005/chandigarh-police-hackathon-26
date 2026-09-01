@@ -1,12 +1,14 @@
 # PS4 Detection Microservice
 
 A small FastAPI service that scores an image (or a sampled video frame) for
-AI-generated/deepfake manipulation probability and returns a Grad-CAM heatmap.
-Called over `localhost` HTTP by the Next.js backend in `police-evidence-platform/`
-— never called from the browser directly. See `../Docs/Plan/PS4_MVP_BUILD_PLAN.md`
-(§2, §3) for the architecture this fits into.
+AI-generated/deepfake manipulation probability and returns a Grad-CAM heatmap,
+plus a separate audio endpoint that scores a voice recording for
+spoofing/synthesis probability. Called over `localhost` HTTP by the Next.js
+backend in `police-evidence-platform/` — never called from the browser
+directly. See `../Docs/Plan/PS4_MVP_BUILD_PLAN.md` (§2, §3) for the
+architecture this fits into.
 
-## Model
+## Image/video model
 
 **`not-lain/deepfake`** on Hugging Face — https://huggingface.co/not-lain/deepfake
 
@@ -57,9 +59,54 @@ if useful. This is exactly the kind of generalization limit
 `AGENT_PS4_DEEPFAKE_REPORT.md` and the build plan are explicit about — don't
 let the UI imply this is a general-purpose AI-image detector.
 
+## Audio model
+
+**`Gustking/wav2vec2-large-xlsr-deepfake-audio-classification`** on Hugging
+Face — https://huggingface.co/Gustking/wav2vec2-large-xlsr-deepfake-audio-classification
+
+Architecture: **`Wav2Vec2ForSequenceClassification`**, fine-tuned from
+`alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech` for binary
+real/fake (spoofed) voice classification. Standard `transformers`
+`AutoModelForAudioClassification` interface — no custom wrapper code needed,
+unlike the image model above.
+
+- **Pretrained, open source (Apache-2.0), no training done here.** Weights
+  loaded as-is via `transformers.AutoModelForAudioClassification.from_pretrained`.
+- **Real, checked label mapping** — `id2label` from the model's own
+  `config.json` is `{"0": "real", "1": "fake"}`, verified against the Hub
+  before wiring this in, not assumed from the model name. `audio_detector.py`
+  looks this mapping up at load time rather than hardcoding index `1`, so a
+  swapped label order would fail loudly (`RuntimeError`) instead of silently
+  inverting every score.
+- **CPU-only.** Same `DEVICE = torch.device("cpu")` pattern as the image
+  model.
+- **Lazily loaded**, unlike the image model (which loads at service
+  startup) — this is a large model (~1.2 GB) that a given demo run may never
+  exercise, since audio is a stretch-scope evidence type, not the core
+  image/video path. It loads on the first `/detect/audio` call instead,
+  which means that first call is slow (downloads + loads the model); every
+  call after is fast.
+- **Real ffmpeg-based decoding**, not a raw-waveform assumption — arbitrary
+  input audio (mp3, wav, ogg, ...) is decoded to the 16kHz mono float32
+  waveform the model expects via a real `ffmpeg` binary, downloaded and
+  cached on first use by `imageio-ffmpeg` (the Python-side equivalent of the
+  Next.js side's `@ffmpeg-installer/ffmpeg` — this service doesn't depend on
+  a system `ffmpeg` install).
+- Audio longer than 30 seconds is trimmed to the first 30s before inference
+  — wav2vec2's attention is quadratic in sequence length, so this bounds
+  compute/memory for a synchronous HTTP request, the same reasoning behind
+  video support using frame sampling instead of processing an entire file.
+
+**Honesty note on scope:** like the image model, this is a narrow classifier
+— voice spoofing/TTS/voice-conversion detection on the feature space it was
+fine-tuned on. It says nothing about whether audio was edited/spliced, only
+whether the voice itself sounds synthetic/spoofed.
+
 ## API
 
-- `GET /health` → `{ "status": "ok", "modelLoaded": true }`
+- `GET /health` → `{ "status": "ok", "modelLoaded": true, "audioModelLoaded": false }`
+  (`audioModelLoaded` only flips to `true` after the first `/detect/audio`
+  call, per the lazy-loading behavior above.)
 - `POST /detect/image` (multipart form field `file`, an image) →
   `{ "probability": <float 0-100>, "heatmapPngBase64": "<base64 PNG>" }`
   — `probability` is the model's estimated probability the face is
@@ -68,11 +115,15 @@ let the UI imply this is a general-purpose AI-image detector.
   model/pipeline as `/detect/image`. Video support is frame sampling done on
   the Next.js side (per the build plan) — this endpoint just scores one
   already-extracted frame image; no video decoding happens in this service.
+- `POST /detect/audio` (multipart form field `file`, an audio file) →
+  `{ "probability": <float 0-100> }` — probability the voice is
+  fake/spoofed. No heatmap (no spatial visualization equivalent for a 1D
+  waveform classifier).
 
-Errors: a non-image `content-type` or an undecodable/empty file returns
-`400` with a `detail` message; an internal failure during inference returns
-`500` with `detail` describing the exception (never a silent/fabricated
-score).
+Errors: a non-image/audio `content-type` (matching the endpoint) or an
+undecodable/empty file returns `400` with a `detail` message; an internal
+failure during inference returns `500` with `detail` describing the
+exception (never a silent/fabricated score).
 
 ## Setup
 
@@ -132,16 +183,47 @@ against a labeled real/fake validation set (per the build plan's Phase 0/§3
 "Calibration, not just wiring" step) is a separate follow-up task, not done
 here.
 
+**Audio path**, verified separately after the image/video path above, first
+as a standalone script (`AudioDeepfakeDetector().detect(...)` directly)
+against a real file already in the repo
+(`police-evidence-platform/public/evidence/case-audio.mp3`):
+`Model loaded OK, fake_index = 1` then `probability (fake): 10.67`, and the
+downloaded weights landed under `ml-service/.hf_cache/` (confirmed via `du
+-sh` growing there, not `~/.cache/huggingface`) — this is the test that
+caught the cache-directory bug described in `cache_env.py`'s docstring.
+
+Then through the real running service (`uvicorn main:app`, port 8008):
+
+- `GET /health` before any audio call → `{"status":"ok","modelLoaded":true,"audioModelLoaded":false}`
+  (confirms the lazy-loading claim above is real, not just intended).
+- `POST /detect/audio` with the same `case-audio.mp3` → `{"probability":10.67}`,
+  identical to the standalone script (same model, same file, same result —
+  confirms the FastAPI wrapper isn't altering the score).
+- `GET /health` after that call → `audioModelLoaded` now `true`.
+- Error handling: an empty file → `400 {"detail":"Uploaded file is empty."}`;
+  a `text/plain` file → `400 {"detail":"Expected an audio file, got
+  content-type 'text/plain'"}`.
+- Full round trip through the Next.js app (not just this service): logged in
+  as a real seeded investigator, created a real case via `POST /api/cases`,
+  uploaded `case-audio.mp3` via `POST /api/cases/:id/evidence`, then called
+  `POST /api/cases/:id/evidence/:id/investigate` — got back a real
+  `FusionVerdict` (`INCONCLUSIVE`, confidence capped to 11% since 0/3 signals
+  corroborate), and confirmed `DetectionResult.modelName`/`modelVersion` are
+  stored correctly for the audio path and the pipeline-status UI's matching
+  step correctly reads "Not applicable to audio" instead of a fabricated
+  hash-match claim.
+
 ## Notes / deviations from the spec
 
 - The task brief suggested Hugging Face `transformers` as one likely
-  dependency; this checkpoint instead loads via `facenet-pytorch` +
-  `safetensors` directly (no `transformers`/`timm` import in the final code),
-  because the chosen model's native architecture class lives in
-  `facenet_pytorch`, not `transformers`. `transformers`/`timm` were
-  installed during model evaluation but are not required by `main.py` or
-  `detector.py`, so they're left out of `requirements.txt` to keep it
-  accurate to what's actually imported.
+  dependency for the image/video model; that checkpoint instead loads via
+  `facenet-pytorch` + `safetensors` directly (no `transformers`/`timm` import
+  in `detector.py`), because the chosen model's native architecture class
+  lives in `facenet_pytorch`, not `transformers`. The audio model
+  (`audio_detector.py`, added later as a Phase 3 stretch item) does use
+  `transformers` (`AutoModelForAudioClassification`) — its checkpoint has no
+  `facenet-pytorch`-style equivalent, so `transformers` is a real, required
+  dependency now and is pinned in `requirements.txt`.
 - `torch`/`torchvision` must come from the same build tag (both `+cpu` here)
   — installing them from different indices caused a real
   `RuntimeError: operator torchvision::nms does not exist` during setup in

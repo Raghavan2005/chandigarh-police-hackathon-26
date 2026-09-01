@@ -61,8 +61,10 @@ export function EvidenceCard({
   const [errorMessage, setErrorMessage] = useState("");
   const [result, setResult] = useState<InvestigateResponse | null>(null);
 
-  const canInvestigate = evidence.mimeType.startsWith("image/") || evidence.mimeType.startsWith("video/");
+  const canInvestigate =
+    evidence.mimeType.startsWith("image/") || evidence.mimeType.startsWith("video/") || evidence.mimeType.startsWith("audio/");
   const isVideo = evidence.mimeType.startsWith("video/");
+  const isAudio = evidence.mimeType.startsWith("audio/");
 
   async function handleInvestigate() {
     setStatus("investigating");
@@ -251,7 +253,11 @@ export function EvidenceCard({
             {status === "investigating" ? (
               <>
                 <Loader2 className="size-3.5 animate-spin" />
-                {isVideo ? "Sampling frames + running detection…" : "Running detection…"}
+                {isVideo
+                  ? "Sampling frames + running detection…"
+                  : isAudio
+                    ? "Running voice-spoofing detection… (first run downloads the model, can be slow)"
+                    : "Running detection…"}
               </>
             ) : (
               <>
@@ -262,7 +268,7 @@ export function EvidenceCard({
           </button>
         ) : (
           <p className="text-[11px] text-text-tertiary">
-            Detection isn&apos;t available for this evidence type yet (image/video only in this build).
+            Detection isn&apos;t available for this evidence type yet (image/video/audio only in this build).
           </p>
         )}
         {evidence.fusionVerdict && (
