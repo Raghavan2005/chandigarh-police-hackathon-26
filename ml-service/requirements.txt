@@ -1,0 +1,32 @@
+# PS4 detection microservice — pinned dependencies.
+# Install into a venv: pip install -r requirements.txt
+# CPU-only PyTorch/torchvision wheels — install with the extra index below so
+# you get the +cpu build (much smaller download, no CUDA dependency):
+#   pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+
+# --- web service ---
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+python-multipart==0.0.32
+pydantic==2.13.5
+
+# --- model + inference ---
+# The "+cpu" local version tag is required, not cosmetic: it pins pip to the
+# CPU-only wheel on the extra index below. Without it, pip may resolve the
+# default (CUDA-bundled) PyPI build instead, and a torch/torchvision pair
+# built for different backends will fail at import time with
+# "RuntimeError: operator torchvision::nms does not exist" (hit during setup).
+torch==2.13.0+cpu
+torchvision==0.28.0+cpu
+facenet-pytorch==2.6.0
+huggingface_hub==1.29.0
+safetensors==0.8.0
+
+# --- Grad-CAM ---
+grad-cam==1.5.7
+
+# --- image / io ---
+pillow==12.3.0
+numpy==2.5.2
+opencv-python-headless==5.0.0.93
+requests==2.34.2

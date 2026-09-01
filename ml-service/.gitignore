@@ -1,0 +1,14 @@
+# Python virtual environment
+.venv/
+
+# Downloaded model weights / caches (fetched at setup time, never committed)
+.hf_cache/
+.torch_cache/
+model_cache/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Local test artifacts
+test_output/
