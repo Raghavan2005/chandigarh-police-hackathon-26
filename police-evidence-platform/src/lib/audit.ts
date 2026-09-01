@@ -2,20 +2,38 @@ import { createHash } from "crypto";
 import { appendFileSync, existsSync, writeFileSync } from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 
-const CHECKPOINT_PATH = path.join(process.cwd(), "..", "storage", "audit-checkpoints.log");
+type DbOrTx = typeof db | Prisma.TransactionClient;
+
+// storage/ lives inside police-evidence-platform/ (alongside package.json),
+// which is process.cwd() when the Next.js server is running — no ".." here.
+const CHECKPOINT_PATH = path.join(process.cwd(), "storage", "audit-checkpoints.log");
 
 /**
- * Ensures the checkpoint file exists and has the Linux append-only attribute
- * set (PS4_MVP_BUILD_PLAN.md §2) — even the app's own service account can
- * then only append to it, never rewrite or truncate prior entries. Removing
- * the attribute requires root and is itself an auditable OS-level action.
- * Best-effort: if `chattr` isn't available (non-Linux, or the filesystem
- * doesn't support the attribute — e.g. not ext4/xfs), the file still gets
- * created and appended to, just without that extra hardening layer — see
- * PS4_MVP_BUILD_PLAN.md §11's open question on verifying this on the real
- * demo hardware.
+ * Whether storage/audit-checkpoints.log actually has the append-only
+ * attribute — checked once per process, not assumed. §11 flagged this as
+ * "verify on the real demo hardware, don't assume ext4/xfs support it," and
+ * that turned out to matter: on this dev machine `chattr +a` exits 0 without
+ * throwing but the attribute doesn't actually land (confirmed via `lsattr`
+ * — a plain shell redirect can still truncate the file). Trusting a zero
+ * exit code here would have silently produced a false sense of tamper-
+ * hardening, so this reads the attribute back rather than trusting the
+ * command's exit status.
+ */
+let checkpointFileHardened: boolean | null = null;
+
+/**
+ * Ensures the checkpoint file exists and, best-effort, has the Linux
+ * append-only attribute set (PS4_MVP_BUILD_PLAN.md §2) — even the app's own
+ * service account can then only append to it, never rewrite or truncate
+ * prior entries. When the attribute doesn't actually take (this filesystem,
+ * or non-Linux), falls back to also mirroring every checkpoint line to
+ * syslog via `logger` (see appendCheckpoint) — journald's storage isn't
+ * writable by this process at all, which is a genuinely separate write
+ * path outside the app's own filesystem access, not just a second copy of
+ * the same vulnerable file.
  */
 function ensureCheckpointFile() {
   if (!existsSync(CHECKPOINT_PATH)) {
@@ -23,10 +41,23 @@ function ensureCheckpointFile() {
     try {
       execFileSync("chattr", ["+a", CHECKPOINT_PATH]);
     } catch {
+      // fall through — verified below regardless of whether this threw
+    }
+  }
+
+  if (checkpointFileHardened === null) {
+    try {
+      const attrs = execFileSync("lsattr", [CHECKPOINT_PATH]).toString();
+      checkpointFileHardened = attrs.split(" ")[0]?.includes("a") ?? false;
+    } catch {
+      checkpointFileHardened = false;
+    }
+    if (!checkpointFileHardened) {
       console.warn(
-        `[audit] could not set append-only attribute on ${CHECKPOINT_PATH} — ` +
-          "chattr unavailable or filesystem doesn't support it. Checkpoint file " +
-          "still active, just without OS-level tamper-hardening. See PS4_MVP_BUILD_PLAN.md §11.",
+        `[audit] append-only attribute is NOT active on ${CHECKPOINT_PATH} — ` +
+          "chattr unavailable, unsupported by this filesystem, or silently a no-op here. " +
+          "Falling back to mirroring checkpoints via syslog (logger) as the tamper-hardening " +
+          "layer instead. See PS4_MVP_BUILD_PLAN.md §11.",
       );
     }
   }
@@ -43,24 +74,20 @@ interface WriteAuditEntryInput {
 }
 
 /**
- * Writes one entry to the hash-chained, append-only audit log
- * (PS4_MVP_BUILD_PLAN.md §1 item 10, §4). Every call:
- *  1. Reads the most recent entry (by autoincrement id — see schema.prisma's
- *     note on why AuditLogEntry uses an int id, not cuid) to get prevEntryHash.
- *  2. Computes entryHash = sha256(prevEntryHash + the new entry's fields).
- *  3. Inserts the row.
- *  4. Mirrors entryHash to storage/audit-checkpoints.log outside the DB file,
- *     so a later diff between "recompute the chain from the DB" and "what the
- *     checkpoint file recorded" can pinpoint tampering (§2).
+ * The DB-only half of writing an audit entry: reads the most recent entry
+ * (by autoincrement id — see schema.prisma's note on why AuditLogEntry uses
+ * an int id, not cuid) for prevEntryHash, computes entryHash, inserts the
+ * row. Takes a transaction client so it can be called from inside the same
+ * `db.$transaction` as the case/evidence write it's auditing — e.g. a case
+ * row and its "ASSIGNED" entry either both commit or neither does. There is
+ * no such thing as evidence existing in the DB with no audit trail for it.
  *
- * Not wrapped in a DB transaction with the checkpoint-file append (the file
- * write can't participate in a SQL transaction) — for the MVP timeline this
- * is an accepted gap, not an oversight: the DB row is the source of truth,
- * the checkpoint file is corroborating evidence, and a mismatch between the
- * two is itself the tamper signal the design relies on.
+ * Does NOT touch the checkpoint file — a filesystem append can't
+ * participate in a SQL transaction, so that happens in the non-transactional
+ * wrapper below, after the DB transaction has already committed.
  */
-export async function writeAuditEntry(input: WriteAuditEntryInput) {
-  const prev = await db.auditLogEntry.findFirst({ orderBy: { id: "desc" } });
+async function writeAuditEntryDb(input: WriteAuditEntryInput, tx: DbOrTx) {
+  const prev = await tx.auditLogEntry.findFirst({ orderBy: { id: "desc" } });
   const prevEntryHash = prev?.entryHash ?? null;
   const timestamp = new Date();
 
@@ -78,7 +105,7 @@ export async function writeAuditEntry(input: WriteAuditEntryInput) {
     )
     .digest("hex");
 
-  const entry = await db.auditLogEntry.create({
+  return tx.auditLogEntry.create({
     data: {
       caseId: input.caseId,
       evidenceHash: input.evidenceHash,
@@ -90,9 +117,47 @@ export async function writeAuditEntry(input: WriteAuditEntryInput) {
       prevEntryHash,
     },
   });
+}
 
+function appendCheckpoint(entry: { id: number; entryHash: string; timestamp: Date }) {
   ensureCheckpointFile();
-  appendFileSync(CHECKPOINT_PATH, `${entry.id}\t${entryHash}\t${timestamp.toISOString()}\n`);
+  const line = `${entry.id}\t${entry.entryHash}\t${entry.timestamp.toISOString()}`;
+  appendFileSync(CHECKPOINT_PATH, line + "\n");
 
+  if (!checkpointFileHardened) {
+    // Best-effort, fire-and-forget — a slow/missing syslog daemon must never
+    // block or fail the request this checkpoint is attached to. journald's
+    // own storage isn't writable by this process, which is the actual
+    // property being relied on here (§2/§11) — not that syslog is fancier.
+    try {
+      execFileSync("logger", ["-t", "ps4-audit-checkpoint", line]);
+    } catch {
+      console.warn(`[audit] syslog fallback also unavailable — checkpoint ${entry.id} only recorded in-file.`);
+    }
+  }
+}
+
+/**
+ * Standalone version — DB write + checkpoint-file append in one call, for
+ * actions that aren't already inside a transaction with something else
+ * (e.g. VIEWED, which has nothing else to be atomic with).
+ */
+export async function writeAuditEntry(input: WriteAuditEntryInput) {
+  const entry = await writeAuditEntryDb(input, db);
+  appendCheckpoint(entry);
   return entry;
 }
+
+/**
+ * Transactional version — pass the same `tx` you're using to create/update
+ * the case or evidence row, so the write and its audit entry commit
+ * together or not at all. Caller must call `appendCheckpoint` with the
+ * returned entry once the outer transaction has committed (the checkpoint
+ * file can't be part of the SQL transaction, but it should still happen
+ * right after, not be forgotten).
+ */
+export async function writeAuditEntryInTx(input: WriteAuditEntryInput, tx: Prisma.TransactionClient) {
+  return writeAuditEntryDb(input, tx);
+}
+
+export { appendCheckpoint };

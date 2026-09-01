@@ -65,7 +65,14 @@ model Evidence {
   id               String   @id @default(cuid())
   caseId           String
   case             Case     @relation(fields: [caseId], references: [id])
-  sha256           String   @unique
+  // Deliberately NOT globally unique: the exact same file can legitimately be
+  // evidence in more than one case (the same viral video reposted under two
+  // separate complaints, say) — that's exactly the scenario EvidenceMatch/
+  // cross-case search (§2, §4) exists to surface, not something to block at
+  // the schema level. What *is* blocked: uploading the identical file twice
+  // into the same case (the @@unique below), which is just an accidental
+  // double-submit, not a real event.
+  sha256           String
   filePath         String
   mimeType         String
   uploadedAt       DateTime @default(now())
@@ -84,7 +91,9 @@ model Evidence {
   matchesTo           EvidenceMatch[] @relation("EvidenceMatchTarget")
   overrides           VerdictOverride[]
 
+  @@unique([caseId, sha256])
   @@index([caseId])
+  @@index([sha256])
 }
 
 model MetadataResult {
