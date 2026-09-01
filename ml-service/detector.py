@@ -31,17 +31,9 @@ from __future__ import annotations
 
 import base64
 import io
-import os
 from dataclasses import dataclass
-from pathlib import Path
 
-# Keep all downloaded model weights inside this project directory (gitignored)
-# rather than the user's home cache, so setup/teardown is self-contained and
-# obviously not part of the git history. Must be set before the huggingface_hub
-# / torch.hub imports below read these env vars.
-_SERVICE_DIR = Path(__file__).resolve().parent
-os.environ.setdefault("HF_HOME", str(_SERVICE_DIR / ".hf_cache"))
-os.environ.setdefault("TORCH_HOME", str(_SERVICE_DIR / ".torch_cache"))
+import cache_env  # noqa: F401 - import for its env-var side effect, must run before the huggingface_hub/torch imports below
 
 import numpy as np
 import torch

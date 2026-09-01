@@ -11,9 +11,18 @@ export interface DetectionResponse {
   heatmapPngBase64: string;
 }
 
-async function callDetect(endpoint: "/detect/image" | "/detect/video-frame", buffer: Buffer, mimeType: string): Promise<DetectionResponse> {
+export interface AudioDetectionResponse {
+  probability: number;
+}
+
+async function callDetect<T>(
+  endpoint: "/detect/image" | "/detect/video-frame" | "/detect/audio",
+  buffer: Buffer,
+  mimeType: string,
+  filename: string,
+): Promise<T> {
   const formData = new FormData();
-  formData.append("file", new Blob([new Uint8Array(buffer)], { type: mimeType }), "frame.jpg");
+  formData.append("file", new Blob([new Uint8Array(buffer)], { type: mimeType }), filename);
 
   const response = await fetch(`${ML_SERVICE_URL}${endpoint}`, {
     method: "POST",
@@ -29,11 +38,15 @@ async function callDetect(endpoint: "/detect/image" | "/detect/video-frame", buf
 }
 
 export function detectImage(buffer: Buffer, mimeType: string): Promise<DetectionResponse> {
-  return callDetect("/detect/image", buffer, mimeType);
+  return callDetect<DetectionResponse>("/detect/image", buffer, mimeType, "frame.jpg");
 }
 
 export function detectVideoFrame(buffer: Buffer): Promise<DetectionResponse> {
-  return callDetect("/detect/video-frame", buffer, "image/jpeg");
+  return callDetect<DetectionResponse>("/detect/video-frame", buffer, "image/jpeg", "frame.jpg");
+}
+
+export function detectAudio(buffer: Buffer, mimeType: string): Promise<AudioDetectionResponse> {
+  return callDetect<AudioDetectionResponse>("/detect/audio", buffer, mimeType, "audio");
 }
 
 export async function mlServiceHealthy(): Promise<boolean> {

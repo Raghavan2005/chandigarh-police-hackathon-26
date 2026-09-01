@@ -1,4 +1,5 @@
 export interface PipelineEvidenceInput {
+  mimeType: string;
   uploadedAt: Date;
   metadataResult: { container: string | null; resolution: string | null; encoderSignature: string | null } | null;
   detectionResult: { manipulationProbability: number; modelName: string; modelVersion: string } | null;
@@ -32,6 +33,13 @@ export interface PipelineStatus {
  */
 export function computePipelineStatus(evidence: PipelineEvidenceInput): PipelineStatus {
   const matchCount = evidence.matchesFrom.length + evidence.corpusMatches.length;
+  // Audio has no perceptual-hash equivalent (Evidence.phash is "null for
+  // audio/document" per its schema comment) — the matching step still runs
+  // (it's part of the same transaction as fusion) but never has anything
+  // to hash, so its match count is always 0 by definition, not because
+  // nothing happened to match against. Saying "perceptual hash checked"
+  // for audio would claim a step that never actually ran.
+  const isAudio = evidence.mimeType.startsWith("audio/");
 
   const steps: PipelineStep[] = [
     {
@@ -82,8 +90,10 @@ export function computePipelineStatus(evidence: PipelineEvidenceInput): Pipeline
       // its own — there's no separate MatchingResult table.
       label: "Hash / cross-case matching",
       done: Boolean(evidence.fusionVerdict),
-      detail: "Perceptual hash checked against the seeded corpus and every other case's evidence.",
-      metrics: evidence.fusionVerdict ? [{ label: "Matches found", value: String(matchCount) }] : undefined,
+      detail: isAudio
+        ? "Not applicable to audio — no perceptual-hash equivalent exists for this evidence type yet."
+        : "Perceptual hash checked against the seeded corpus and every other case's evidence.",
+      metrics: evidence.fusionVerdict && !isAudio ? [{ label: "Matches found", value: String(matchCount) }] : undefined,
     },
     {
       id: "fusion",

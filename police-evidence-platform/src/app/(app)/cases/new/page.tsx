@@ -248,8 +248,9 @@ export default function NewCasePage() {
             <div className="flex items-center gap-2 rounded-lg border border-status-safe/30 bg-status-safe-bg px-3 py-2 text-status-safe">
               <ShieldCheck className="size-4" />
               <p className="text-sm">
-                Ready to submit. This creates the case record and uploads the evidence file for real —
-                run Investigate from the case page afterward to analyze it.
+                Ready to submit. This creates the case record and uploads the evidence file for real.
+                Detection doesn&apos;t run automatically — open the case afterward and click Investigate
+                to run the real analysis pipeline on this evidence.
               </p>
             </div>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">

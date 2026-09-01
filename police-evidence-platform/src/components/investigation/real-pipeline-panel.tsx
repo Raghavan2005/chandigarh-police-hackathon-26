@@ -59,9 +59,11 @@ export function RealPipelinePanel({ evidence }: { evidence: Evidence }) {
                 {step.metrics && (
                   <dl className="mt-2 flex flex-col gap-1 rounded-md border border-border-subtle bg-surface-sunken px-2.5 py-2">
                     {step.metrics.map((m) => (
-                      <div key={m.label} className="flex items-center justify-between gap-3">
-                        <dt className="text-[10px] text-text-tertiary">{m.label}</dt>
-                        <dd className="shrink-0 text-right font-mono text-[10px] text-text-secondary">{m.value}</dd>
+                      <div key={m.label} className="flex items-start justify-between gap-3">
+                        <dt className="shrink-0 text-[10px] text-text-tertiary">{m.label}</dt>
+                        <dd className="min-w-0 break-words text-right font-mono text-[10px] text-text-secondary">
+                          {m.value}
+                        </dd>
                       </div>
                     ))}
                   </dl>

@@ -1,7 +1,7 @@
 # Task — Phase 3 UI state audit
 
 **Assigned to:** pfgctrl07
-**Status:** done — see `PS4_BUILD_STATUS.md`'s Phase 3 row for the full findings/fixes list
+**Status:** done — completed twice in parallel (this was picked up directly since it was blocking Phase 3's close-out with no visible progress yet, while pfgctrl07 was independently working the same task). Both passes found the same core bug (re-investigate silently discarding a failed attempt's error) plus distinct additional fixes each other missed — see `PS4_BUILD_STATUS.md`'s Phase 3 row for the full combined writeup.
 **Source:** `PS4_MVP_BUILD_PLAN.md` §1 Phase 3 — "Loading/empty/error/success state audit across all screens (per `CLAUDE.md` UI rules)."
 
 ## What to do
