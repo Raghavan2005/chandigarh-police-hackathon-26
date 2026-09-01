@@ -6,7 +6,7 @@ Single source of truth for "where are we" on `PS4_MVP_BUILD_PLAN.md`. Updated pe
 
 | Phase | State | Commit(s) | Reviewed by | Date | Notes |
 |---|---|---|---|---|---|
-| Phase 0 — Foundation | not started | | | | |
+| Phase 0 — Foundation | in progress | `38dcc3b` (Prisma+SQLite schema) | awaiting review | 2026-09-01 | Schema+migration done, committed locally, **not yet pushed** — awaiting human review per §9. Remaining Phase 0 tasks: model bake-off, API contract types + auth guard scaffold, service-account/file-permission setup, corpus media sourcing (blocking). |
 | Phase 1 — Core vertical slice | not started | | | | |
 | Phase 2 — Fusion, provenance, corpus, video | not started | | | | |
 | Phase 3 — Report, polish, rehearsal buffer | not started | | | | |
