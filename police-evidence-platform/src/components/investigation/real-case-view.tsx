@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
-import { ArrowLeft, Clock3, FileBarChart, FileDigit, ShieldAlert } from "lucide-react";
+import { ArrowLeft, FileBarChart, ShieldAlert } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { EvidenceKind } from "@/lib/types";
+import { EvidenceCard } from "@/components/investigation/evidence-card";
 import type { getRealCase } from "@/lib/cases-server";
 
 type RealCase = NonNullable<Awaited<ReturnType<typeof getRealCase>>>;
@@ -56,58 +55,9 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
                 No evidence uploaded on this case yet.
               </p>
             )}
-            {caseData.evidence.map((ev) => {
-              const Icon = KIND_ICON[caseData.evidenceKind as EvidenceKind] ?? FileDigit;
-              return (
-                <div
-                  key={ev.id}
-                  className="flex flex-col gap-3 rounded-lg border border-border-subtle p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-surface-sunken">
-                      <Icon className="size-4 text-text-tertiary" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-text-primary">{ev.mimeType}</p>
-                      <p className="truncate font-mono text-[11px] text-text-tertiary">
-                        SHA-256: {ev.sha256}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-[11px] text-text-tertiary">
-                      {ev.uploadedBy.name} · {new Date(ev.uploadedAt).toLocaleString()}
-                    </span>
-                  </div>
-
-                  {ev.metadataResult ? (
-                    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border-subtle pt-3 text-xs sm:grid-cols-4">
-                      <Field label="Container" value={ev.metadataResult.container} />
-                      <Field label="Resolution" value={ev.metadataResult.resolution} />
-                      <Field label="Duration" value={ev.metadataResult.duration} />
-                      <Field label="Codec" value={ev.metadataResult.codec} />
-                      {ev.metadataResult.encoderSignature && (
-                        <Field
-                          label="Encoder signature"
-                          value={ev.metadataResult.encoderSignature}
-                          className="col-span-2 sm:col-span-4"
-                          highlight
-                        />
-                      )}
-                    </dl>
-                  ) : (
-                    <p className="flex items-center gap-1.5 border-t border-border-subtle pt-3 text-xs text-text-tertiary">
-                      <Clock3 className="size-3.5" />
-                      Metadata extraction pending.
-                    </p>
-                  )}
-
-                  {!ev.detectionResult && !ev.fusionVerdict && (
-                    <p className="rounded-md border border-status-inconclusive/30 bg-status-inconclusive-bg px-2.5 py-1.5 text-xs text-status-inconclusive">
-                      Detection and Evidence Fusion haven&apos;t run on this file yet (Phase 2) — no verdict to show.
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+            {caseData.evidence.map((ev) => (
+              <EvidenceCard key={ev.id} caseId={caseData.id} evidenceKind={caseData.evidenceKind} evidence={ev} />
+            ))}
           </CardContent>
         </Card>
 
@@ -161,26 +111,6 @@ function Row({
       <dd className={`text-right text-text-primary ${mono ? "font-mono text-xs" : ""} ${capitalize ? "capitalize" : ""}`}>
         {value}
       </dd>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  value,
-  className,
-  highlight,
-}: {
-  label: string;
-  value: string | null;
-  className?: string;
-  highlight?: boolean;
-}) {
-  if (!value) return null;
-  return (
-    <div className={className}>
-      <dt className="text-text-tertiary">{label}</dt>
-      <dd className={highlight ? "font-medium text-status-warning" : "text-text-primary"}>{value}</dd>
     </div>
   );
 }

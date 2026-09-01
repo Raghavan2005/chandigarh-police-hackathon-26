@@ -1,0 +1,190 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, Clock3, FileDigit, Loader2, ScanSearch } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
+import type { EvidenceKind } from "@/lib/types";
+import type { getRealCase } from "@/lib/cases-server";
+
+type RealCase = NonNullable<Awaited<ReturnType<typeof getRealCase>>>;
+type Evidence = RealCase["evidence"][number];
+
+interface InvestigateResponse {
+  verdict: string;
+  confidence: number;
+  explanation: string;
+  coverageCount: number;
+  corpusMatches: number;
+  crossCaseMatches: number;
+}
+
+const VERDICT_STYLE: Record<string, string> = {
+  AUTHENTIC: "border-status-safe/30 bg-status-safe-bg text-status-safe",
+  MANIPULATED: "border-status-critical/30 bg-status-critical-bg text-status-critical",
+  AI_GENERATED: "border-status-critical/30 bg-status-critical-bg text-status-critical",
+  INCONCLUSIVE: "border-status-inconclusive/30 bg-status-inconclusive-bg text-status-inconclusive",
+};
+
+/**
+ * One evidence item, with the real "Investigate" action wired to
+ * POST /api/cases/:caseId/evidence/:evidenceId/investigate — the single
+ * "Investigate" action from PS4_ROUND1_STRATEGY_CHAT.md, now actually
+ * reachable from the UI instead of only via direct API calls.
+ *
+ * Client component (not the server-rendered RealCaseView) because it needs
+ * to manage its own loading/result/error state while the real pipeline
+ * runs — real ML inference + optional video frame sampling, not
+ * instantaneous, so this must show a real loading state, not a fake one.
+ */
+export function EvidenceCard({ caseId, evidenceKind, evidence }: { caseId: string; evidenceKind: string; evidence: Evidence }) {
+  const router = useRouter();
+  const [status, setStatus] = useState<"idle" | "investigating" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [result, setResult] = useState<InvestigateResponse | null>(null);
+
+  const canInvestigate = evidence.mimeType.startsWith("image/") || evidence.mimeType.startsWith("video/");
+  const isVideo = evidence.mimeType.startsWith("video/");
+
+  async function handleInvestigate() {
+    setStatus("investigating");
+    setErrorMessage("");
+
+    const response = await fetch(`/api/cases/${caseId}/evidence/${evidence.id}/investigate`, {
+      method: "POST",
+    }).catch(() => null);
+
+    if (!response || !response.ok) {
+      const body = await response?.json().catch(() => null);
+      setStatus("error");
+      setErrorMessage(body?.error ?? "Investigation failed — check the ML service is running and try again.");
+      return;
+    }
+
+    const data: InvestigateResponse = await response.json();
+    setResult(data);
+    setStatus("idle");
+    // Refreshes server-rendered data (metadata/detection/provenance rows,
+    // audit trail) so the rest of the page reflects the real DB state, not
+    // just this card's local optimistic result.
+    router.refresh();
+  }
+
+  const Icon = KIND_ICON[evidenceKind as EvidenceKind] ?? FileDigit;
+  const verdict = result?.verdict ?? evidence.fusionVerdict?.verdict;
+  const confidence = result?.confidence ?? evidence.fusionVerdict?.confidence;
+  const explanation = result?.explanation ?? evidence.fusionVerdict?.explanation;
+  const corpusMatches = result?.corpusMatches ?? 0;
+  const crossCaseMatches = result?.crossCaseMatches ?? 0;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border-subtle p-3">
+      <div className="flex items-center gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-surface-sunken">
+          <Icon className="size-4 text-text-tertiary" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm text-text-primary">{evidence.mimeType}</p>
+          <p className="truncate font-mono text-[11px] text-text-tertiary">SHA-256: {evidence.sha256}</p>
+        </div>
+        <span className="shrink-0 text-[11px] text-text-tertiary">
+          {evidence.uploadedBy.name} · {new Date(evidence.uploadedAt).toLocaleString()}
+        </span>
+      </div>
+
+      {evidence.metadataResult ? (
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border-subtle pt-3 text-xs sm:grid-cols-4">
+          <Field label="Container" value={evidence.metadataResult.container} />
+          <Field label="Resolution" value={evidence.metadataResult.resolution} />
+          <Field label="Duration" value={evidence.metadataResult.duration} />
+          <Field label="Codec" value={evidence.metadataResult.codec} />
+          {evidence.metadataResult.encoderSignature && (
+            <Field
+              label="Encoder signature"
+              value={evidence.metadataResult.encoderSignature}
+              className="col-span-2 sm:col-span-4"
+              highlight
+            />
+          )}
+        </dl>
+      ) : (
+        <p className="flex items-center gap-1.5 border-t border-border-subtle pt-3 text-xs text-text-tertiary">
+          <Clock3 className="size-3.5" />
+          Metadata extraction pending.
+        </p>
+      )}
+
+      {verdict ? (
+        <div className={cn("rounded-md border px-2.5 py-2 text-xs", VERDICT_STYLE[verdict] ?? VERDICT_STYLE.INCONCLUSIVE)}>
+          <p className="font-semibold uppercase tracking-wide">
+            {verdict.replace("_", "-")} · {confidence}%
+          </p>
+          {explanation && <p className="mt-1 text-[11px] opacity-90">{explanation}</p>}
+        </div>
+      ) : status === "error" ? (
+        <p className="flex items-center gap-1.5 rounded-md border border-status-critical/30 bg-status-critical-bg px-2.5 py-1.5 text-xs text-status-critical">
+          <AlertTriangle className="size-3.5 shrink-0" />
+          {errorMessage}
+        </p>
+      ) : (
+        <p className="rounded-md border border-status-inconclusive/30 bg-status-inconclusive-bg px-2.5 py-1.5 text-xs text-status-inconclusive">
+          Detection and Evidence Fusion haven&apos;t run on this file yet — no verdict to show.
+        </p>
+      )}
+
+      {(corpusMatches > 0 || crossCaseMatches > 0) && (
+        <p className="text-[11px] text-text-tertiary">
+          {corpusMatches > 0 && `${corpusMatches} match(es) in the seeded corpus. `}
+          {crossCaseMatches > 0 && `${crossCaseMatches} match(es) found in other cases.`}
+        </p>
+      )}
+
+      {canInvestigate ? (
+        <button
+          type="button"
+          onClick={handleInvestigate}
+          disabled={status === "investigating"}
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit")}
+        >
+          {status === "investigating" ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" />
+              {isVideo ? "Sampling frames + running detection…" : "Running detection…"}
+            </>
+          ) : (
+            <>
+              <ScanSearch className="size-3.5" />
+              {verdict ? "Re-investigate" : "Investigate"}
+            </>
+          )}
+        </button>
+      ) : (
+        <p className="text-[11px] text-text-tertiary">
+          Detection isn&apos;t available for this evidence type yet (image/video only in this build).
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  className,
+  highlight,
+}: {
+  label: string;
+  value: string | null;
+  className?: string;
+  highlight?: boolean;
+}) {
+  if (!value) return null;
+  return (
+    <div className={className}>
+      <dt className="text-text-tertiary">{label}</dt>
+      <dd className={highlight ? "font-medium text-status-warning" : "text-text-primary"}>{value}</dd>
+    </div>
+  );
+}
