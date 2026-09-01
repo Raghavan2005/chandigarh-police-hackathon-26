@@ -8,6 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
 import { RealEvidenceViewer } from "@/components/investigation/real-evidence-viewer";
+import { RealFusionSignals } from "@/components/investigation/real-fusion-signals";
 import type { EvidenceKind } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
 
@@ -140,7 +141,22 @@ export function EvidenceCard({
         </p>
       )}
 
-      {verdict ? (
+      {evidence.fusionVerdict ? (
+        <div className="border-t border-border-subtle pt-3">
+          <RealFusionSignals
+            signalBreakdownJson={evidence.fusionVerdict.signalBreakdownJson}
+            coverageCount={evidence.fusionVerdict.coverageCount}
+            confidenceCeiling={evidence.fusionVerdict.confidenceCeiling}
+            verdict={evidence.fusionVerdict.verdict}
+            confidence={evidence.fusionVerdict.confidence}
+            explanation={evidence.fusionVerdict.explanation}
+          />
+        </div>
+      ) : verdict ? (
+        // Optimistic view for the instant right after a fresh Investigate
+        // call, before router.refresh() has pulled the full FusionVerdict
+        // (with signalBreakdownJson etc.) back from the server — the
+        // /investigate response itself only returns the bare numbers.
         <div className={cn("rounded-md border px-2.5 py-2 text-xs", VERDICT_STYLE[verdict] ?? VERDICT_STYLE.INCONCLUSIVE)}>
           <p className="font-semibold uppercase tracking-wide">
             {verdict.replace("_", "-")} · {confidence}%

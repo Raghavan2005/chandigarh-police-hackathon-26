@@ -6,12 +6,31 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { StatusDot } from "@/components/shared/status-dot";
 import { VerdictBadge } from "@/components/shared/verdict-badge";
-import { fusionSignals, fusionSignalsByCase } from "@/lib/mock-data";
-import type { CaseSummary } from "@/lib/types";
+import type { FusionSignal, Verdict } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function FusionPanel({ caseData }: { caseData: CaseSummary }) {
-  const signals = fusionSignalsByCase[caseData.id] ?? fusionSignals;
+/**
+ * Takes signals/verdict/confidence as props rather than looking them up
+ * from mock-data.ts internally (as this component used to) — decoupling it
+ * from any one data source is what actually makes it reusable, not just
+ * "it's a presentational component" in the abstract. The mock demo case
+ * page now passes its own fusionSignalsByCase[...] lookup in explicitly.
+ *
+ * Not currently used for real cases — the real Evidence Fusion algorithm
+ * (PS4_MVP_BUILD_PLAN.md §4) is coverage-based capping, not a weighted sum
+ * of N signals to 100%, so this component's "weight" bars would visually
+ * misrepresent how a real verdict was actually reached. See
+ * RealFusionSignals for the honest real-case equivalent.
+ */
+export function FusionPanel({
+  signals,
+  verdict,
+  confidence,
+}: {
+  signals: FusionSignal[];
+  verdict: Verdict;
+  confidence: number;
+}) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
@@ -114,9 +133,9 @@ export function FusionPanel({ caseData }: { caseData: CaseSummary }) {
           <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
             Fused verdict
           </p>
-          <VerdictBadge verdict={caseData.verdict} size="lg" />
+          <VerdictBadge verdict={verdict} size="lg" />
           <p className="font-mono text-2xl font-semibold text-text-primary">
-            {caseData.confidence}%
+            {confidence}%
           </p>
           <p className="text-[11px] leading-snug text-text-tertiary">
             Weighted across {signals.length} independent signals

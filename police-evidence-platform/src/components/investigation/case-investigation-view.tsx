@@ -9,7 +9,7 @@ import { VerdictPanel } from "@/components/investigation/verdict-panel";
 import { CaseMetaPanel } from "@/components/investigation/case-meta-panel";
 import { FusionPanel } from "@/components/investigation/fusion-panel";
 import { usePipeline } from "@/lib/use-pipeline";
-import { pipelineSteps, faceMatches, faceMatchesByCase } from "@/lib/mock-data";
+import { pipelineSteps, faceMatches, faceMatchesByCase, fusionSignals, fusionSignalsByCase } from "@/lib/mock-data";
 import type { CaseSummary } from "@/lib/types";
 import { buttonVariants } from "@/components/ui/button";
 import { FileDown, GitBranch } from "lucide-react";
@@ -96,7 +96,11 @@ export function CaseInvestigationView({ caseData }: { caseData: CaseSummary }) {
 
         <TabsContent value="fusion" className="mt-4">
           <div className="rounded-lg border border-border-subtle bg-surface p-5">
-            <FusionPanel caseData={caseData} />
+            <FusionPanel
+              signals={fusionSignalsByCase[caseData.id] ?? fusionSignals}
+              verdict={caseData.verdict}
+              confidence={caseData.confidence}
+            />
           </div>
         </TabsContent>
       </Tabs>
