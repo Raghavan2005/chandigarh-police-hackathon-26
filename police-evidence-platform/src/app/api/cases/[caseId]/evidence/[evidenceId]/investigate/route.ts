@@ -82,9 +82,12 @@ export async function POST(
   }
 
   // --- Stage 3: provenance (C2PA), Stage 4a: perceptual hash — both local,
-  // fast, run in parallel with each other (independent per the pipeline). ---
+  // fast, run in parallel with each other (independent per the pipeline).
+  // Provenance is checked against the original file buffer, not a video
+  // frame — a C2PA manifest lives in the source container, not a derived
+  // still image extracted from it. ---
   const [provenance, phash] = await Promise.all([
-    checkProvenance(absolutePath, evidence.mimeType),
+    checkProvenance(fileBuffer, evidence.mimeType),
     computePerceptualHash(hashSourceBuffer, "image/jpeg"),
   ]);
 
