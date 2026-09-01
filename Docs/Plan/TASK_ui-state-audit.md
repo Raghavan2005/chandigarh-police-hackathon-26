@@ -1,7 +1,7 @@
 # Task — Phase 3 UI state audit
 
 **Assigned to:** pfgctrl07
-**Status:** not started
+**Status:** done — see `PS4_BUILD_STATUS.md`'s Phase 3 row for the full findings/fixes list
 **Source:** `PS4_MVP_BUILD_PLAN.md` §1 Phase 3 — "Loading/empty/error/success state audit across all screens (per `CLAUDE.md` UI rules)."
 
 ## What to do

@@ -153,6 +153,14 @@ export function EvidenceCard({
         </p>
       )}
 
+      {status === "error" && (
+        <p className="flex items-center gap-1.5 rounded-md border border-status-critical/30 bg-status-critical-bg px-2.5 py-1.5 text-xs text-status-critical">
+          <AlertTriangle className="size-3.5 shrink-0" />
+          {errorMessage}
+          {evidence.fusionVerdict && " The verdict shown below is from the last successful run, not this one."}
+        </p>
+      )}
+
       {evidence.fusionVerdict ? (
         <div className="border-t border-border-subtle pt-3">
           <RealFusionSignals
@@ -175,12 +183,7 @@ export function EvidenceCard({
           </p>
           {explanation && <p className="mt-1 text-[11px] opacity-90">{explanation}</p>}
         </div>
-      ) : status === "error" ? (
-        <p className="flex items-center gap-1.5 rounded-md border border-status-critical/30 bg-status-critical-bg px-2.5 py-1.5 text-xs text-status-critical">
-          <AlertTriangle className="size-3.5 shrink-0" />
-          {errorMessage}
-        </p>
-      ) : (
+      ) : status === "error" ? null : (
         <p className="rounded-md border border-status-inconclusive/30 bg-status-inconclusive-bg px-2.5 py-1.5 text-xs text-status-inconclusive">
           Detection and Evidence Fusion haven&apos;t run on this file yet — no verdict to show.
         </p>

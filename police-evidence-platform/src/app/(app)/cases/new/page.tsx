@@ -249,8 +249,7 @@ export default function NewCasePage() {
               <ShieldCheck className="size-4" />
               <p className="text-sm">
                 Ready to submit. This creates the case record and uploads the evidence file for real —
-                the analysis pipeline (Phase 2) isn&apos;t wired up yet, so the case will show as awaiting
-                investigation.
+                run Investigate from the case page afterward to analyze it.
               </p>
             </div>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
