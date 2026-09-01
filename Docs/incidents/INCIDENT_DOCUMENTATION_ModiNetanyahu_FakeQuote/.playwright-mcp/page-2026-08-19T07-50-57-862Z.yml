@@ -1,0 +1,45 @@
+- generic [ref=e2]:
+  - banner [ref=e4]:
+    - link "X" [ref=e6] [cursor=pointer]:
+      - /url: /
+  - main [ref=e9]:
+    - generic [ref=e13]:
+      - heading "This account doesn't exist" [level=2] [ref=e14]
+      - paragraph [ref=e15]: Try searching for another.
+  - complementary [ref=e16]:
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - heading "Log in or sign up for X" [level=2] [ref=e20]
+        - generic [ref=e21]:
+          - paragraph [ref=e22]: See what’s happening and join the conversation
+          - generic [ref=e23]:
+            - link "Continue with phone" [ref=e24] [cursor=pointer]:
+              - /url: /i/jf/onboarding/web?mode=signup&redirect_after_login=%2FInsiderWB
+            - button "Continue with Apple" [disabled] [ref=e27]
+            - button "Continue with Google" [disabled] [ref=e30]
+          - generic [ref=e36]: or
+          - link "Log in with username or email" [ref=e39] [cursor=pointer]:
+            - /url: /i/jf/onboarding/web?mode=login&redirect_after_login=%2FInsiderWB
+      - navigation "Footer" [ref=e42]:
+        - generic [ref=e43]:
+          - link "Terms" [ref=e44] [cursor=pointer]:
+            - /url: https://x.com/tos
+          - generic [ref=e45]: ·
+        - generic [ref=e46]:
+          - link "Privacy" [ref=e47] [cursor=pointer]:
+            - /url: https://x.com/privacy
+          - generic [ref=e48]: ·
+        - generic [ref=e49]:
+          - link "Cookies" [ref=e50] [cursor=pointer]:
+            - /url: https://support.x.com/articles/20170514
+          - generic [ref=e51]: ·
+        - generic [ref=e52]:
+          - link "Accessibility" [ref=e53] [cursor=pointer]:
+            - /url: https://help.x.com/resources/accessibility
+          - generic [ref=e54]: ·
+        - generic [ref=e55]:
+          - link "Ads Info" [ref=e56] [cursor=pointer]:
+            - /url: https://business.x.com/en/help/troubleshooting/how-twitter-ads-work.html?ref=web-twc-ao-gbl-adsinfo&utm_source=twc&utm_medium=web&utm_campaign=ao&utm_content=adsinfo
+          - generic [ref=e57]: ·
+        - button "More" [ref=e58] [cursor=pointer]
+        - generic [ref=e61]: © 2026 X Corp.

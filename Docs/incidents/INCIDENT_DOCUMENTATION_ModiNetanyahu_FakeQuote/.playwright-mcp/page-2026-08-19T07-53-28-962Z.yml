@@ -1,0 +1,178 @@
+- generic [ref=f7e1]:
+  - banner [ref=f7e2]:
+    - button "Close banner" [ref=f7e3] [cursor=pointer]
+    - generic [ref=f7e6]:
+      - generic [ref=f7e7]: Please Don't Scroll Past ThisCan you chip in? The Wayback Machine is fighting for universal access to quality information; we keep the record straight by preserving government websites, news articles, historical data, and more. The Internet Archive, which runs this project, is a nonprofit powered by online donations averaging about $14. We’d be deeply grateful if you'd join the one in a thousand users that support us financially.We understand that not everyone can donate right now, but if you can afford to contribute this Wednesday, we promise it will be put to good use. Our resources are crucial for knowledge lovers everywhere—so if you find our resources useful, please pitch in.
+      - generic [ref=f7e16]:
+        - generic [ref=f7e20]:
+          - generic [ref=f7e21]: Choose an amount (USD)
+          - generic [ref=f7e22]:
+            - generic:
+              - list [ref=f7e23]:
+                - listitem [ref=f7e24]:
+                  - generic [ref=f7e25]:
+                    - radio "$10"
+                    - generic [ref=f7e26] [cursor=pointer]: $10
+                - listitem [ref=f7e27]:
+                  - generic [ref=f7e28]:
+                    - radio "$14" [checked]
+                    - generic [ref=f7e29] [cursor=pointer]: $14
+                - listitem [ref=f7e30]:
+                  - generic [ref=f7e31]:
+                    - radio "$50"
+                    - generic [ref=f7e32] [cursor=pointer]: $50
+                - listitem [ref=f7e33]:
+                  - generic [ref=f7e34]:
+                    - 'radio "Custom: $"'
+                    - generic [ref=f7e35] [cursor=pointer]:
+                      - generic [ref=f7e36]: "Custom: $"
+                      - textbox [ref=f7e37]
+              - generic [ref=f7e38]:
+                - generic [ref=f7e39]:
+                  - checkbox "I'll generously add $0.60 to cover fees." [ref=f7e40]
+                  - generic [ref=f7e41]: I'll generously add $0.60 to cover fees.
+                - generic [ref=f7e42]:
+                  - checkbox "Make this monthly" [ref=f7e43]
+                  - generic [ref=f7e44]: Make this monthly
+        - generic [ref=f7e45]:
+          - button "Continue" [ref=f7e46] [cursor=pointer]
+          - link "Remind Me" [ref=f7e48] [cursor=pointer]:
+            - /url: "#donate_dropdown"
+  - generic [ref=f7e51]:
+    - navigation [ref=f7e54]:
+      - button [ref=f7e55] [cursor=pointer]:
+        - img "Hamburger icon An icon used to represent a menu that can be toggled by interacting with this icon." [ref=f7e57]
+      - link "Internet Archive logo A line drawing of the Internet Archive headquarters building façade." [ref=f7e60] [cursor=pointer]:
+        - /url: https://archive.org/
+        - img "Internet Archive logo A line drawing of the Internet Archive headquarters building façade." [ref=f7e61]
+      - navigation [ref=f7e84]:
+        - generic [ref=f7e85]:
+          - link "Web icon An illustration of a computer application window Wayback Machine" [ref=f7e87] [cursor=pointer]:
+            - /url: https://web.archive.org
+            - img "Web icon An illustration of a computer application window" [ref=f7e89]
+            - generic [ref=f7e91]: Wayback Machine
+          - link "Texts icon An illustration of an open book. Texts" [ref=f7e93] [cursor=pointer]:
+            - /url: https://archive.org/details/texts
+            - img "Texts icon An illustration of an open book." [ref=f7e95]
+            - generic [ref=f7e96]: Texts
+          - link "Video icon An illustration of two cells of a film strip. Video" [ref=f7e98] [cursor=pointer]:
+            - /url: https://archive.org/details/movies
+            - img "Video icon An illustration of two cells of a film strip." [ref=f7e100]
+            - generic [ref=f7e102]: Video
+          - link "Audio icon An illustration of an audio speaker. Audio" [ref=f7e104] [cursor=pointer]:
+            - /url: https://archive.org/details/audio
+            - img "Audio icon An illustration of an audio speaker." [ref=f7e106]
+            - generic [ref=f7e111]: Audio
+          - link "Software icon An illustration of a 3.5\" floppy disk. Software" [ref=f7e113] [cursor=pointer]:
+            - /url: https://archive.org/details/software
+            - img "Software icon An illustration of a 3.5\" floppy disk." [ref=f7e115]
+            - generic [ref=f7e116]: Software
+          - link "Images icon An illustration of two photographs. Images" [ref=f7e118] [cursor=pointer]:
+            - /url: https://archive.org/details/image
+            - img "Images icon An illustration of two photographs." [ref=f7e120]
+            - generic [ref=f7e122]: Images
+          - link "Donate icon An illustration of a heart shape Donate" [ref=f7e124] [cursor=pointer]:
+            - /url: https://archive.org/donate/?origin=iawww-mbhmbgrmenu
+            - img "Donate icon An illustration of a heart shape" [ref=f7e126]
+            - generic [ref=f7e127]: Donate
+          - link "Ellipses icon An illustration of text ellipses. More" [ref=f7e129] [cursor=pointer]:
+            - /url: https://archive.org/about/
+            - img "Ellipses icon An illustration of text ellipses." [ref=f7e131]
+            - generic [ref=f7e133]: More
+      - generic [ref=f7e134]:
+        - link "Donate icon An illustration of a heart shape \"Donate to the archive\"" [ref=f7e135] [cursor=pointer]:
+          - /url: https://archive.org/donate/?origin=iawww-mbhrt
+          - img "Donate icon An illustration of a heart shape" [ref=f7e136]
+          - generic [ref=f7e137]: "\"Donate to the archive\""
+        - button "Toggle login menu" [ref=f7e141] [cursor=pointer]:
+          - img "User icon An illustration of a person's head and chest." [ref=f7e142]
+        - button "Search icon An illustration of a magnifying glass." [ref=f7e144] [cursor=pointer]:
+          - img "Search icon An illustration of a magnifying glass." [ref=f7e145]
+    - navigation [ref=f7e147]:
+      - list [ref=f7e148]:
+        - listitem [ref=f7e149]:
+          - link [ref=f7e150] [cursor=pointer]:
+            - /url: https://archive.org/signup
+            - text: Sign up for free
+        - listitem [ref=f7e151]:
+          - link [ref=f7e152] [cursor=pointer]:
+            - /url: https://archive.org/account/login
+            - text: Log in
+  - generic [ref=f7e153]:
+    - link "f" [ref=f7e154] [cursor=pointer]:
+      - /url: "#"
+    - link "🐦" [ref=f7e156] [cursor=pointer]:
+      - /url: "#"
+  - generic [ref=f7e158]:
+    - generic [ref=f7e159]:
+      - link "DONATE" [ref=f7e161] [cursor=pointer]:
+        - /url: //archive.org/donate/?origin=wbwww-CalndrDonateButton
+      - link [ref=f7e164] [cursor=pointer]:
+        - /url: /
+      - generic [ref=f7e166]:
+        - generic [ref=f7e167]:
+          - text: Explore more than 1 trillion
+          - link "web pages" [ref=f7e168] [cursor=pointer]:
+            - /url: https://blog.archive.org/2016/10/23/defining-web-pages-web-sites-and-web-captures/
+          - text: saved over time
+        - generic [ref=f7e169]:
+          - generic [ref=f7e170]:
+            - combobox "Enter a URL or words related to a site’s home page" [active] [ref=f7e171]: https://x.com/InsiderWB
+            - button "Clear" [ref=f7e172] [cursor=pointer]: ×
+          - button "Submit" [ref=f7e174] [cursor=pointer]
+    - navigation [ref=f7e175]:
+      - generic "Calendar of https://x.com/InsiderWB" [ref=f7e176]: Calendar
+      - generic "Collections of https://x.com/InsiderWB" [ref=f7e177]:
+        - text: ·
+        - link "Collections" [ref=f7e178] [cursor=pointer]:
+          - /url: /web/collections/20260000000000*/https://x.com/InsiderWB
+      - generic "Changes of https://x.com/InsiderWB" [ref=f7e179]:
+        - text: ·
+        - link "Changes" [ref=f7e180] [cursor=pointer]:
+          - /url: /web/changes/https://x.com/InsiderWB
+      - generic "Summary of https://x.com/InsiderWB" [ref=f7e181]:
+        - text: ·
+        - link "Summary" [ref=f7e182] [cursor=pointer]:
+          - /url: /details/https://x.com/InsiderWB
+      - generic "Site Map of https://x.com/InsiderWB" [ref=f7e183]:
+        - text: ·
+        - link "Site Map" [ref=f7e184] [cursor=pointer]:
+          - /url: /web/sitemap/https://x.com/InsiderWB
+      - generic "URLs of https://x.com/InsiderWB" [ref=f7e185]:
+        - text: ·
+        - link "URLs" [ref=f7e186] [cursor=pointer]:
+          - /url: /web/*/https://x.com/InsiderWB*
+    - generic [ref=f7e187]:
+      - text: Saved
+      - strong [ref=f7e188]: "- times"
+      - text: "-"
+    - generic [ref=f7e203]:
+      - link "FAQ" [ref=f7e204] [cursor=pointer]:
+        - /url: https://help.archive.org/help/category/the-wayback-machine/
+      - text: "|"
+      - link "Contact Us" [ref=f7e205] [cursor=pointer]:
+        - /url: https://archive.org/about/contact.php
+      - text: "|"
+      - link "Terms of Service (Dec 31, 2014)" [ref=f7e206] [cursor=pointer]:
+        - /url: https://archive.org/about/terms.php
+  - contentinfo [ref=f7e207]:
+    - generic [ref=f7e208]:
+      - paragraph [ref=f7e209]:
+        - text: The Wayback Machine is an initiative of the
+        - link "Internet Archive" [ref=f7e210] [cursor=pointer]:
+          - /url: //archive.org/
+        - text: ", a 501(c)(3) non-profit, building a digital library of Internet sites and other cultural artifacts in digital form. Other"
+        - link "projects" [ref=f7e211] [cursor=pointer]:
+          - /url: //archive.org/projects/
+        - text: include
+        - link "Open Library" [ref=f7e212] [cursor=pointer]:
+          - /url: https://openlibrary.org/
+        - text: "&"
+        - link "archive-it.org" [ref=f7e213] [cursor=pointer]:
+          - /url: https://archive-it.org
+        - text: .
+      - paragraph [ref=f7e214]:
+        - text: Your use of the Wayback Machine is subject to the Internet Archive's
+        - link "Terms of Use" [ref=f7e215] [cursor=pointer]:
+          - /url: //archive.org/about/terms.php
+        - text: .

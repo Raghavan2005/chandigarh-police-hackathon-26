@@ -1,0 +1,194 @@
+[    1008ms] Error: Minified React error #425; visit https://reactjs.org/docs/error-decoder.html?invariant=425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at rh (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:40259)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:100718
+    at oD (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:106229)
+    at oO (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:99177)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98984
+    at oF (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98991)
+    at oS (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:94030)
+    at x (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:137528)
+    at MessagePort.T (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:138058)
+[    1010ms] Error: Minified React error #425; visit https://reactjs.org/docs/error-decoder.html?invariant=425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at rh (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:40259)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:100718
+    at oD (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:106229)
+    at oO (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:99177)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98984
+    at oF (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98991)
+    at oS (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:94030)
+    at x (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:137528)
+    at MessagePort.T (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:138058)
+[    1011ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:46555)
+    at i (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:121150)
+    at oO (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:99117)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98984
+    at oF (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98991)
+    at oS (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:94030)
+    at x (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:137528)
+    at MessagePort.T (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:138058)
+[    1011ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:46555)
+    at i (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:121150)
+    at oO (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:99117)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98984
+    at oF (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98991)
+    at oS (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:94030)
+    at x (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:137528)
+    at MessagePort.T (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:138058)
+[    1011ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:46555)
+    at i (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:121150)
+    at oO (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:99117)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98984
+    at oF (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98991)
+    at oS (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:94030)
+    at x (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:137528)
+    at MessagePort.T (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:138058)
+[    1016ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:46555)
+    at i (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:121150)
+    at oO (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:99117)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98984
+    at oF (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98991)
+    at oS (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:94030)
+    at x (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:137528)
+    at MessagePort.T (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:138058)
+[    1016ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:46555)
+    at i (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:121150)
+    at oO (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:99117)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98984
+    at oF (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98991)
+    at oS (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:94030)
+    at x (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:137528)
+    at MessagePort.T (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:138058)
+[    1016ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:46555)
+    at i (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:121150)
+    at oO (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:99117)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98984
+    at oF (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98991)
+    at oS (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:94030)
+    at x (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:137528)
+    at MessagePort.T (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:138058)
+[    1016ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:46555)
+    at i (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:121150)
+    at oO (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:99117)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98984
+    at oF (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98991)
+    at oS (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:94030)
+    at x (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:137528)
+    at MessagePort.T (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:138058)
+[    1016ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:46555)
+    at i (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:121150)
+    at oO (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:99117)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98984
+    at oF (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98991)
+    at oS (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:94030)
+    at x (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:137528)
+    at MessagePort.T (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:138058)
+[    1016ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:46555)
+    at i (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:121150)
+    at oO (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:99117)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98984
+    at oF (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98991)
+    at oS (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:94030)
+    at x (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:137528)
+    at MessagePort.T (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:138058)
+[    1016ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:46555)
+    at i (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:121150)
+    at oO (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:99117)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98984
+    at oF (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98991)
+    at oS (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:94030)
+    at x (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:137528)
+    at MessagePort.T (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:138058)
+[    1017ms] Error: Minified React error #423; visit https://reactjs.org/docs/error-decoder.html?invariant=423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at i (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:120819)
+    at oO (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:99117)
+    at https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98984
+    at oF (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:98991)
+    at ox (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:95743)
+    at oS (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:94298)
+    at x (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:137528)
+    at MessagePort.T (https://www.wionews.com/_next/static/chunks/framework-945b357d4a851f4b.js:1:138058)
+[    1495ms] [LOG] Script loaded for platform: twitter @ https://www.wionews.com/_next/static/chunks/7282.7b01234ddc1c80d2.js:0
+[    2622ms] [WARNING] adgb - not initialized. @ https://cdn.taboola.com/libtrc/zeemedia-wionews/loader.js:24
+[    3476ms] [WARNING] Placements With no Content: Below Article Thumbnails | Card 5 @ https://cdn.taboola.com/libtrc/zeemedia-wionews/loader.js:24
+[    3479ms] [WARNING] Placements With no Content: Below Article Thumbnails | Card 5 @ https://cdn.taboola.com/libtrc/zeemedia-wionews/loader.js:24
+[    4894ms] [ERROR] Not signed in with the identity provider. @ https://www.wionews.com/world/fake-news-mea-rejects-report-claiming-india-sought-defence-pact-with-israel-after-pakistan-saudi-arabia-turkey-deal-1786126942881:0
+[    5945ms] [WARNING] [GPT] PubAdsService.setTargeting is deprecated, use googletag.setConfig({targeting: ...}) instead.
+https://goo.gle/gpt-message#170 @ https://securepubads.g.doubleclick.net/pagead/managed/js/gpt/m202608110101/pubads_impl.js:18
+[    6038ms] [ERROR] [GSI_LOGGER]: FedCM get() rejects with NetworkError: Error retrieving a token. @ https://accounts.google.com/gsi/client:87
+[    6056ms] [LOG] initAdserver called with force: true @ https://www.wionews.com/_next/static/chunks/pages/_app-8fec310945d0dcf2.js:0
+[    6921ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://prebid-v2.vdo.ai/auction:0
+[    6922ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://prebid-v2.vdo.ai/auction:0
+[    6923ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://prebid-v2.vdo.ai/auction:0
+[    6924ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://prebid-v2.vdo.ai/auction:0
+[    6968ms] [LOG] Called iframe: ads.pubmatic.com [] 
+Number of topics:  0 @ https://ads.pubmatic.com/AdServer/js/topics/topics_frame.html?bidder=pubmatic:19
+[    7043ms] [WARNING] [GPT] Using deprecated googletag.encryptedSignalProviders. Please use googletag.secureSignalProviders instead.
+https://goo.gle/gpt-message#155 @ https://securepubads.g.doubleclick.net/pagead/managed/js/gpt/m202608110101/pubads_impl.js:18
+[    7494ms] [ERROR] Access to fetch at 'https://rtb.nexverse.ai/?uid=37ece5feb1c7703d2e6ab9f474cd097a&pub_id=24099&pub_epid=34341' from origin 'https://www.wionews.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ https://www.wionews.com/world/fake-news-mea-rejects-report-claiming-india-sought-defence-pact-with-israel-after-pakistan-saudi-arabia-turkey-deal-1786126942881:0
+[    7494ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://rtb.nexverse.ai/?uid=37ece5feb1c7703d2e6ab9f474cd097a&pub_id=24099&pub_epid=34341:0
+[    7495ms] [ERROR] Access to fetch at 'https://rtb.nexverse.ai/?uid=37ece5feb1c7703d2e6ab9f474cd097a&pub_id=24099&pub_epid=34341' from origin 'https://www.wionews.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ https://www.wionews.com/world/fake-news-mea-rejects-report-claiming-india-sought-defence-pact-with-israel-after-pakistan-saudi-arabia-turkey-deal-1786126942881:0
+[    7495ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://rtb.nexverse.ai/?uid=37ece5feb1c7703d2e6ab9f474cd097a&pub_id=24099&pub_epid=34341:0
+[    7496ms] [ERROR] Access to fetch at 'https://rtb.nexverse.ai/?uid=37ece5feb1c7703d2e6ab9f474cd097a&pub_id=24099&pub_epid=34341' from origin 'https://www.wionews.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ https://www.wionews.com/world/fake-news-mea-rejects-report-claiming-india-sought-defence-pact-with-israel-after-pakistan-saudi-arabia-turkey-deal-1786126942881:0
+[    7496ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://rtb.nexverse.ai/?uid=37ece5feb1c7703d2e6ab9f474cd097a&pub_id=24099&pub_epid=34341:0
+[    8629ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://bid.sparteo.com/auction:0
+[    8633ms] [WARNING] Google Deploy of the SharedId library has been deprecated. Please select another option in the GAM UI. If you use Prebid, we suggest the Prebid.js UserId option. If you do not, you may configure GAM to allow Google to share a first party user identifier with OB and AB participants, which is either the publisherProvidedId or the __gads value when that is missing. @ https://cdn.jsdelivr.net/gh/prebid/shared-id/pubcid.js/docs/pubcid.min.js:0
+[    8638ms] [LOG] initAdserver called with force: false @ https://www.wionews.com/_next/static/chunks/pages/_app-8fec310945d0dcf2.js:0
+[    9931ms] [ERROR] Refused to display 'https://rtb.nexverse.ai/' in a frame because it set 'X-Frame-Options' to 'sameorigin'. @ chrome-error://chromewebdata/:0
+[   10421ms] [ERROR] Attestation check for Shared Storage on https://www.googleadservices.com failed. @ https://www.googleadservices.com/pagead/managed/js/activeview/current/reach_worklet.html:0
+[   10445ms] [ERROR] Attestation check for Shared Storage on https://www.googleadservices.com failed. @ https://www.googleadservices.com/pagead/managed/js/activeview/current/reach_worklet.html:0
+[   10421ms] [ERROR] Attestation check for Shared Storage on https://www.googleadservices.com failed. @ https://www.googleadservices.com/pagead/managed/js/activeview/current/reach_worklet.html:0
+[   10445ms] [ERROR] Attestation check for Shared Storage on https://www.googleadservices.com failed. @ https://www.googleadservices.com/pagead/managed/js/activeview/current/reach_worklet.html:0
+[   12295ms] [ERROR] Attestation check for Shared Storage on https://www.googleadservices.com failed. @ https://www.googleadservices.com/pagead/managed/js/activeview/current/reach_worklet.html:0
+[   13557ms] [TIMEEND] a: 0.016845703125 ms @ https://static.adsafeprotected.com/sca.17.6.4.js:31
+[   13952ms] [LOG] Extracted from key: 1 1 @ https://d3fukwxve5r8zf.cloudfront.net/prebid_config_1602508117.min.js:0
+[   13981ms] [WARNING] No matching size found in TempTagAdUnit for: 1 1 @ https://d3fukwxve5r8zf.cloudfront.net/prebid_config_1602508117.min.js:0
+[   14089ms] [LOG] Extracted from key: 970 90 @ https://d3fukwxve5r8zf.cloudfront.net/prebid_config_1602508117.min.js:0
+[   14093ms] [LOG] Found match:DIGI/1602508117/bulk_auto_detect_2/PNP/728x90/10e41026-88b2-431b-b3e4-ebfbcda606b3 @ https://d3fukwxve5r8zf.cloudfront.net/prebid_config_1602508117.min.js:0
+[   14094ms] [LOG] Replacing with: DIGI/1602508117/bulk_auto_detect_2/PNP/728x90/10e41026-88b2-431b-b3e4-ebfbcda606b3 @ https://d3fukwxve5r8zf.cloudfront.net/prebid_config_1602508117.min.js:0
+[   14096ms] [WARNING] [GPT] Ignoring the setConfig.singleRequest() call since the service is already enabled.
+https://goo.gle/gpt-message#60 @ https://securepubads.g.doubleclick.net/pagead/managed/js/gpt/m202608110101/pubads_impl.js:18
+[   14510ms] [DIR] SyntaxError @ https://js.ad-score.com/score.min.js?pid=1000942&tt=g:1
+[   14688ms] Failed to read a named property 'document' from 'Window': Blocked a frame with origin "https://b8ece826a107084f8e618013f25b8627.safeframe.googlesyndication.com" from accessing a frame with origin "https://www.wionews.com". Protocols, domains, and ports must match.
+[   15286ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://rt.marphezis.com/hb:0
+[   15354ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://rt.marphezis.com/prebid/error:0
+[   15512ms] Failed to read a named property 'addEventListener' from 'Window': Blocked a frame with origin "https://b8ece826a107084f8e618013f25b8627.safeframe.googlesyndication.com" from accessing a cross-origin frame.
+[   16077ms] [ERROR] Failed to load resource: the server responded with a status of 502 () @ https://image2.pubmatic.com/AdServer/Pug?vcode=bz0yJnR5cGU9MSZjb2RlPTQyNzQmdGw9MTI5NjAw&piggybackCookie=6e10c0e7-ad35-45ee-93a8-d9c4a65dc8a6:0
+[   16297ms] [WARNING] The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127 @ https://js.ad-score.com/score.min.js?pid=1000942&tt=g:1
+[   16828ms] [WARNING] [GPT] Slot.updateTargetingFromMap is deprecated, use Slot.setConfig({targeting: ...}) instead.
+https://goo.gle/gpt-message#171 @ https://securepubads.g.doubleclick.net/pagead/managed/js/gpt/m202608110101/pubads_impl.js:18
+[   18239ms] [ERROR] Failed to load resource: the server responded with a status of 502 () @ https://simage2.pubmatic.com/AdServer/Pug?vcode=bz0yJnR5cGU9MSZqcz0xJmNvZGU9MjkzNiZ0bD00MzIwMA==&piggybackCookie=uid:C94F152A54684839AE0A74E254B881C5&gdpr=0&gdpr_consent=&us_privacy=1---&gpp=&gpp_sid=:0
+[   19830ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://dps.jp.cinarra.com/pxd?PLATFORM_ID=1&USER_ID=cbce2154-adce-8fd5-f920-a37177aaaab7:0
+[   16077ms] [ERROR] Failed to load resource: the server responded with a status of 502 () @ https://image2.pubmatic.com/AdServer/Pug?vcode=bz0yJnR5cGU9MSZjb2RlPTQyNzQmdGw9MTI5NjAw&piggybackCookie=6e10c0e7-ad35-45ee-93a8-d9c4a65dc8a6:0
+[   18239ms] [ERROR] Failed to load resource: the server responded with a status of 502 () @ https://simage2.pubmatic.com/AdServer/Pug?vcode=bz0yJnR5cGU9MSZqcz0xJmNvZGU9MjkzNiZ0bD00MzIwMA==&piggybackCookie=uid:C94F152A54684839AE0A74E254B881C5&gdpr=0&gdpr_consent=&us_privacy=1---&gpp=&gpp_sid=:0
+[   20011ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ chrome-error://chromewebdata/:0
+[   20019ms] [ERROR] Refused to display 'https://csync-apac.smilewanted.com/' in a frame because it set 'X-Frame-Options' to 'sameorigin'. @ chrome-error://chromewebdata/:0
+[   21106ms] [LOG] [csync-iframe] init {privacyFlags: Object, endpoints: 6, frames: 2, scripts: 0} @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   21107ms] [LOG] [csync-iframe] pixel onetag https://onetag-sys.com/usync/?tag=img&gdpr=0&gdpr_consent=&us_privacy=1---&redir=https%3A%2F%2Fprebid.adipolo.live%2Fsync_proceed%3Fbn%3Donetag%26brk%3D1%26brk2%3D1%26frame%3D1%26gdpr%3D0%26gdprConsent%3D%26usPrivacy%3D1---%26gpp%3D%26gppSid%3D%26u%3D%24%7BUSER_TOKEN%7D @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   21108ms] [LOG] [csync-iframe] pixel adaptmxPrebid https://prebid.a-mo.net/cchain/0?gdpr=0&gdpr_consent=&us_privacy=1---&s=pbs&cb=https%3A%2F%2Fprebid.adipolo.live%2Fsync_proceed%3Fbn%3DadaptmxPrebid%26brk%3D1%26brk2%3D1%26frame%3D1%26gdpr%3D0%26gdprConsent%3D%26usPrivacy%3D1---%26gpp%3D%26gppSid%3D%26u%3D%24UID @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   21108ms] [LOG] [csync-iframe] pixel smilewantedPrebid https://csync.smilewanted.com/getuid?source=prebid-server&gdpr=0&gdpr_consent=&us_privacy=1---&redirect=https%3A%2F%2Fprebid.adipolo.live%2Fsync_proceed%3Fbn%3DsmilewantedPrebid%26brk%3D1%26brk2%3D1%26frame%3D1%26gdpr%3D0%26gdprConsent%3D%26usPrivacy%3D1---%26gpp%3D%26gppSid%3D%26u%3D%24UID @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   21108ms] [LOG] [csync-iframe] pixel xandr https://ib.adnxs.com/getuid?https%3A%2F%2Fprebid.adipolo.live%2Fsync_proceed%3Fbn%3Dxandr%26brk%3D1%26brk2%3D1%26frame%3D1%26gdpr%3D0%26gdprConsent%3D%26usPrivacy%3D1---%26gpp%3D%26gppSid%3D%26u%3D%24UID @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   21109ms] [LOG] [csync-iframe] pixel richaudiencePrebid https://sync.richaudience.com/f7872c90c5d3791e2b51f7edce1a0a5d/?p=pbs&consentString=&r=https%3A%2F%2Fprebid.adipolo.live%2Fsync_proceed%3Fbn%3DrichaudiencePrebid%26brk%3D1%26brk2%3D1%26frame%3D1%26gdpr%3D0%26gdprConsent%3D%26usPrivacy%3D1---%26gpp%3D%26gppSid%3D%26u%3D%5BPDID%5D @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   21109ms] [LOG] [csync-iframe] pixel connatix https://capi.connatix.com/us/pixel?pId=52&gdpr=0&gdpr_consent=&us_privacy=1---&gpp=&gpp_sid=&callback=https%3A%2F%2Fprebid.adipolo.live%2Fsync_proceed%3Fbn%3Dconnatix%26brk%3D1%26brk2%3D1%26frame%3D1%26gdpr%3D0%26gdprConsent%3D%26usPrivacy%3D1---%26gpp%3D%26gppSid%3D%26u%3D%5BUID%5D @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   21109ms] [LOG] [csync-iframe] frame kueezrtb https://sync.kueezrtb.com/api/user/html/62ce79e7dd15099534ae5e04?pbs=true&gdpr=0&gdpr_consent=&us_privacy=1---&gpp=&gpp_sid=&redirect=https%3A%2F%2Fprebid.adipolo.live%2Fsync_proceed%3Fbn%3Dkueezrtb%26brk%3D1%26brk2%3D1%26frame%3D1%26gdpr%3D0%26gdprConsent%3D%26usPrivacy%3D1---%26gpp%3D%26gppSid%3D%26u%3D%24%7BuserId%7D @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   21116ms] [LOG] [csync-iframe] frame connatix https://capi.connatix.com/us/pixel?pId=53&gdpr=0&gdpr_consent=&us_privacy=1---&gpp=&gpp_sid=&callback=https%3A%2F%2Fprebid.adipolo.live%2Fsync_proceed%3Fbn%3Dconnatix%26brk%3D1%26brk2%3D1%26frame%3D1%26gdpr%3D0%26gdprConsent%3D%26usPrivacy%3D1---%26gpp%3D%26gppSid%3D%26u%3D%5BUID%5D @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   21232ms] [LOG] [csync-iframe] pixel ERROR smilewantedPrebid @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   21321ms] [LOG] [csync-iframe] pixel ERROR adaptmxPrebid @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   21494ms] [LOG] [csync-iframe] pixel LOAD onetag @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   21821ms] [LOG] [csync-iframe] pixel LOAD xandr @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   21825ms] [LOG] [csync-iframe] pixel LOAD richaudiencePrebid @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   19830ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://dps.jp.cinarra.com/pxd?PLATFORM_ID=1&USER_ID=cbce2154-adce-8fd5-f920-a37177aaaab7:0
+[   19830ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://dps.jp.cinarra.com/pxd?PLATFORM_ID=1&USER_ID=cbce2154-adce-8fd5-f920-a37177aaaab7:0
+[   22275ms] [LOG] [csync-iframe] frame LOAD connatix @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   22375ms] [LOG] [csync-iframe] pixel LOAD connatix @ https://prebid.adipolo.live/dist/iframe.bundle.js:0
+[   22382ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://match.rundsp.com/redirect?ex=openx:0
+[   22413ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://match.rundsp.com/redirect?ex=openx:0

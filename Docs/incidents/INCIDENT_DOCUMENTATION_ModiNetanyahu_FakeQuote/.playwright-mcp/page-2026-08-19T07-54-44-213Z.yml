@@ -1,0 +1,167 @@
+- generic [active] [ref=f156e1]:
+  - generic [ref=f156e2]:
+    - link [ref=f156e4] [cursor=pointer]:
+      - /url: /
+      - generic "BOOM" [ref=f156e5]:
+        - img "BOOM" [ref=f156e6]
+    - generic [ref=f156e7]:
+      - button [ref=f156e8]:
+        - img "No Image is Available" [ref=f156e10]
+      - link "SUPPORT" [ref=f156e12] [cursor=pointer]:
+        - /url: /support-decode
+      - button [ref=f156e14]:
+        - img "No Image is Available" [ref=f156e15]
+  - generic [ref=f156e16]:
+    - generic [ref=f156e17]:
+      - list [ref=f156e20]:
+        - listitem [ref=f156e21]:
+          - generic [ref=f156e22]:
+            - link "Home" [ref=f156e24] [cursor=pointer]:
+              - /url: /amp
+            - text: ">"
+            - link "Fact Check" [ref=f156e26] [cursor=pointer]:
+              - /url: /amp/fact-check
+            - text: ">Videos Of PM Modi, Netanyahu..."
+      - generic [ref=f156e27]:
+        - generic [ref=f156e28]:
+          - generic [ref=f156e29]: Fact Check
+          - heading "Videos Of PM Modi, Netanyahu Announcing Aid For Afghanistan Are Deepfakes" [level=1] [ref=f156e31]
+          - heading "BOOM tested the videos using AI detector tools, which flagged digital manipulation in the viral footage." [level=2] [ref=f156e33]
+          - generic [ref=f156e34]:
+            - paragraph [ref=f156e35]:
+              - text: By -
+              - link "Srijit Das |" [ref=f156e36] [cursor=pointer]:
+                - /url: /srijit-das
+            - text: 27 Feb 2026 3:42 PM IST
+            - paragraph
+            - paragraph
+        - generic [ref=f156e37]:
+          - generic "Videos Of PM Modi, Netanyahu Announcing Aid For Afghanistan Are Deepfakes" [ref=f156e41]:
+            - img "Videos Of PM Modi, Netanyahu Announcing Aid For Afghanistan Are Deepfakes" [ref=f156e43]
+          - generic [ref=f156e48]:
+            - paragraph [ref=f156e49]: Several X handles shared digitally manipulated videos of Prime Ministers of India and Israel, Narendra Modi and Benjamin Netanyahu, claiming that the two leaders announced monetary assistance to Afghanistan.
+            - paragraph [ref=f156e50]: The videos are being circulated after Pakistan announced an “open war” against Afghanistan following several days of escalating friction between the two neighboring nations.
+            - paragraph [ref=f156e51]: BOOM found both the videos have been altered using AI. We also went through the original speeches delivered by Modi and Netanyahu at Israel’s parliament, the Knesset, but found no such announcement by them.
+            - generic [ref=f156e53]:
+              - generic [ref=f156e54]: Advertisement
+              - generic [ref=f156e55]: Ad
+            - paragraph [ref=f156e57]: "Claim 1: Modi says India and Israel have signed a defence deal that includes a special aid package for Afghanistan’s reconstruction"
+            - paragraph [ref=f156e58]: In the video Modi appears to say, "What is happening all around the world, like what happened to Afghanistan recently, where civilians were killed by terrorists, it is a shame. India stands with our neighbors in Afghanistan. Haibatullah is a dear friend and I'm very happy to announce that in addition to the 8.6 billion dollars military agreement between India and Israel, we will have a special aid package for Afghanistan's redevelopment."
+            - generic [ref=f156e60]:
+              - generic [ref=f156e61]: Advertisement
+              - generic [ref=f156e62]: Ad
+            - paragraph [ref=f156e64]:
+              - text: Click
+              - link "here" [ref=f156e65] [cursor=pointer]:
+                - /url: https://x.com/Fatima5172/status/2026885693658554548
+              - text: to view the post and
+              - link "here" [ref=f156e66] [cursor=pointer]:
+                - /url: https://archive.is/mrIBE
+              - text: for an archive.
+            - paragraph [ref=f156e67]: "Claim 2: Netanyahu says Israel announces a special aid package for Afghanistan to fight terrorism"
+            - paragraph [ref=f156e68]: In the video, Netanyahu appears to say that Afghanistan remains a strategic partner of India and thus Israel considers Taliban chief Hibatullah Akhundzada as a partner. He appears to add that Afghanistan is doing its best to fight terrorism inside South Asia and requires full support, and that Israel will announce a special aid package at the request of Modi.
+            - generic [ref=f156e70]:
+              - generic [ref=f156e71]: Advertisement
+              - generic [ref=f156e72]: Ad
+            - paragraph [ref=f156e74]: An X account shared the video with the caption, “As an Afghan, my heart feels heavy today. We do not need aid from India or Israel if it comes at the cost of our sovereignty and dignity. The Taliban regime’s misguided policies have pushed Afghanistan to a point where national interests are compromised.”
+            - paragraph [ref=f156e75]:
+              - text: Click
+              - link "here" [ref=f156e76] [cursor=pointer]:
+                - /url: https://x.com/shah_6699/status/2026811099748905257
+              - text: to view the post and
+              - link "here" [ref=f156e77] [cursor=pointer]:
+                - /url: https://archive.is/sifgV
+              - text: for an archive.
+            - paragraph [ref=f156e78]:
+              - link "Both the videos" [ref=f156e79] [cursor=pointer]:
+                - /url: https://archive.ph/lc8KA
+              - text: were
+              - link "shared" [ref=f156e80] [cursor=pointer]:
+                - /url: https://archive.ph/g2uHO
+              - text: by a pro Pakistan X account, @InsiderWB, which has been fact checked multiple times for circulating deepfakes of Indian defence officials. Read
+              - link "here" [ref=f156e81] [cursor=pointer]:
+                - /url: https://www.boomlive.in/fact-check/the-x-accounts-distorting-indias-reality-online-through-ai-powered-fakes-30155
+              - text: .
+            - 'heading "What We Found: Videos Are Deepfake" [level=2] [ref=f156e82]'
+            - paragraph [ref=f156e83]: No Announcement About Aid By Modi Or Netanyahu
+            - paragraph [ref=f156e84]:
+              - text: BOOM first ran a related keyword search for news articles corroborating the same but did not find any such report by credible media outlets. We also noticed that the videos were taken from live streams by news outlets
+              - link "Mint" [ref=f156e85] [cursor=pointer]:
+                - /url: https://www.youtube.com/watch?v=mFTCGkazvpQ
+              - text: and
+              - link "ET Digital" [ref=f156e86] [cursor=pointer]:
+                - /url: https://www.youtube.com/watch?v=AQ8eA0Ri-8s
+              - text: from February 25, 2026,
+              - link [ref=f156e87] [cursor=pointer]:
+                - /url: https://www.youtube.com/watch?v=AQ8eA0Ri-8s
+              - text: during Modi's recent visit to Israel.
+            - paragraph [ref=f156e88]: In the live broadcast neither Modi nor Netanyahu announced or assured any financial assistance for Afghanistan.
+            - paragraph [ref=f156e89]:
+              - text: The transcripts of the speeches by Modi and Netanyahu, delivered on February 25, 2026 at the Knesset are available on the government websites of India and Israel and can be read
+              - link "here" [ref=f156e90] [cursor=pointer]:
+                - /url: https://www.gov.il/en/pages/spoke-meet250226
+              - text: and
+              - link "here" [ref=f156e91] [cursor=pointer]:
+                - /url: https://archive.is/2Ml1D
+              - text: .
+            - paragraph [ref=f156e92]: AI Detector Tools Flag Manipulation
+            - paragraph [ref=f156e93]: For further confirmation, we examined the videos using AI detection tool Deepfake-o-Meter, where multiple detection parameters flagged AI manipulation in the videos. We also tested the audio of the videos using the AI voice detection tool Hiya, which concluded that the voices are fake. This further confirmed that the videos do not feature original speeches by Modi and Netanyahu.
+            - paragraph
+          - generic [ref=f156e98]:
+            - generic [ref=f156e99]: Advertisement
+            - generic [ref=f156e100]: Ad
+          - generic [ref=f156e102]:
+            - heading "Tags:" [level=3] [ref=f156e103]
+            - generic [ref=f156e104]:
+              - link "Narendra Modi" [ref=f156e105] [cursor=pointer]:
+                - /url: https://www.boomlive.in/tags/narendra-modi
+              - link "Benjamin Netanyahu" [ref=f156e106] [cursor=pointer]:
+                - /url: https://www.boomlive.in/tags/benjamin-netanyahu
+          - generic [ref=f156e108]:
+            - heading "Related Stories" [level=3] [ref=f156e109]
+            - generic [ref=f156e111]:
+              - link "Fact Check" [ref=f156e114] [cursor=pointer]:
+                - /url: /amp/fact-check
+              - heading [level=4] [ref=f156e115]:
+                - link "Images Of Nayanthara With Shaved Head At Temple Are AI Manipulated" [ref=f156e116] [cursor=pointer]:
+                  - /url: /amp/fact-check/actress-nayanthara-temple-bald-look-claim-fact-check-32088
+              - paragraph [ref=f156e117]:
+                - link "BOOM found that both photographs of Nayanthara were manipulated using Google AI." [ref=f156e118] [cursor=pointer]:
+                  - /url: /amp/fact-check/actress-nayanthara-temple-bald-look-claim-fact-check-32088
+            - generic [ref=f156e120]:
+              - link "Fact Check" [ref=f156e123] [cursor=pointer]:
+                - /url: /amp/fact-check
+              - heading [level=4] [ref=f156e124]:
+                - link "AI Graphic Falsely Claims Rajinikanth Appointed Kerala Governor" [ref=f156e125] [cursor=pointer]:
+                  - /url: /amp/fact-check/ai-graphic-falsely-claims-rajinikanth-appointed-kerala-governor-32087
+              - paragraph [ref=f156e126]:
+                - link "BOOM found that the image was generated using OpenAI's tools and not an authentic news report." [ref=f156e127] [cursor=pointer]:
+                  - /url: /amp/fact-check/ai-graphic-falsely-claims-rajinikanth-appointed-kerala-governor-32087
+            - generic [ref=f156e129]:
+              - link "Fact Check" [ref=f156e132] [cursor=pointer]:
+                - /url: /amp/fact-check
+              - heading [level=4] [ref=f156e133]:
+                - link "AI Video Falsely Shows Akshay Kumar Slamming Op Sindoor Documentary" [ref=f156e134] [cursor=pointer]:
+                  - /url: /amp/fact-check/ai-video-falsely-shows-akshay-kumar-slamming-op-sindoor-documentary-32085
+              - paragraph [ref=f156e135]:
+                - link "BOOM found the video is digitally altered with an AI-generated voice-over." [ref=f156e136] [cursor=pointer]:
+                  - /url: /amp/fact-check/ai-video-falsely-shows-akshay-kumar-slamming-op-sindoor-documentary-32085
+            - generic [ref=f156e138]:
+              - link "Fact Check" [ref=f156e141] [cursor=pointer]:
+                - /url: /amp/fact-check
+              - heading [level=4] [ref=f156e142]:
+                - link "Video Does Not Show West Bengal Minister Hoisting BJP Flag On Independence Day" [ref=f156e143] [cursor=pointer]:
+                  - /url: /amp/fact-check/viral-video-west-bengal-minister-arjun-singh-bjp-flag-independence-day-fact-check-32071
+              - paragraph [ref=f156e144]:
+                - link "BOOM found that the video was recorded on July 6, 2026, when Singh hoisted the party flag in front of his Barrackpore office." [ref=f156e145] [cursor=pointer]:
+                  - /url: /amp/fact-check/viral-video-west-bengal-minister-arjun-singh-bjp-flag-independence-day-fact-check-32071
+            - generic [ref=f156e147]:
+              - link "Fact Check" [ref=f156e150] [cursor=pointer]:
+                - /url: /amp/fact-check
+              - heading [level=4] [ref=f156e151]:
+                - link "Old Video Falsely Shared As Independence Day Celebration In Balochistan" [ref=f156e152] [cursor=pointer]:
+                  - /url: /amp/fact-check/old-video-falsely-shared-as-independence-day-celebration-in-balochistan-32068
+              - paragraph [ref=f156e153]:
+                - link "BOOM found that the video is from 27 January 2024 when Mahrang Baloch addressed a massive public gathering in Quetta, Pakistan." [ref=f156e154] [cursor=pointer]:
+                  - /url: /amp/fact-check/old-video-falsely-shared-as-independence-day-celebration-in-balochistan-32068
+    - button "share icon" [ref=f156e156]

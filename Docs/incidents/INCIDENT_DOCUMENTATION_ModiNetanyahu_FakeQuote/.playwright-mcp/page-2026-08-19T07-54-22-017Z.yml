@@ -1,0 +1,518 @@
+- generic [active] [ref=f9e1]:
+  - generic [ref=f9e2]:
+    - generic [ref=f9e3]: advertisement
+    - generic [ref=f9e7]:
+      - generic [ref=f9e8]:
+        - generic [ref=f9e14]: "|"
+        - generic [ref=f9e15]: "Wed, Aug 19, 2026 | Updated: 01.24PM IST"
+      - link [ref=f9e16] [cursor=pointer]:
+        - /url: /
+      - generic [ref=f9e32]:
+        - link [ref=f9e35] [cursor=pointer]:
+          - /url: https://www.google.com/preferences/source?q=https://www.wionews.com/
+          - img "Google Preferred" [ref=f9e36]
+        - link "LOGIN" [ref=f9e37] [cursor=pointer]:
+          - /url: /login
+    - generic [ref=f9e42]:
+      - list [ref=f9e45]:
+        - listitem [ref=f9e46]:
+          - link "Live TV" [ref=f9e47] [cursor=pointer]:
+            - /url: /live-tv
+        - listitem [ref=f9e48]:
+          - link "Latest" [ref=f9e49] [cursor=pointer]:
+            - /url: /latest-news
+        - listitem [ref=f9e50]:
+          - link "Gravitas" [ref=f9e51] [cursor=pointer]:
+            - /url: /tv-shows/gravitas
+        - listitem [ref=f9e52]:
+          - link "World" [ref=f9e53] [cursor=pointer]:
+            - /url: /world
+        - listitem [ref=f9e54]:
+          - link "India" [ref=f9e55] [cursor=pointer]:
+            - /url: /india-news
+        - listitem [ref=f9e56]:
+          - link [ref=f9e57] [cursor=pointer]:
+            - /url: /entertainment
+        - listitem [ref=f9e61]:
+          - link "Sports" [ref=f9e62] [cursor=pointer]:
+            - /url: /sports
+        - listitem [ref=f9e63]:
+          - link "Opinions" [ref=f9e64] [cursor=pointer]:
+            - /url: /opinions
+        - listitem [ref=f9e65]:
+          - link "videos" [ref=f9e66] [cursor=pointer]:
+            - /url: /videos
+        - listitem [ref=f9e67]:
+          - link "Photos" [ref=f9e68] [cursor=pointer]:
+            - /url: /photos
+        - listitem [ref=f9e69]:
+          - link "TV Show" [ref=f9e70] [cursor=pointer]:
+            - /url: /tv-shows
+        - listitem [ref=f9e71]:
+          - link "Lifestyle" [ref=f9e72] [cursor=pointer]:
+            - /url: /entertainment/lifestyle
+        - listitem [ref=f9e73]:
+          - link "Science" [ref=f9e74] [cursor=pointer]:
+            - /url: /science
+        - listitem [ref=f9e75]:
+          - link "Tech" [ref=f9e76] [cursor=pointer]:
+            - /url: /technology
+      - img [ref=f9e79] [cursor=pointer]
+    - generic [ref=f9e81]:
+      - list [ref=f9e83]:
+        - listitem [ref=f9e84]:
+          - link "Wion" [ref=f9e85] [cursor=pointer]:
+            - /url: https://www.wionews.com
+        - listitem [ref=f9e86]:
+          - text: /
+          - link "World" [ref=f9e87] [cursor=pointer]:
+            - /url: https://www.wionews.com/world
+        - listitem [ref=f9e88]: "/‘Fake news’: MEA rejects report claiming India sought defence pact with Israel after Pakistan, Saudi Arabia, Turkey deal"
+      - generic [ref=f9e89]:
+        - generic [ref=f9e90]:
+          - 'heading "‘Fake news’: MEA rejects report claiming India sought defence pact with Israel after Pakistan, Saudi Arabia, Turkey deal" [level=1] [ref=f9e91]'
+          - generic [ref=f9e92]:
+            - generic [ref=f9e93]:
+              - generic [ref=f9e101]:
+                - img "Ajaypal Choudhary" [ref=f9e103]
+                - generic [ref=f9e104]:
+                  - generic [ref=f9e105]:
+                    - text: Edited By
+                    - link "Ajaypal Choudhary" [ref=f9e107] [cursor=pointer]:
+                      - /url: /author/ajaypal-choudhary
+                  - generic [ref=f9e108]: "Published: Aug 08, 2026, 00:06 IST | Updated: Aug 08, 2026, 00:06 IST"
+              - 'img "‘Fake news’: MEA rejects report claiming India sought defence pact with Israel after Pakistan, Saudi Arabia, Turkey deal" [ref=f9e111]'
+              - heading [level=2] [ref=f9e112]
+              - generic [ref=f9e113]:
+                - generic [ref=f9e114]: Story highlights
+                - heading [level=2] [ref=f9e115]:
+                  - paragraph [ref=f9e116]: The MEA has rejected as “fake news” reports that India sought a defence pact with Israel following the Pakistan, Saudi Arabia and Turkey security agreement, while New Delhi continues to closely monitor the trilateral pact.
+              - generic [ref=f9e119]:
+                - paragraph [ref=f9e121]: The Ministry of External Affairs (MEA) on Friday (August 07) rejected reports claiming that India had approached Israel for a defence pact in response to the newly formed Pakistan-Saudi Arabia-Turkey security framework.
+                - generic [ref=f9e122]: advertisement
+                - paragraph [ref=f9e126]: The claim first appeared in Turkish media outlet Straturka and later spread across social media. The report, citing unnamed Pakistani sources, claimed that New Delhi had started discussions with Tel Aviv for a defence agreement to counter the trilateral security arrangement.
+                - paragraph [ref=f9e128]: The MEA Fact Check unit dismissed the report as fake news and shared a screenshot of the article on social media.
+                - generic [ref=f9e129]:
+                  - generic [ref=f9e130]: Add WION as a Preferred Source
+                  - link [ref=f9e131] [cursor=pointer]:
+                    - /url: https://www.google.com/preferences/source?q=https://www.wionews.com
+                - paragraph [ref=f9e133]: "\"We caution against such malicious posts on social media platforms which use AI to create fake content!\" the MEA Fact Check wing said in a post on X."
+                - blockquote [ref=f9e135]:
+                  - text: “
+                  - paragraph [ref=f9e136]:
+                    - text: Fake Alert!!! 🚨🚨🚨We caution against such malicious posts on social media platforms!
+                    - link "pic.twitter.com/X4YCMY1q4j" [ref=f9e137] [cursor=pointer]:
+                      - /url: https://t.co/X4YCMY1q4j
+                  - text: — MEA FactCheck (@MEAFactCheck)
+                  - link "August 7, 2026" [ref=f9e138] [cursor=pointer]:
+                    - /url: https://x.com/MEAFactCheck/status/2085759333447746038?ref_src=twsrc%5Etfw
+                  - text: ”
+                - paragraph [ref=f9e140]: The claim emerged after Pakistan, Saudi Arabia and Turkey signed the "Mecca Joint Defence Agreement". The pact seeks to strengthen military coordination and joint security among the three countries.
+                - paragraph [ref=f9e142]:
+                  - strong [ref=f9e143]: "Also Read:"
+                  - link [ref=f9e144] [cursor=pointer]:
+                    - /url: https://www.wionews.com/world/e20-petrol-row-puri-says-only-four-contaminated-samples-found-rahul-gandhi-steps-up-attack-1786122960349
+                    - strong [ref=f9e145]: "E20 petrol row: Puri says only four contaminated samples found, Rahul Gandhi steps up attack"
+                - paragraph [ref=f9e147]: Pakistan's foreign ministry said the agreement aims to strengthen collective deterrence. It also stated that "any armed attack against any one of the three States shall be regarded as an attack against them all."
+                - paragraph [ref=f9e149]: The agreement also includes wider defence cooperation across several areas.
+                - paragraph [ref=f9e151]: The MEA said on Friday that India was closely monitoring developments related to the trilateral agreement. Addressing a weekly media briefing, MEA spokesperson Randhir Jaiswal said, "This is also a development that we are closely following, and we shall keep you updated."
+                - heading "Netanyahu says India, Israel ties will strengthen" [level=2] [ref=f9e153]
+                - generic [ref=f9e154]:
+                  - heading "Trending Stories" [level=2] [ref=f9e155]
+                  - generic [ref=f9e156]:
+                    - heading [level=2]
+                    - generic [ref=f9e159]:
+                      - generic:
+                        - button "Go to last slide" [ref=f9e160]
+                        - button "Next slide" [ref=f9e163]
+                      - list [ref=f9e167]:
+                        - listitem [ref=f9e168]:
+                          - figure [ref=f9e169]:
+                            - link "Chilling video shows students take cover as teen opens fire at Thai school" [ref=f9e171] [cursor=pointer]:
+                              - /url: /world/chilling-video-shows-students-take-cover-as-teen-opens-fire-at-thai-school-1786100651259
+                              - img "Chilling video shows students take cover as teen opens fire at Thai school" [ref=f9e172]
+                            - heading [level=3] [ref=f9e174]:
+                              - link "Chilling video shows students take cover as teen opens fire at Thai school" [ref=f9e175] [cursor=pointer]:
+                                - /url: /world/chilling-video-shows-students-take-cover-as-teen-opens-fire-at-thai-school-1786100651259
+                        - listitem [ref=f9e176]:
+                          - figure [ref=f9e177]:
+                            - 'link "Reese Witherspoon''s father hospitalised after poolside incident in Nashville: Report" [ref=f9e179] [cursor=pointer]':
+                              - /url: /entertainment/hollywood/reese-witherspoon-s-father-hospitalised-after-poolside-incident-in-nashville-report-1786152514247
+                              - 'img "Reese Witherspoon''s father hospitalised after poolside incident in Nashville: Report" [ref=f9e180]'
+                            - heading [level=3] [ref=f9e182]:
+                              - 'link "Reese Witherspoon''s father hospitalised after poolside incident in Nashville: Report" [ref=f9e183] [cursor=pointer]':
+                                - /url: /entertainment/hollywood/reese-witherspoon-s-father-hospitalised-after-poolside-incident-in-nashville-report-1786152514247
+                        - listitem [ref=f9e184]:
+                          - figure [ref=f9e185]:
+                            - 'link "National Handloom Day 2026: From Alia Bhatt to Samantha Ruth Prabhu; Actresses who celebrated India''s textile heritage as brides" [ref=f9e187] [cursor=pointer]':
+                              - /url: /photos/national-handloom-day-2026-from-alia-bhatt-to-samantha-ruth-prabhu-actresses-who-celebrated-india-s-textile-heritage-as-brides-1786110777115
+                              - 'img "National Handloom Day 2026: From Alia Bhatt to Samantha Ruth Prabhu; Actresses who celebrated India''s textile heritage as brides" [ref=f9e188]'
+                            - heading [level=3] [ref=f9e190]:
+                              - 'link "National Handloom Day 2026: From Alia Bhatt to Samantha Ruth Prabhu; Actresses who celebrated India''s textile heritage as brides" [ref=f9e191] [cursor=pointer]':
+                                - /url: /photos/national-handloom-day-2026-from-alia-bhatt-to-samantha-ruth-prabhu-actresses-who-celebrated-india-s-textile-heritage-as-brides-1786110777115
+                        - listitem [ref=f9e192]:
+                          - figure [ref=f9e193]:
+                            - 'link "The Royals enter the Doctor Who universe: King Charles and Queen Camilla beam into Commonwealth Games in TARDIS" [ref=f9e195] [cursor=pointer]':
+                              - /url: /entertainment/the-royals-enter-the-doctor-who-universe-king-charles-and-queen-camilla-beam-into-commonwealth-games-in-tardis-1784870815573
+                              - 'img "The Royals enter the Doctor Who universe: King Charles and Queen Camilla beam into Commonwealth Games in TARDIS" [ref=f9e196]'
+                            - heading [level=3] [ref=f9e198]:
+                              - 'link "The Royals enter the Doctor Who universe: King Charles and Queen Camilla beam into Commonwealth Games in TARDIS" [ref=f9e199] [cursor=pointer]':
+                                - /url: /entertainment/the-royals-enter-the-doctor-who-universe-king-charles-and-queen-camilla-beam-into-commonwealth-games-in-tardis-1784870815573
+                        - listitem [ref=f9e200]:
+                          - figure [ref=f9e201]:
+                            - link "Unitree Robotics targets $9 billion valuation in landmark IPO backed by DeepSeek and Tencent" [ref=f9e203] [cursor=pointer]:
+                              - /url: /technology/unitree-robotics-targets-9-billion-valuation-in-landmark-ipo-backed-by-deepseek-and-tencent-1786123265230
+                              - img "Unitree Robotics targets $9 billion valuation in landmark IPO backed by DeepSeek and Tencent" [ref=f9e204]
+                            - heading [level=3] [ref=f9e206]:
+                              - link "Unitree Robotics targets $9 billion valuation in landmark IPO backed by DeepSeek and Tencent" [ref=f9e207] [cursor=pointer]:
+                                - /url: /technology/unitree-robotics-targets-9-billion-valuation-in-landmark-ipo-backed-by-deepseek-and-tencent-1786123265230
+                        - listitem [ref=f9e208]:
+                          - figure [ref=f9e209]:
+                            - link "India names 27 sites in Arunachal Pradesh" [ref=f9e211] [cursor=pointer]:
+                              - /url: /videos/india-names-27-sites-in-arunachal-pradesh-1786157155230
+                              - img "India names 27 sites in Arunachal Pradesh" [ref=f9e212]
+                            - heading [level=3] [ref=f9e217]:
+                              - link "India names 27 sites in Arunachal Pradesh" [ref=f9e218] [cursor=pointer]:
+                                - /url: /videos/india-names-27-sites-in-arunachal-pradesh-1786157155230
+                        - listitem [ref=f9e219]:
+                          - figure [ref=f9e220]:
+                            - 'link "Bharat Bhhagya Viddhaata OTT: When will Kangana Ranaut''s film stream online?" [ref=f9e222] [cursor=pointer]':
+                              - /url: /entertainment/bollywood/bharat-bhhagya-viddhaata-ott-when-will-kangana-ranaut-s-film-stream-online-1786154138196
+                              - 'img "Bharat Bhhagya Viddhaata OTT: When will Kangana Ranaut''s film stream online?" [ref=f9e223]'
+                            - heading [level=3] [ref=f9e225]:
+                              - 'link "Bharat Bhhagya Viddhaata OTT: When will Kangana Ranaut''s film stream online?" [ref=f9e226] [cursor=pointer]':
+                                - /url: /entertainment/bollywood/bharat-bhhagya-viddhaata-ott-when-will-kangana-ranaut-s-film-stream-online-1786154138196
+                        - listitem [ref=f9e227]:
+                          - figure [ref=f9e228]:
+                            - link "How many soldiers operate one S-400 battery?" [ref=f9e230] [cursor=pointer]:
+                              - /url: /photos/how-many-soldiers-operate-one-s-400-battery-1786018054155
+                              - img "How many soldiers operate one S-400 battery?" [ref=f9e231]
+                            - heading [level=3] [ref=f9e233]:
+                              - link "How many soldiers operate one S-400 battery?" [ref=f9e234] [cursor=pointer]:
+                                - /url: /photos/how-many-soldiers-operate-one-s-400-battery-1786018054155
+                        - listitem [ref=f9e235]:
+                          - figure [ref=f9e236]:
+                            - link "Shakib Al Hasan ready to return to Bangladesh—under one condition" [ref=f9e238] [cursor=pointer]:
+                              - /url: /sports/shakib-al-hasan-ready-to-return-bangladesh-face-trial-1786156899554
+                              - img "Shakib Al Hasan ready to return to Bangladesh—under one condition" [ref=f9e239]
+                            - heading [level=3] [ref=f9e241]:
+                              - link "Shakib Al Hasan ready to return to Bangladesh—under one condition" [ref=f9e242] [cursor=pointer]:
+                                - /url: /sports/shakib-al-hasan-ready-to-return-bangladesh-face-trial-1786156899554
+                        - listitem [ref=f9e243]:
+                          - figure [ref=f9e244]:
+                            - 'link "‘Fake news’: MEA rejects report claiming India sought defence pact with Israel after Pakistan, Saudi Arabia, Turkey deal" [ref=f9e246] [cursor=pointer]':
+                              - /url: /world/fake-news-mea-rejects-report-claiming-india-sought-defence-pact-with-israel-after-pakistan-saudi-arabia-turkey-deal-1786126942881
+                              - 'img "‘Fake news’: MEA rejects report claiming India sought defence pact with Israel after Pakistan, Saudi Arabia, Turkey deal" [ref=f9e247]'
+                            - heading [level=3] [ref=f9e249]:
+                              - 'link "‘Fake news’: MEA rejects report claiming India sought defence pact with Israel after Pakistan, Saudi Arabia, Turkey deal" [ref=f9e250] [cursor=pointer]':
+                                - /url: /world/fake-news-mea-rejects-report-claiming-india-sought-defence-pact-with-israel-after-pakistan-saudi-arabia-turkey-deal-1786126942881
+                        - listitem [ref=f9e251]:
+                          - figure [ref=f9e252]:
+                            - link "Rockstar to unveil GTA 6 extended look ahead of November launch" [ref=f9e254] [cursor=pointer]:
+                              - /url: /technology/rockstar-to-unveil-gta-6-extended-look-ahead-of-november-launch-1786126674824
+                              - img "Rockstar to unveil GTA 6 extended look ahead of November launch" [ref=f9e255]
+                            - heading [level=3] [ref=f9e257]:
+                              - link "Rockstar to unveil GTA 6 extended look ahead of November launch" [ref=f9e258] [cursor=pointer]:
+                                - /url: /technology/rockstar-to-unveil-gta-6-extended-look-ahead-of-november-launch-1786126674824
+                        - listitem [ref=f9e259]:
+                          - figure [ref=f9e260]:
+                            - link "Russia forms Ukrainian Volunteer Spetsnaz Brigade to fight Ukraine" [ref=f9e262] [cursor=pointer]:
+                              - /url: /world/russia-new-brigade-ukrainian-pows-isw-1786130367634
+                              - img "Russia forms Ukrainian Volunteer Spetsnaz Brigade to fight Ukraine" [ref=f9e263]
+                            - heading [level=3] [ref=f9e265]:
+                              - link "Russia forms Ukrainian Volunteer Spetsnaz Brigade to fight Ukraine" [ref=f9e266] [cursor=pointer]:
+                                - /url: /world/russia-new-brigade-ukrainian-pows-isw-1786130367634
+                        - listitem [ref=f9e267]:
+                          - figure [ref=f9e268]:
+                            - link "Drug-resistant fungus that hides in hair and enters bloodstream reported in 23 US states" [ref=f9e270] [cursor=pointer]:
+                              - /url: /trending/drug-resistant-fungus-that-hides-in-hair-and-enters-bloodstream-reported-in-23-us-states-1786089199369
+                              - img "Drug-resistant fungus that hides in hair and enters bloodstream reported in 23 US states" [ref=f9e271]
+                            - heading [level=3] [ref=f9e273]:
+                              - link "Drug-resistant fungus that hides in hair and enters bloodstream reported in 23 US states" [ref=f9e274] [cursor=pointer]:
+                                - /url: /trending/drug-resistant-fungus-that-hides-in-hair-and-enters-bloodstream-reported-in-23-us-states-1786089199369
+                        - listitem [ref=f9e275]:
+                          - figure [ref=f9e276]:
+                            - link "Technology transfer deal boosts India's defence manufacturing ambitions" [ref=f9e278] [cursor=pointer]:
+                              - /url: /economy/technology-transfer-deal-boosts-india-s-defence-manufacturing-ambitions-1786126661216
+                              - img "Technology transfer deal boosts India's defence manufacturing ambitions" [ref=f9e279]
+                            - heading [level=3] [ref=f9e281]:
+                              - link "Technology transfer deal boosts India's defence manufacturing ambitions" [ref=f9e282] [cursor=pointer]:
+                                - /url: /economy/technology-transfer-deal-boosts-india-s-defence-manufacturing-ambitions-1786126661216
+                        - listitem [ref=f9e283]:
+                          - figure [ref=f9e284]:
+                            - link "Border row erupts in Europe after Ceuta crossings, Spain imposes border controls on Italy" [ref=f9e286] [cursor=pointer]:
+                              - /url: /world/border-row-erupts-in-europe-after-ceuta-crossings-spain-imposes-border-controls-on-italy-1786132777240
+                              - img "Border row erupts in Europe after Ceuta crossings, Spain imposes border controls on Italy" [ref=f9e287]
+                            - heading [level=3] [ref=f9e289]:
+                              - link "Border row erupts in Europe after Ceuta crossings, Spain imposes border controls on Italy" [ref=f9e290] [cursor=pointer]:
+                                - /url: /world/border-row-erupts-in-europe-after-ceuta-crossings-spain-imposes-border-controls-on-italy-1786132777240
+                        - listitem [ref=f9e291]:
+                          - figure [ref=f9e292]:
+                            - 'link "Morale plummets on USS Abraham Lincoln: Are US sailors reaching a breaking point? | GRAVITAS" [ref=f9e294] [cursor=pointer]':
+                              - /url: /world/morale-plummets-on-uss-abraham-lincoln-are-us-sailors-reaching-a-breaking-point-gravitas-1786126052715
+                              - 'img "Morale plummets on USS Abraham Lincoln: Are US sailors reaching a breaking point? | GRAVITAS" [ref=f9e295]'
+                            - heading [level=3] [ref=f9e297]:
+                              - 'link "Morale plummets on USS Abraham Lincoln: Are US sailors reaching a breaking point? | GRAVITAS" [ref=f9e298] [cursor=pointer]':
+                                - /url: /world/morale-plummets-on-uss-abraham-lincoln-are-us-sailors-reaching-a-breaking-point-gravitas-1786126052715
+                        - listitem [ref=f9e299]:
+                          - figure [ref=f9e300]:
+                            - 'link "''Security can''t be bought with Pakistan, Turkey deal'': Iran tells Saudi Arabia" [ref=f9e302] [cursor=pointer]':
+                              - /url: /world/security-can-t-be-bought-with-pakistan-turkey-deal-iran-tells-saudi-arabia-1786115733935
+                              - 'img "''Security can''t be bought with Pakistan, Turkey deal'': Iran tells Saudi Arabia" [ref=f9e303]'
+                            - heading [level=3] [ref=f9e305]:
+                              - 'link "''Security can''t be bought with Pakistan, Turkey deal'': Iran tells Saudi Arabia" [ref=f9e306] [cursor=pointer]':
+                                - /url: /world/security-can-t-be-bought-with-pakistan-turkey-deal-iran-tells-saudi-arabia-1786115733935
+                        - listitem [ref=f9e307]:
+                          - figure [ref=f9e308]:
+                            - 'link "Baba Vanga''s 2026 prophecy: 2 predictions ''already came true'', 3 terrifying ones remain. Details inside" [ref=f9e310] [cursor=pointer]':
+                              - /url: /trending/baba-vanga-s-2026-prophecy-2-predictions-already-came-true-3-terrifying-ones-remain-first-human-alien-contact-world-war-3-and-putin-s-exit-1786169922573
+                              - 'img "Baba Vanga''s 2026 prophecy: 2 predictions ''already came true'', 3 terrifying ones remain. Details inside" [ref=f9e311]'
+                            - heading [level=3] [ref=f9e313]:
+                              - 'link "Baba Vanga''s 2026 prophecy: 2 predictions ''already came true'', 3 terrifying ones remain. Details inside" [ref=f9e314] [cursor=pointer]':
+                                - /url: /trending/baba-vanga-s-2026-prophecy-2-predictions-already-came-true-3-terrifying-ones-remain-first-human-alien-contact-world-war-3-and-putin-s-exit-1786169922573
+                        - listitem [ref=f9e315]:
+                          - figure [ref=f9e316]:
+                            - link "Colombia’s new president Abelardo de la Espriella vows to ‘defeat narco-terrorists’, signals hardline shift" [ref=f9e318] [cursor=pointer]:
+                              - /url: /world/colombia-s-new-president-abelardo-de-la-espriella-vows-to-defeat-narco-terrorists-signals-hardline-shift-1786152872849
+                              - img "Colombia’s new president Abelardo de la Espriella vows to ‘defeat narco-terrorists’, signals hardline shift" [ref=f9e319]
+                            - heading [level=3] [ref=f9e321]:
+                              - link "Colombia’s new president Abelardo de la Espriella vows to ‘defeat narco-terrorists’, signals hardline shift" [ref=f9e322] [cursor=pointer]:
+                                - /url: /world/colombia-s-new-president-abelardo-de-la-espriella-vows-to-defeat-narco-terrorists-signals-hardline-shift-1786152872849
+                        - listitem [ref=f9e323]:
+                          - figure [ref=f9e324]:
+                            - 'link "New Friday OTT releases (August 7, 2026): Operation Safed Sagar, Vadhandhi, Main Vaapis Aaunga- 6 movies and TV shows on Netflix, Prime Video and more" [ref=f9e326] [cursor=pointer]':
+                              - /url: /photos/new-friday-ott-releases-august-7-2026-operation-safed-sagar-vadhandhi-main-vaapis-aaunga-6-movies-and-tv-shows-on-netflix-prime-video-and-more-1786033197071
+                              - 'img "New Friday OTT releases (August 7, 2026): Operation Safed Sagar, Vadhandhi, Main Vaapis Aaunga- 6 movies and TV shows on Netflix, Prime Video and more" [ref=f9e327]'
+                            - heading [level=3] [ref=f9e329]:
+                              - 'link "New Friday OTT releases (August 7, 2026): Operation Safed Sagar, Vadhandhi, Main Vaapis Aaunga- 6 movies and TV shows on Netflix, Prime Video and more" [ref=f9e330] [cursor=pointer]':
+                                - /url: /photos/new-friday-ott-releases-august-7-2026-operation-safed-sagar-vadhandhi-main-vaapis-aaunga-6-movies-and-tv-shows-on-netflix-prime-video-and-more-1786033197071
+                        - listitem [ref=f9e331]:
+                          - figure [ref=f9e332]:
+                            - link "Squadron Leader Bhawana Kanth scripts history as Indian Air Force gets its first woman ‘Top Gun’ pilot" [ref=f9e334] [cursor=pointer]:
+                              - /url: /india-news/squadron-leader-bhawana-kanth-scripts-history-as-indian-air-force-gets-its-first-woman-top-gun-pilot-1786033737342
+                              - img "Squadron Leader Bhawana Kanth scripts history as Indian Air Force gets its first woman ‘Top Gun’ pilot" [ref=f9e335]
+                            - heading [level=3] [ref=f9e337]:
+                              - link "Squadron Leader Bhawana Kanth scripts history as Indian Air Force gets its first woman ‘Top Gun’ pilot" [ref=f9e338] [cursor=pointer]:
+                                - /url: /india-news/squadron-leader-bhawana-kanth-scripts-history-as-indian-air-force-gets-its-first-woman-top-gun-pilot-1786033737342
+                        - listitem [ref=f9e339]:
+                          - figure [ref=f9e340]:
+                            - link "RSS says Gen Z protests reflect genuine distress" [ref=f9e342] [cursor=pointer]:
+                              - /url: /videos/rss-says-gen-z-protests-reflect-genuine-distress-1786157142717
+                              - img "RSS says Gen Z protests reflect genuine distress" [ref=f9e343]
+                            - heading [level=3] [ref=f9e348]:
+                              - link "RSS says Gen Z protests reflect genuine distress" [ref=f9e349] [cursor=pointer]:
+                                - /url: /videos/rss-says-gen-z-protests-reflect-genuine-distress-1786157142717
+                        - listitem [ref=f9e350]:
+                          - figure [ref=f9e351]:
+                            - link "Trump says Iranian school bombing photos could be AI-generated - 'I don’t think...'" [ref=f9e353] [cursor=pointer]:
+                              - /url: /trending/trump-says-iranian-school-minab-bombing-photos-could-be-ai-generated-1784865027076
+                              - img "Trump says Iranian school bombing photos could be AI-generated - 'I don’t think...'" [ref=f9e354]
+                            - heading [level=3] [ref=f9e356]:
+                              - link "Trump says Iranian school bombing photos could be AI-generated - 'I don’t think...'" [ref=f9e357] [cursor=pointer]:
+                                - /url: /trending/trump-says-iranian-school-minab-bombing-photos-could-be-ai-generated-1784865027076
+                        - listitem [ref=f9e358]:
+                          - figure [ref=f9e359]:
+                            - link "IAF officer held for sharing sensitive information in 'honey trap' case, booked under Official Secrets Act" [ref=f9e361] [cursor=pointer]:
+                              - /url: /india-news/iaf-officer-held-for-sharing-sensitive-information-in-honey-trap-case-booked-under-official-secrets-act-1786160491170
+                              - img "IAF officer held for sharing sensitive information in 'honey trap' case, booked under Official Secrets Act" [ref=f9e362]
+                            - heading [level=3] [ref=f9e364]:
+                              - link "IAF officer held for sharing sensitive information in 'honey trap' case, booked under Official Secrets Act" [ref=f9e365] [cursor=pointer]:
+                                - /url: /india-news/iaf-officer-held-for-sharing-sensitive-information-in-honey-trap-case-booked-under-official-secrets-act-1786160491170
+                        - listitem [ref=f9e366]:
+                          - figure [ref=f9e367]:
+                            - link "Stray Kids under scrutiny? Fans react to Grammy submission silence after BTS boycott" [ref=f9e369] [cursor=pointer]:
+                              - /url: /entertainment/stray-kids-under-scrutiny-fans-react-to-grammy-submission-silence-after-bts-boycott-1786170374661
+                              - img "Stray Kids under scrutiny? Fans react to Grammy submission silence after BTS boycott" [ref=f9e370]
+                            - heading [level=3] [ref=f9e372]:
+                              - link "Stray Kids under scrutiny? Fans react to Grammy submission silence after BTS boycott" [ref=f9e373] [cursor=pointer]:
+                                - /url: /entertainment/stray-kids-under-scrutiny-fans-react-to-grammy-submission-silence-after-bts-boycott-1786170374661
+                        - listitem [ref=f9e374]:
+                          - figure [ref=f9e375]:
+                            - link "Why the Su-30MKI doesn't need external fuel tanks to fly vast distances" [ref=f9e377] [cursor=pointer]:
+                              - /url: /photos/why-the-su-30mki-doesn-t-need-external-fuel-tanks-to-fly-vast-distances-1786054137536
+                              - img "Why the Su-30MKI doesn't need external fuel tanks to fly vast distances" [ref=f9e378]
+                            - heading [level=3] [ref=f9e380]:
+                              - link "Why the Su-30MKI doesn't need external fuel tanks to fly vast distances" [ref=f9e381] [cursor=pointer]:
+                                - /url: /photos/why-the-su-30mki-doesn-t-need-external-fuel-tanks-to-fly-vast-distances-1786054137536
+                        - listitem [ref=f9e382]:
+                          - figure [ref=f9e383]:
+                            - 'link "Jugal Hansraj reunites with Shekhar Kapur after 40 years for Masoom: The Next Generation" [ref=f9e385] [cursor=pointer]':
+                              - /url: /entertainment/bollywood/jugal-hansraj-reunites-with-shekhar-kapur-after-40-years-for-masoom-the-next-generation-1786172337414
+                              - 'img "Jugal Hansraj reunites with Shekhar Kapur after 40 years for Masoom: The Next Generation" [ref=f9e386]'
+                            - heading [level=3] [ref=f9e388]:
+                              - 'link "Jugal Hansraj reunites with Shekhar Kapur after 40 years for Masoom: The Next Generation" [ref=f9e389] [cursor=pointer]':
+                                - /url: /entertainment/bollywood/jugal-hansraj-reunites-with-shekhar-kapur-after-40-years-for-masoom-the-next-generation-1786172337414
+                        - listitem [ref=f9e390]:
+                          - figure [ref=f9e391]:
+                            - 'link "New speed limits, automatic challans: Big traffic change coming to Delhi-Meerut Expressway. All you need to know" [ref=f9e393] [cursor=pointer]':
+                              - /url: /india-news/india-s-busiest-highway-delhi-meerut-expressway-to-get-india-s-first-dynamic-speed-limits-here-s-how-they-ll-work-challan-1786086062455
+                              - 'img "New speed limits, automatic challans: Big traffic change coming to Delhi-Meerut Expressway. All you need to know" [ref=f9e394]'
+                            - heading [level=3] [ref=f9e396]:
+                              - 'link "New speed limits, automatic challans: Big traffic change coming to Delhi-Meerut Expressway. All you need to know" [ref=f9e397] [cursor=pointer]':
+                                - /url: /india-news/india-s-busiest-highway-delhi-meerut-expressway-to-get-india-s-first-dynamic-speed-limits-here-s-how-they-ll-work-challan-1786086062455
+                        - listitem [ref=f9e398]:
+                          - figure [ref=f9e399]:
+                            - link "India officially names 27 places in Arunachal to counter China's renaming claims" [ref=f9e401] [cursor=pointer]:
+                              - /url: /world/india-officially-names-27-places-in-arunachal-to-counter-china-s-renaming-claims-1786121850980
+                              - img "India officially names 27 places in Arunachal to counter China's renaming claims" [ref=f9e402]
+                            - heading [level=3] [ref=f9e404]:
+                              - link "India officially names 27 places in Arunachal to counter China's renaming claims" [ref=f9e405] [cursor=pointer]:
+                                - /url: /world/india-officially-names-27-places-in-arunachal-to-counter-china-s-renaming-claims-1786121850980
+                        - listitem [ref=f9e406]:
+                          - figure [ref=f9e407]:
+                            - link "Trump calls White House ballroom ruling a 'national disgrace' as court says Congress approval needed" [ref=f9e409] [cursor=pointer]:
+                              - /url: /world/trump-calls-white-house-ballroom-a-national-disgrace-as-court-rules-congress-approval-needed-1786148479727
+                              - img "Trump calls White House ballroom ruling a 'national disgrace' as court says Congress approval needed" [ref=f9e410]
+                            - heading [level=3] [ref=f9e412]:
+                              - link "Trump calls White House ballroom ruling a 'national disgrace' as court says Congress approval needed" [ref=f9e413] [cursor=pointer]:
+                                - /url: /world/trump-calls-white-house-ballroom-a-national-disgrace-as-court-rules-congress-approval-needed-1786148479727
+                        - listitem [ref=f9e414]:
+                          - figure [ref=f9e415]:
+                            - link "US sanctions Iran’s crypto network after Strait of Hormuz attacks, offers $15m bounty for intel on IRGC finance" [ref=f9e417] [cursor=pointer]:
+                              - /url: /world/us-sanctions-iran-s-crypto-network-after-strait-of-hormuz-attacks-offers-15m-bounty-for-intel-on-irgc-finance-1786150050092
+                              - img "US sanctions Iran’s crypto network after Strait of Hormuz attacks, offers $15m bounty for intel on IRGC finance" [ref=f9e418]
+                            - heading [level=3] [ref=f9e420]:
+                              - link "US sanctions Iran’s crypto network after Strait of Hormuz attacks, offers $15m bounty for intel on IRGC finance" [ref=f9e421] [cursor=pointer]:
+                                - /url: /world/us-sanctions-iran-s-crypto-network-after-strait-of-hormuz-attacks-offers-15m-bounty-for-intel-on-irgc-finance-1786150050092
+                        - listitem [ref=f9e422]:
+                          - figure [ref=f9e423]:
+                            - link "Why the Su-30MKI is one of the heaviest fighters ever built" [ref=f9e425] [cursor=pointer]:
+                              - /url: /photos/why-the-su-30mki-is-one-of-the-heaviest-fighters-ever-built-1786054145757
+                              - img "Why the Su-30MKI is one of the heaviest fighters ever built" [ref=f9e426]
+                            - heading [level=3] [ref=f9e428]:
+                              - link "Why the Su-30MKI is one of the heaviest fighters ever built" [ref=f9e429] [cursor=pointer]:
+                                - /url: /photos/why-the-su-30mki-is-one-of-the-heaviest-fighters-ever-built-1786054145757
+                        - listitem [ref=f9e430]:
+                          - figure [ref=f9e431]:
+                            - 'link "Uttarakhand young innovator builds India''s own flying vehicle, conducts first test flight: WATCH" [ref=f9e433] [cursor=pointer]':
+                              - /url: /india-news/uttarakhand-young-innovator-builds-india-s-own-flying-vehicle-conducts-first-test-flight-watch-1786164672714
+                              - 'img "Uttarakhand young innovator builds India''s own flying vehicle, conducts first test flight: WATCH" [ref=f9e434]'
+                            - heading [level=3] [ref=f9e436]:
+                              - 'link "Uttarakhand young innovator builds India''s own flying vehicle, conducts first test flight: WATCH" [ref=f9e437] [cursor=pointer]':
+                                - /url: /india-news/uttarakhand-young-innovator-builds-india-s-own-flying-vehicle-conducts-first-test-flight-watch-1786164672714
+                        - listitem [ref=f9e438]:
+                          - figure [ref=f9e439]:
+                            - link "Chilling video shows students take cover as teen opens fire at Thai school" [ref=f9e441] [cursor=pointer]:
+                              - /url: /world/chilling-video-shows-students-take-cover-as-teen-opens-fire-at-thai-school-1786100651259
+                              - img "Chilling video shows students take cover as teen opens fire at Thai school" [ref=f9e442]
+                            - heading [level=3] [ref=f9e444]:
+                              - link "Chilling video shows students take cover as teen opens fire at Thai school" [ref=f9e445] [cursor=pointer]:
+                                - /url: /world/chilling-video-shows-students-take-cover-as-teen-opens-fire-at-thai-school-1786100651259
+                        - listitem [ref=f9e446]:
+                          - figure [ref=f9e447]:
+                            - 'link "Reese Witherspoon''s father hospitalised after poolside incident in Nashville: Report" [ref=f9e449] [cursor=pointer]':
+                              - /url: /entertainment/hollywood/reese-witherspoon-s-father-hospitalised-after-poolside-incident-in-nashville-report-1786152514247
+                              - 'img "Reese Witherspoon''s father hospitalised after poolside incident in Nashville: Report" [ref=f9e450]'
+                            - heading [level=3] [ref=f9e452]:
+                              - 'link "Reese Witherspoon''s father hospitalised after poolside incident in Nashville: Report" [ref=f9e453] [cursor=pointer]':
+                                - /url: /entertainment/hollywood/reese-witherspoon-s-father-hospitalised-after-poolside-incident-in-nashville-report-1786152514247
+                        - listitem [ref=f9e454]:
+                          - figure [ref=f9e455]:
+                            - 'link "National Handloom Day 2026: From Alia Bhatt to Samantha Ruth Prabhu; Actresses who celebrated India''s textile heritage as brides" [ref=f9e457] [cursor=pointer]':
+                              - /url: /photos/national-handloom-day-2026-from-alia-bhatt-to-samantha-ruth-prabhu-actresses-who-celebrated-india-s-textile-heritage-as-brides-1786110777115
+                              - 'img "National Handloom Day 2026: From Alia Bhatt to Samantha Ruth Prabhu; Actresses who celebrated India''s textile heritage as brides" [ref=f9e458]'
+                            - heading [level=3] [ref=f9e460]:
+                              - 'link "National Handloom Day 2026: From Alia Bhatt to Samantha Ruth Prabhu; Actresses who celebrated India''s textile heritage as brides" [ref=f9e461] [cursor=pointer]':
+                                - /url: /photos/national-handloom-day-2026-from-alia-bhatt-to-samantha-ruth-prabhu-actresses-who-celebrated-india-s-textile-heritage-as-brides-1786110777115
+                        - listitem [ref=f9e462]:
+                          - figure [ref=f9e463]:
+                            - 'link "The Royals enter the Doctor Who universe: King Charles and Queen Camilla beam into Commonwealth Games in TARDIS" [ref=f9e465] [cursor=pointer]':
+                              - /url: /entertainment/the-royals-enter-the-doctor-who-universe-king-charles-and-queen-camilla-beam-into-commonwealth-games-in-tardis-1784870815573
+                              - 'img "The Royals enter the Doctor Who universe: King Charles and Queen Camilla beam into Commonwealth Games in TARDIS" [ref=f9e466]'
+                            - heading [level=3] [ref=f9e468]:
+                              - 'link "The Royals enter the Doctor Who universe: King Charles and Queen Camilla beam into Commonwealth Games in TARDIS" [ref=f9e469] [cursor=pointer]':
+                                - /url: /entertainment/the-royals-enter-the-doctor-who-universe-king-charles-and-queen-camilla-beam-into-commonwealth-games-in-tardis-1784870815573
+                - paragraph [ref=f9e471]: Amid the reports about an alleged India-Israel defence pact, Israeli Prime Minister Benjamin Netanyahu said India and Israel would continue to strengthen their relationship.
+                - paragraph [ref=f9e473]: Netanyahu made the remarks in a post on X while resharing Prime Minister Narendra Modi's post about a phone conversation between the two leaders on Thursday.
+                - paragraph [ref=f9e475]: The conversation focused on strengthening the Special Strategic Partnership between India and Israel and discussing the situation in West Asia.
+                - paragraph [ref=f9e477]: "\"Thank you, my friend, Prime Minister of India Narendra Modi. Together we continue to strengthen the bond between Israel and India,\" Netanyahu said."
+                - paragraph [ref=f9e479]: PM Modi and Netanyahu spoke by phone on Thursday to review and further strengthen bilateral ties. The two leaders discussed deeper cooperation across several sectors and regional developments.
+                - paragraph [ref=f9e481]: MEA spokesperson Randhir Jaiswal gave details of the conversation during the biweekly press briefing in New Delhi on Friday. Jaiswal said the Israeli side initiated the call and Prime Minister Modi received it.
+                - heading "Related Stories" [level=2] [ref=f9e483]
+                - generic [ref=f9e485]:
+                  - generic:
+                    - button "Previous slide" [disabled] [ref=f9e486]
+                    - button "Next slide" [disabled] [ref=f9e489]
+                  - list [ref=f9e493]:
+                    - listitem [ref=f9e494]:
+                      - link [ref=f9e495] [cursor=pointer]:
+                        - /url: https://www.wionews.com/world/us-senate-passes-sweeping-russia-sanctions-bill-targeting-energy-revenue-1786124464046
+                        - generic [ref=f9e496]:
+                          - heading "US Senate passes sweeping Russia Sanctions Bill targeting energy revenue" [level=3] [ref=f9e498]
+                          - img "US Senate passes sweeping Russia Sanctions Bill targeting energy revenue" [ref=f9e500]
+                    - listitem [ref=f9e501]:
+                      - link [ref=f9e502] [cursor=pointer]:
+                        - /url: https://www.wionews.com/world/morale-plummets-on-uss-abraham-lincoln-are-us-sailors-reaching-a-breaking-point-gravitas-1786126052715
+                        - generic [ref=f9e503]:
+                          - 'heading "Morale plummets on USS Abraham Lincoln: Are US sailors reaching a breaking point? | GRAVITAS" [level=3] [ref=f9e505]'
+                          - 'img "Morale plummets on USS Abraham Lincoln: Are US sailors reaching a breaking point? | GRAVITAS" [ref=f9e507]'
+                  - list [ref=f9e508]:
+                    - listitem [ref=f9e509]:
+                      - button "Go to page 1" [ref=f9e510]
+              - generic [ref=f9e511]:
+                - heading "About the Author" [level=3] [ref=f9e512]
+                - generic [ref=f9e513]:
+                  - generic [ref=f9e514]:
+                    - link [ref=f9e516] [cursor=pointer]:
+                      - /url: /author/ajaypal-choudhary
+                      - img "Ajaypal Choudhary" [ref=f9e517]
+                    - heading [level=3] [ref=f9e518]:
+                      - link "Ajaypal Choudhary" [ref=f9e519] [cursor=pointer]:
+                        - /url: /author/ajaypal-choudhary
+                  - paragraph [ref=f9e521]:
+                    - text: Driven by a deep interest in international politics and geo-economics, Ajaypal Choudhary writes on and analyses a wide range of subjects from geopolitics and the global economy to
+                    - link "...Read More" [ref=f9e522] [cursor=pointer]:
+                      - /url: /author/ajaypal-choudhary
+              - generic [ref=f9e523]:
+                - heading "Trending Topics" [level=4] [ref=f9e524]
+                - list [ref=f9e525]:
+                  - listitem [ref=f9e526]:
+                    - link "India-Israel ties" [ref=f9e527] [cursor=pointer]:
+                      - /url: https://www.wionews.com/tags/india-israel-ties
+                  - listitem [ref=f9e528]:
+                    - link "Pakistan-Saudi Arabia-Turkey defence deal" [ref=f9e529] [cursor=pointer]:
+                      - /url: https://www.wionews.com/tags/pakistan-saudi-arabia-turkey-defence-deal
+            - text: advertisement advertisement
+        - button "Show Full Article" [ref=f9e531]
+    - contentinfo [ref=f9e532]:
+      - generic [ref=f9e533]:
+        - generic [ref=f9e534]:
+          - img "Wion News" [ref=f9e536]
+          - list [ref=f9e538]:
+            - listitem [ref=f9e539]:
+              - link [ref=f9e540] [cursor=pointer]:
+                - /url: https://www.facebook.com/WIONews/
+                - img "Wion News" [ref=f9e541]
+            - listitem [ref=f9e542]:
+              - link [ref=f9e543] [cursor=pointer]:
+                - /url: https://x.com/WIOnews
+                - img "Wion News" [ref=f9e544]
+            - listitem [ref=f9e545]:
+              - link [ref=f9e546] [cursor=pointer]:
+                - /url: https://www.youtube.com/channel/UC_gUM8rL-Lrg6O3adPW9K1g
+                - img "Wion News" [ref=f9e547]
+        - generic [ref=f9e549]:
+          - generic [ref=f9e550]: Our Network Sites
+          - list [ref=f9e552]:
+            - listitem [ref=f9e553]:
+              - link [ref=f9e554] [cursor=pointer]:
+                - /url: https://www.bollywoodlife.com
+                - img "Wion News" [ref=f9e555]
+            - listitem [ref=f9e556]:
+              - link [ref=f9e557] [cursor=pointer]:
+                - /url: https://www.thehealthsite.com
+                - img "Wion News" [ref=f9e558]
+            - listitem [ref=f9e559]:
+              - link [ref=f9e560] [cursor=pointer]:
+                - /url: https://www.cricketcountry.com
+                - img "Wion News" [ref=f9e561]
+            - listitem [ref=f9e562]:
+              - link [ref=f9e563] [cursor=pointer]:
+                - /url: https://zeenews.com
+                - img "Wion News" [ref=f9e564]
+            - listitem [ref=f9e565]:
+              - link [ref=f9e566] [cursor=pointer]:
+                - /url: https://www.india.com
+                - img "Wion News" [ref=f9e567]
+      - generic [ref=f9e568]: Copyright © 2025. INDIADOTCOM DIGITAL PRIVATE LIMITED. All Rights Reserved.
+  - alert [ref=f9e569]
