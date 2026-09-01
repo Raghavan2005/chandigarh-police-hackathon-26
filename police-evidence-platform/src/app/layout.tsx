@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Sidebar } from "@/components/layout/sidebar";
-import { Topbar } from "@/components/layout/topbar";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,6 +19,9 @@ export const metadata: Metadata = {
     "Chandigarh Police Hackathon'26 (PS4) — investigator console for AI-generated media detection and origin tracing.",
 };
 
+// Deliberately no Sidebar/Topbar here — those belong to the authenticated
+// shell only (see (app)/layout.tsx). This root layout has to work for
+// /login too, which must render with zero case-navigation chrome around it.
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
@@ -28,15 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-canvas text-text-primary font-sans">
-        <TooltipProvider delay={200}>
-          <div className="flex h-screen w-full overflow-hidden">
-            <Sidebar />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <Topbar />
-              <main className="flex-1 overflow-y-auto">{children}</main>
-            </div>
-          </div>
-        </TooltipProvider>
+        <TooltipProvider delay={200}>{children}</TooltipProvider>
       </body>
     </html>
   );

@@ -226,8 +226,13 @@ model VerdictOverride {
 // chain from the very first entry; prevEntryHash is null only for entry #1.
 // Every write here is mirrored to storage/audit-checkpoints.log (chattr +a)
 // per §2 — that mirroring happens at the application layer, not in this schema.
+//
+// `id` is a plain autoincrementing integer here (unlike every other model's
+// cuid) deliberately: the hash chain must know entry #1, #2, #3... in strict,
+// unambiguous order to find "the previous entry," and cuid ordering is not a
+// safe substitute for that — an autoincrement primary key is.
 model AuditLogEntry {
-  id            String   @id @default(cuid())
+  id            Int      @id @default(autoincrement())
   caseId        String
   case          Case     @relation(fields: [caseId], references: [id])
   evidenceHash  String?

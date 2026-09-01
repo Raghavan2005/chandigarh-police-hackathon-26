@@ -204,17 +204,19 @@ export function FaceMatchPanel({
                             </div>
                             <span className="text-text-tertiary">↔</span>
                             <Dialog>
-                              <DialogTrigger asChild>
-                                <div className="group relative aspect-square w-24 shrink-0 cursor-zoom-in overflow-hidden rounded-md border border-border-subtle transition-all hover:border-accent-primary">
-                                  <Image src={m.avatar} alt="" fill className="object-cover" />
-                                  <span className="absolute inset-x-0 bottom-0 bg-black/60 py-0.5 text-center text-[9px] uppercase tracking-wide text-white">
-                                    Matched
-                                  </span>
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                                    <Maximize2 className="size-4 text-white" />
+                              <DialogTrigger
+                                render={
+                                  <div className="group relative aspect-square w-24 shrink-0 cursor-zoom-in overflow-hidden rounded-md border border-border-subtle transition-all hover:border-accent-primary">
+                                    <Image src={m.avatar} alt="" fill className="object-cover" />
+                                    <span className="absolute inset-x-0 bottom-0 bg-black/60 py-0.5 text-center text-[9px] uppercase tracking-wide text-white">
+                                      Matched
+                                    </span>
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                                      <Maximize2 className="size-4 text-white" />
+                                    </div>
                                   </div>
-                                </div>
-                              </DialogTrigger>
+                                }
+                              />
                               <DialogContent className="max-w-[80vw] border-border-subtle bg-surface-raised p-0 sm:max-w-[1000px]">
                                 <div className="relative h-[80vh] w-full">
                                   <Image src={m.avatar} alt={m.title} fill className="object-contain" />
