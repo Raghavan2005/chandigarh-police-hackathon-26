@@ -7,10 +7,15 @@ import { RelationshipSnapshot } from "@/components/dashboard/relationship-snapsh
 import { buttonVariants } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { listRealCases } from "@/lib/cases-server";
-import { getDashboardKpis } from "@/lib/dashboard-server";
+import { getDashboardKpis, getFlaggedMediaTrend, getCrossCaseLinkSummary } from "@/lib/dashboard-server";
 
 export default async function DashboardPage() {
-  const [cases, kpis] = await Promise.all([listRealCases(), getDashboardKpis()]);
+  const [cases, kpis, flaggedTrend, linkSummary] = await Promise.all([
+    listRealCases(),
+    getDashboardKpis(),
+    getFlaggedMediaTrend(),
+    getCrossCaseLinkSummary(),
+  ]);
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
@@ -42,7 +47,7 @@ export default async function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <AnomalyTrendChart />
+            <AnomalyTrendChart data={flaggedTrend} />
           </CardContent>
         </Card>
 
@@ -53,7 +58,7 @@ export default async function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <RelationshipSnapshot />
+            <RelationshipSnapshot summary={linkSummary} />
           </CardContent>
         </Card>
       </div>

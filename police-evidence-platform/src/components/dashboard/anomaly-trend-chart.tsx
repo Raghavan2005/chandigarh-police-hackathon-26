@@ -1,16 +1,15 @@
-const DATA = [12, 18, 15, 22, 19, 28, 24, 31, 27, 35, 30, 42, 38, 47, 44, 53];
 const LABELS = ["W1", "", "", "W4", "", "", "W7", "", "", "W10", "", "", "W13", "", "", "W16"];
 
-export function AnomalyTrendChart() {
+export function AnomalyTrendChart({ data }: { data: number[] }) {
   const w = 640;
   const h = 160;
   const pad = 8;
-  const max = Math.max(...DATA);
+  const max = Math.max(1, ...data);
   const min = 0;
   const range = max - min || 1;
-  const step = (w - pad * 2) / (DATA.length - 1);
+  const step = (w - pad * 2) / (data.length - 1);
 
-  const coords = DATA.map((d, i) => [
+  const coords = data.map((d, i) => [
     pad + i * step,
     h - pad - ((d - min) / range) * (h - pad * 2),
   ]);

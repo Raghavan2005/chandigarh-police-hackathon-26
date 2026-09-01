@@ -1,58 +1,48 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
-import { FEATURED_CASE_ID } from "@/lib/mock-data";
+import { ArrowUpRight, GitCompareArrows } from "lucide-react";
+import type { CrossCaseLinkSummary } from "@/lib/dashboard-server";
 
-const MINI_NODES = [
-  { x: 20, y: 60, label: "Telegram" },
-  { x: 90, y: 25, label: "Telegram" },
-  { x: 160, y: 55, label: "X" },
-  { x: 230, y: 20, label: "X" },
-  { x: 230, y: 90, label: "WhatsApp" },
-  { x: 300, y: 55, label: "Facebook" },
-];
+/**
+ * Real replacement for the old fixed fake mini-graph (six hardcoded nodes
+ * labeled Telegram/X/WhatsApp/Facebook, invented edges, linking to a mock
+ * FEATURED_CASE_ID). Cross-case matching only recently started producing
+ * real EvidenceMatch rows (verified live this session), and the dataset is
+ * genuinely small right now — a decorative force-graph would mostly be
+ * empty space or invented positions, so this shows real counts and an
+ * honest empty state instead of faking a populated graph.
+ */
+export function RelationshipSnapshot({ summary }: { summary: CrossCaseLinkSummary }) {
+  if (summary.totalLinks === 0) {
+    return (
+      <div className="flex h-28 flex-col items-center justify-center gap-2 text-center">
+        <GitCompareArrows className="size-5 text-text-tertiary" />
+        <p className="max-w-[220px] text-[11px] text-text-tertiary">
+          No cross-case links yet — this appears once the same file is uploaded across two different cases.
+        </p>
+      </div>
+    );
+  }
 
-const MINI_EDGES: [number, number][] = [
-  [0, 1],
-  [1, 2],
-  [2, 3],
-  [2, 4],
-  [3, 5],
-];
-
-export function RelationshipSnapshot() {
   return (
     <div className="flex flex-col gap-3">
-      <svg viewBox="0 0 320 110" className="h-28 w-full">
-        {MINI_EDGES.map(([a, b], i) => (
-          <line
-            key={i}
-            x1={MINI_NODES[a].x}
-            y1={MINI_NODES[a].y}
-            x2={MINI_NODES[b].x}
-            y2={MINI_NODES[b].y}
-            stroke="var(--border-strong)"
-            strokeWidth={1.5}
-          />
-        ))}
-        {MINI_NODES.map((n, i) => (
-          <g key={i}>
-            <circle
-              cx={n.x}
-              cy={n.y}
-              r={i === 0 ? 6 : 5}
-              fill={i === 0 ? "var(--accent-primary)" : "var(--surface-raised)"}
-              stroke={i === 0 ? "var(--accent-primary)" : "var(--border-strong)"}
-              strokeWidth={1.5}
-            />
-          </g>
-        ))}
-      </svg>
-      <Link
-        href={`/cases/${FEATURED_CASE_ID}/propagation`}
-        className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary hover:text-accent-primary-hover"
-      >
-        View full propagation graph <ArrowUpRight className="size-3.5" />
-      </Link>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <p className="text-[11px] text-text-tertiary">Linked cases</p>
+          <p className="font-mono text-lg font-semibold text-text-primary">{summary.linkedCaseCount}</p>
+        </div>
+        <div>
+          <p className="text-[11px] text-text-tertiary">Total matches</p>
+          <p className="font-mono text-lg font-semibold text-text-primary">{summary.totalLinks}</p>
+        </div>
+      </div>
+      {summary.exampleCaseId && (
+        <Link
+          href={`/cases/${summary.exampleCaseId}/propagation`}
+          className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary hover:text-accent-primary-hover"
+        >
+          View matches <ArrowUpRight className="size-3.5" />
+        </Link>
+      )}
     </div>
   );
 }

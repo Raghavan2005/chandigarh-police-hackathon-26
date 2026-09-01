@@ -31,6 +31,58 @@ function dailyBuckets(dates: Date[], days: number, end: Date): number[] {
   return buckets;
 }
 
+const FLAGGED_TREND_WEEKS = 16;
+
+/** Weekly counts of MANIPULATED/AI_GENERATED verdicts over the last 16
+ * weeks, for the dashboard's "Flagged media volume" chart — this was
+ * previously hardcoded to a fabricated smooth upward curve
+ * ([12, 18, 15, 22, ...]) with no real dependency on corpus/propagation
+ * data at all (that was a mis-scoping in an earlier status note); it only
+ * ever needed FusionVerdict history, which already exists. */
+export async function getFlaggedMediaTrend(): Promise<number[]> {
+  const now = new Date();
+  const start = new Date(now.getTime() - FLAGGED_TREND_WEEKS * 7 * 86_400_000);
+
+  const flagged = await db.fusionVerdict.findMany({
+    where: { verdict: { in: ALERT_VERDICTS }, computedAt: { gte: start } },
+    select: { computedAt: true },
+  });
+
+  const buckets = Array<number>(FLAGGED_TREND_WEEKS).fill(0);
+  for (const { computedAt } of flagged) {
+    const weeksAgo = Math.floor((now.getTime() - computedAt.getTime()) / (7 * 86_400_000));
+    const idx = FLAGGED_TREND_WEEKS - 1 - weeksAgo;
+    if (idx >= 0 && idx < FLAGGED_TREND_WEEKS) buckets[idx]++;
+  }
+  return buckets;
+}
+
+export interface CrossCaseLinkSummary {
+  linkedCaseCount: number;
+  totalLinks: number;
+  exampleCaseId: string | null;
+}
+
+/** Real replacement for RelationshipSnapshot's old fixed fake mini-graph
+ * (six hardcoded nodes labeled Telegram/X/WhatsApp/Facebook with invented
+ * edges) — counts real EvidenceMatch rows (the actual cross-case matching
+ * built and verified earlier this session) instead. */
+export async function getCrossCaseLinkSummary(): Promise<CrossCaseLinkSummary> {
+  const matches = await db.evidenceMatch.findMany({
+    select: { matchedCaseId: true, evidence: { select: { caseId: true } } },
+  });
+  const caseIds = new Set<string>();
+  for (const m of matches) {
+    caseIds.add(m.evidence.caseId);
+    caseIds.add(m.matchedCaseId);
+  }
+  return {
+    linkedCaseCount: caseIds.size,
+    totalLinks: matches.length,
+    exampleCaseId: matches[0]?.evidence.caseId ?? null,
+  };
+}
+
 export async function getDashboardKpis(): Promise<Kpi[]> {
   const now = new Date();
   const trendStart = new Date(now);

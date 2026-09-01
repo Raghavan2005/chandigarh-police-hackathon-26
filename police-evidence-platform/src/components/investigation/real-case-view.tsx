@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, FileBarChart, ShieldAlert } from "lucide-react";
+import { ArrowLeft, FileBarChart, GitCompareArrows, ShieldAlert } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { EvidenceCard } from "@/components/investigation/evidence-card";
@@ -92,6 +92,13 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
             >
               <FileBarChart className="size-4" />
               View report
+            </Link>
+            <Link
+              href={`/cases/${caseData.id}/propagation`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-2 w-full justify-start")}
+            >
+              <GitCompareArrows className="size-4" />
+              Cross-case &amp; corpus matches
             </Link>
           </CardContent>
         </Card>
