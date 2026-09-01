@@ -73,6 +73,7 @@ model Evidence {
   // into the same case (the @@unique below), which is just an accidental
   // double-submit, not a real event.
   sha256           String
+  phash            String? // perceptual hash, images/video frames only — null for audio/document (§4, EvidenceMatch/CorpusMatch)
   filePath         String
   mimeType         String
   uploadedAt       DateTime @default(now())
@@ -94,6 +95,7 @@ model Evidence {
   @@unique([caseId, sha256])
   @@index([caseId])
   @@index([sha256])
+  @@index([phash])
 }
 
 model MetadataResult {
