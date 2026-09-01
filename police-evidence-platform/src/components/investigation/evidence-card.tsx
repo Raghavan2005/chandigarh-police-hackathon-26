@@ -7,6 +7,7 @@ import { AlertTriangle, Clock3, FileDigit, GitCompareArrows, Loader2, ScanSearch
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
+import { RealEvidenceViewer } from "@/components/investigation/real-evidence-viewer";
 import type { EvidenceKind } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
 
@@ -40,7 +41,17 @@ const VERDICT_STYLE: Record<string, string> = {
  * runs — real ML inference + optional video frame sampling, not
  * instantaneous, so this must show a real loading state, not a fake one.
  */
-export function EvidenceCard({ caseId, evidenceKind, evidence }: { caseId: string; evidenceKind: string; evidence: Evidence }) {
+export function EvidenceCard({
+  caseId,
+  evidenceKind,
+  sensitivityLevel,
+  evidence,
+}: {
+  caseId: string;
+  evidenceKind: string;
+  sensitivityLevel: string;
+  evidence: Evidence;
+}) {
   const router = useRouter();
   const [status, setStatus] = useState<"idle" | "investigating" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
@@ -86,6 +97,14 @@ export function EvidenceCard({ caseId, evidenceKind, evidence }: { caseId: strin
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border-subtle p-3">
+      <RealEvidenceViewer
+        caseId={caseId}
+        evidenceId={evidence.id}
+        mimeType={evidence.mimeType}
+        sensitivityLevel={sensitivityLevel}
+        hasHeatmap={Boolean(evidence.detectionResult?.heatmapPath)}
+      />
+
       <div className="flex items-center gap-3">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-surface-sunken">
           <Icon className="size-4 text-text-tertiary" />

@@ -56,7 +56,13 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
               </p>
             )}
             {caseData.evidence.map((ev) => (
-              <EvidenceCard key={ev.id} caseId={caseData.id} evidenceKind={caseData.evidenceKind} evidence={ev} />
+              <EvidenceCard
+                key={ev.id}
+                caseId={caseData.id}
+                evidenceKind={caseData.evidenceKind}
+                sensitivityLevel={caseData.sensitivityLevel}
+                evidence={ev}
+              />
             ))}
           </CardContent>
         </Card>
