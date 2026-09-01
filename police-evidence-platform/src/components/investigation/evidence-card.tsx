@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
 import { RealEvidenceViewer } from "@/components/investigation/real-evidence-viewer";
 import { RealFusionSignals } from "@/components/investigation/real-fusion-signals";
+import { RealPipelinePanel } from "@/components/investigation/real-pipeline-panel";
 import type { EvidenceKind } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
 
@@ -119,7 +120,11 @@ export function EvidenceCard({
         </span>
       </div>
 
-      {evidence.metadataResult ? (
+      {canInvestigate ? (
+        <div className="border-t border-border-subtle pt-3">
+          <RealPipelinePanel evidence={evidence} />
+        </div>
+      ) : evidence.metadataResult ? (
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border-subtle pt-3 text-xs sm:grid-cols-4">
           <Field label="Container" value={evidence.metadataResult.container} />
           <Field label="Resolution" value={evidence.metadataResult.resolution} />
