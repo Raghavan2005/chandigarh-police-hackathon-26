@@ -175,4 +175,31 @@
   html {
     @apply font-sans;
   }
+  /* Geist Sans (the base font) has no Devanagari glyphs. Without this,
+     Hindi text in the Section 63 BSA certificate falls back to whatever
+     font the browser's automatic script-fallback picks, which — verified
+     via a real rendered PDF export, not assumed — produced broken
+     conjunct/matra shaping (isolated glyphs with visible gaps) in headless
+     Chrome even though Noto Sans Devanagari is installed on the system.
+     Requesting it explicitly for lang="hi" text avoids relying on fallback
+     font selection at all. */
+  :lang(hi) {
+    font-family: "Noto Sans Devanagari", var(--font-sans);
+  }
+}
+
+/* The whole app is hardcoded dark mode (<html class="dark">, no toggle —
+   see app/layout.tsx), so body's dark bg-canvas is always present, screen
+   or print. A real PDF export (report.pdf) caught this: the report card
+   itself is bg-white, but anywhere the card doesn't cover — page margins,
+   space below the card on a short report — printed as solid black,
+   because nothing had ever reset the background for print. window.print()
+   would have had the identical bug; nobody had verified an actual printed
+   output before. */
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+    color: #171717 !important;
+  }
 }

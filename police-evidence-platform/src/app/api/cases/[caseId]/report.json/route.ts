@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { writeAuditEntry } from "@/lib/audit";
 import { getRealCase, getRealCaseAuditLog } from "@/lib/cases-server";
@@ -13,10 +12,8 @@ import { getRealCase, getRealCaseAuditLog } from "@/lib/cases-server";
  *
  * Also closes a real Phase 2 gap: "Audit log wired to every real action"
  * names EXPORTED as one of the tracked actions, but nothing ever wrote one
- * — the JSON/PDF export buttons were both pure client-side actions with no
- * server round-trip at all. GET writes it here; POST (same route, used by
- * the PDF/print button, which can't await a JSON body before opening the
- * print dialog) writes the same entry without building the payload.
+ * — export previously had no server round-trip at all. report.pdf (Phase 3)
+ * writes its own EXPORTED entry the same way for the PDF path.
  */
 export async function GET(
   request: Request,
@@ -82,29 +79,4 @@ export async function GET(
     legalStatus:
       "This is a system-generated draft correctly structured to satisfy Section 63, Bharatiya Sakshya Adhiniyam, 2023 (BSA) evidentiary requirements. It attains legal validity only once physically or digitally signed/executed by the investigating officer and, where applicable, countersigned by the certifying forensic expert. The software does not itself certify anything.",
   });
-}
-
-/** Used by the PDF/print export button — same audited action, no payload
- * needed since window.print() renders the already-loaded page directly. */
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ caseId: string }> },
-) {
-  const session = await requireSession();
-  if (session instanceof NextResponse) return session;
-
-  const { caseId } = await params;
-  const exists = await db.case.findUnique({ where: { id: caseId }, select: { id: true } });
-  if (!exists) {
-    return NextResponse.json({ error: "Case not found." }, { status: 404 });
-  }
-
-  await writeAuditEntry({
-    caseId,
-    actorId: session.userId,
-    action: "EXPORTED",
-    device: request.headers.get("user-agent") ?? undefined,
-  });
-
-  return NextResponse.json({ ok: true });
 }

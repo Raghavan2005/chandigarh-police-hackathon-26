@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
-import { Download, FileJson, Printer } from "lucide-react";
+import { AlertTriangle, Download, FileJson, Loader2, Printer } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { getRealCase, getRealCaseAuditLog } from "@/lib/cases-server";
@@ -45,6 +46,8 @@ function signalLabel(key: string): string {
  */
 export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; auditLog: AuditEntries }) {
   const generatedAt = new Date();
+  const [pdfStatus, setPdfStatus] = useState<"idle" | "rendering" | "error">("idle");
+  const [pdfError, setPdfError] = useState("");
 
   // Fetches from GET /api/cases/:id/report.json — the single source of
   // truth for the export payload (PS4_MVP_BUILD_PLAN.md §5) — instead of
@@ -64,12 +67,30 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
     URL.revokeObjectURL(url);
   };
 
-  // Same audited action for the PDF/print path — window.print() can't wait
-  // on a response mid-flow, so this fires the audit write and opens the
-  // print dialog without blocking on it.
-  const printReport = () => {
-    fetch(`/api/cases/${caseData.id}/report.json`, { method: "POST" }).catch(() => null);
-    window.print();
+  // Real server-rendered PDF (GET /api/cases/:id/report.pdf) — a headless
+  // Chrome renders the same authenticated report page a human would print,
+  // and writes a real EXPORTED audit entry server-side. Replaces
+  // window.print(), which nothing server-side can verify actually
+  // happened or with what content, unlike this — a real PDF file this
+  // component can genuinely fail to produce and report that failure.
+  const downloadPdf = async () => {
+    setPdfStatus("rendering");
+    setPdfError("");
+    const response = await fetch(`/api/cases/${caseData.id}/report.pdf`).catch(() => null);
+    if (!response || !response.ok) {
+      const body = await response?.json().catch(() => null);
+      setPdfStatus("error");
+      setPdfError(body?.error ?? "PDF export failed — check your connection and try again.");
+      return;
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${caseData.id}-evidence-report.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setPdfStatus("idle");
   };
 
   return (
@@ -79,18 +100,27 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
           Real case data, structured as a Section 63 BSA evidentiary certificate draft. Human signature required
           before evidentiary use — see the legal-status footer below.
         </p>
-        <div className="flex gap-2">
-          <button onClick={downloadJson} className={buttonVariants({ variant: "outline", size: "sm" })}>
-            <FileJson className="size-4" />
-            Export JSON
-          </button>
-          <button
-            onClick={printReport}
-            className={cn(buttonVariants({ size: "sm" }), "bg-accent-primary text-white hover:bg-accent-primary-hover")}
-          >
-            <Printer className="size-4" />
-            Export PDF
-          </button>
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex gap-2">
+            <button onClick={downloadJson} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <FileJson className="size-4" />
+              Export JSON
+            </button>
+            <button
+              onClick={downloadPdf}
+              disabled={pdfStatus === "rendering"}
+              className={cn(buttonVariants({ size: "sm" }), "bg-accent-primary text-white hover:bg-accent-primary-hover")}
+            >
+              {pdfStatus === "rendering" ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />}
+              {pdfStatus === "rendering" ? "Rendering PDF…" : "Export PDF"}
+            </button>
+          </div>
+          {pdfStatus === "error" && (
+            <p role="alert" className="flex items-center gap-1.5 text-xs text-status-critical">
+              <AlertTriangle className="size-3.5 shrink-0" />
+              {pdfError}
+            </p>
+          )}
         </div>
       </div>
 
@@ -281,8 +311,10 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
               <Bi en="Section 63 BSA Certificate" hi="धारा 63 भारतीय साक्ष्य अधिनियम प्रमाणपत्र" />
             </p>
             <p className="mt-1 text-[10px] text-neutral-500">
-              Under Section 63, Bharatiya Sakshya Adhiniyam, 2023 (replacing Section 65B, Indian Evidence Act 1872,
-              effective 1 July 2024) — भारतीय साक्ष्य अधिनियम, 2023 की धारा 63 के अंतर्गत।
+              <Bi
+                en="Under Section 63, Bharatiya Sakshya Adhiniyam, 2023 (replacing Section 65B, Indian Evidence Act 1872, effective 1 July 2024)"
+                hi="भारतीय साक्ष्य अधिनियम, 2023 की धारा 63 के अंतर्गत।"
+              />
             </p>
             <div className="mt-3 flex flex-col gap-4">
               {caseData.evidence.map((ev, i) => (
@@ -296,40 +328,39 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
                       <Bi en="Part A — Declaration by person in custody/control of the device" hi="भाग अ — उपकरण की अभिरक्षा/नियंत्रण में व्यक्ति द्वारा घोषणा" />
                     </p>
                     <dl className="mt-1.5 grid grid-cols-2 gap-y-1 text-neutral-600">
-                      <dt>Declarant / घोषणाकर्ता</dt>
+                      <dt><Bi en="Declarant" hi="घोषणाकर्ता" /></dt>
                       <dd className="text-neutral-900">
                         {caseData.investigator.name}
                         {caseData.investigatorRank ? `, ${caseData.investigatorRank}` : " — rank not recorded at case intake"}
                         {caseData.investigatorBadgeNo ? ` (${caseData.investigatorBadgeNo})` : ""}
                       </dd>
-                      <dt>Posting / पदस्थापना</dt>
+                      <dt><Bi en="Posting" hi="पदस्थापना" /></dt>
                       <dd className="text-neutral-900">{caseData.policeStation}, {caseData.district}</dd>
-                      <dt>Source device type / स्रोत उपकरण प्रकार</dt>
+                      <dt><Bi en="Source device type" hi="स्रोत उपकरण प्रकार" /></dt>
                       <dd className="text-neutral-900">
                         {ev.deviceIdentifier ? "Seized device (identifier below)" : "Digital upload via Pramana platform"}
                       </dd>
                       {ev.deviceIdentifier && (
                         <>
-                          <dt>Device identifier / उपकरण पहचानकर्ता</dt>
+                          <dt><Bi en="Device identifier" hi="उपकरण पहचानकर्ता" /></dt>
                           <dd className="font-mono text-neutral-900">{ev.deviceIdentifier}</dd>
                         </>
                       )}
-                      <dt>Record hash (SHA-256) / अभिलेख हैश</dt>
+                      <dt><Bi en="Record hash (SHA-256)" hi="अभिलेख हैश" /></dt>
                       <dd className="break-all font-mono text-[10px] text-neutral-900">{ev.sha256}</dd>
-                      <dt>Computed at intake / अंतर्ग्रहण के समय</dt>
+                      <dt><Bi en="Computed at intake" hi="अंतर्ग्रहण के समय" /></dt>
                       <dd className="text-neutral-900">{new Date(ev.uploadedAt).toLocaleString()}</dd>
                     </dl>
                     <p className="mt-2 text-[10px] leading-snug text-neutral-500">
-                      I declare that the above-described computer/communication device was regularly used to store
-                      or process the said record in the ordinary course of the stated activity, and that the
-                      device was operating properly at the material time. / मैं घोषणा करता/करती हूँ कि उपरोक्त वर्णित
-                      कंप्यूटर/संचार उपकरण उक्त अभिलेख के भंडारण या संसाधन हेतु संबंधित गतिविधि के सामान्य क्रम में
-                      नियमित रूप से उपयोग किया गया, तथा उक्त उपकरण सुसंगत समय पर उचित रूप से कार्यरत था।
+                      <Bi
+                        en="I declare that the above-described computer/communication device was regularly used to store or process the said record in the ordinary course of the stated activity, and that the device was operating properly at the material time."
+                        hi="मैं घोषणा करता/करती हूँ कि उपरोक्त वर्णित कंप्यूटर/संचार उपकरण उक्त अभिलेख के भंडारण या संसाधन हेतु संबंधित गतिविधि के सामान्य क्रम में नियमित रूप से उपयोग किया गया, तथा उक्त उपकरण सुसंगत समय पर उचित रूप से कार्यरत था।"
+                      />
                     </p>
                     <div className="mt-3 grid grid-cols-3 gap-3 border-t border-dashed border-neutral-200 pt-2 text-[10px] text-neutral-500">
-                      <div>Signature / हस्ताक्षर: ______________</div>
-                      <div>Name / नाम: {caseData.investigator.name}</div>
-                      <div>Date / दिनांक: ______________</div>
+                      <div><Bi en="Signature" hi="हस्ताक्षर" />: ______________</div>
+                      <div><Bi en="Name" hi="नाम" />: {caseData.investigator.name}</div>
+                      <div><Bi en="Date" hi="दिनांक" />: ______________</div>
                     </div>
                   </div>
 
@@ -339,16 +370,17 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
                     </p>
                     {ev.forensicExpert ? (
                       <dl className="mt-1.5 grid grid-cols-2 gap-y-1 text-neutral-600">
-                        <dt>Expert / विशेषज्ञ</dt>
+                        <dt><Bi en="Expert" hi="विशेषज्ञ" /></dt>
                         <dd className="text-neutral-900">{ev.forensicExpert.name}, {ev.forensicExpert.designation}</dd>
-                        <dt>Laboratory reference / प्रयोगशाला संदर्भ</dt>
+                        <dt><Bi en="Laboratory reference" hi="प्रयोगशाला संदर्भ" /></dt>
                         <dd className="text-neutral-900">{ev.forensicExpert.labRef}</dd>
                       </dl>
                     ) : (
                       <p className="mt-1 text-neutral-500">
-                        Part B — not applicable, no court direction for independent expert verification on this
-                        evidence. / भाग ब — लागू नहीं, इस साक्ष्य पर स्वतंत्र विशेषज्ञ सत्यापन हेतु न्यायालय का कोई
-                        निर्देश प्राप्त नहीं हुआ।
+                        <Bi
+                          en="Part B — not applicable, no court direction for independent expert verification on this evidence."
+                          hi="भाग ब — लागू नहीं, इस साक्ष्य पर स्वतंत्र विशेषज्ञ सत्यापन हेतु न्यायालय का कोई निर्देश प्राप्त नहीं हुआ।"
+                        />
                       </p>
                     )}
                   </div>
@@ -363,21 +395,22 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
               <Bi en="Investigating officer's sign-off" hi="अन्वेषण अधिकारी का प्रमाणन" />
             </p>
             <p className="mt-1 text-[10px] leading-snug text-neutral-500">
-              I certify that this report accurately reflects the state of the case and evidence as recorded on the
-              Pramana platform at the time of generation. / मैं प्रमाणित करता/करती हूँ कि यह रिपोर्ट रिपोर्ट तैयार
-              होने के समय प्रमाण प्लेटफ़ॉर्म पर दर्ज मामले एवं साक्ष्य की स्थिति को सटीक रूप से दर्शाती है।
+              <Bi
+                en="I certify that this report accurately reflects the state of the case and evidence as recorded on the Pramana platform at the time of generation."
+                hi="मैं प्रमाणित करता/करती हूँ कि यह रिपोर्ट तैयार होने के समय प्रमाण प्लेटफ़ॉर्म पर दर्ज मामले एवं साक्ष्य की स्थिति को सटीक रूप से दर्शाती है।"
+              />
             </p>
             <div className="mt-3 grid grid-cols-3 gap-3 border-t border-dashed border-neutral-200 pt-2 text-[10px] text-neutral-500">
-              <div>Signature / हस्ताक्षर: ______________</div>
+              <div><Bi en="Signature" hi="हस्ताक्षर" />: ______________</div>
               <div>
-                Name / नाम: {caseData.investigator.name}
+                <Bi en="Name" hi="नाम" />: {caseData.investigator.name}
                 {caseData.investigatorRank ? `, ${caseData.investigatorRank}` : ""}
               </div>
-              <div>Date / दिनांक: ______________</div>
+              <div><Bi en="Date" hi="दिनांक" />: ______________</div>
             </div>
             <div className="mt-2 flex items-center justify-end">
               <div className="flex size-16 items-center justify-center rounded-full border border-dashed border-neutral-300 text-center text-[9px] text-neutral-400">
-                Seal / मुहर
+                <Bi en="Seal" hi="मुहर" />
               </div>
             </div>
           </div>

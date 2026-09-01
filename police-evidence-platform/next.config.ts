@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
     // first full `next build` run since C2PA was wired in (npm run dev
     // handles it more lazily and never surfaced the error).
     "@contentauth/c2pa-node",
+    // Spawns/talks to a real Chrome process over a native pipe/websocket —
+    // same "Turbopack can't bundle this" class of package as the others
+    // above.
+    "puppeteer-core",
   ],
 };
 
