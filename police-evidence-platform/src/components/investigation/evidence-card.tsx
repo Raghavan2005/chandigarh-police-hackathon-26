@@ -11,6 +11,7 @@ import { RealEvidenceViewer } from "@/components/investigation/real-evidence-vie
 import { RealFusionSignals } from "@/components/investigation/real-fusion-signals";
 import { RealPipelinePanel } from "@/components/investigation/real-pipeline-panel";
 import { OverrideDialog } from "@/components/investigation/override-dialog";
+import { ForensicExpertDialog } from "@/components/investigation/forensic-expert-dialog";
 import type { EvidenceKind, Verdict } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
 
@@ -192,6 +193,16 @@ export function EvidenceCard({
         </div>
       )}
 
+      {evidence.forensicExpert && (
+        <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
+          <p className="text-[11px] font-medium text-text-secondary">Section 63 BSA Part B — forensic expert</p>
+          <p className="text-[11px] text-text-tertiary">
+            {evidence.forensicExpert.name}, {evidence.forensicExpert.designation} — lab ref{" "}
+            {evidence.forensicExpert.labRef}
+          </p>
+        </div>
+      )}
+
       {hasRealMatches && (
         <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
           <p className="flex items-center gap-1.5 text-[11px] font-medium text-text-secondary">
@@ -256,6 +267,7 @@ export function EvidenceCard({
             currentVerdict={evidence.fusionVerdict.verdict as Verdict}
           />
         )}
+        <ForensicExpertDialog caseId={caseId} evidenceId={evidence.id} existing={evidence.forensicExpert} />
       </div>
     </div>
   );
