@@ -9,7 +9,6 @@ import {
   FolderKanban,
   ShieldCheck,
   Bell,
-  FileBarChart,
   ScrollText,
   Settings,
   ShieldAlert,
@@ -27,17 +26,6 @@ const NAV = [
     label: "Cases",
     icon: FolderKanban,
     isActive: (p: string) => p === "/cases" || p === "/cases/new",
-  },
-  {
-    // No dedicated multi-case reports index yet — a report is per-case, so
-    // this points at the case list (each case's own page links to its
-    // report) rather than hardcoding one specific case's report the way
-    // this used to point at the old mock demo case regardless of what real
-    // cases actually exist.
-    href: "/cases",
-    label: "Reports",
-    icon: FileBarChart,
-    isActive: (p: string) => p.includes("/report"),
   },
   { href: "/cases", label: "Evidence Vault", icon: ShieldCheck, disabled: true },
   { href: "/", label: "Investigations", icon: ShieldAlert, disabled: true },
