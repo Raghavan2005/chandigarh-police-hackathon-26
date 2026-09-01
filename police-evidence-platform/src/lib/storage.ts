@@ -7,6 +7,7 @@ import path from "path";
 const STORAGE_DIR = path.join(process.cwd(), "storage");
 const UPLOADS_DIR = path.join(STORAGE_DIR, "uploads");
 const HEATMAPS_DIR = path.join(STORAGE_DIR, "heatmaps");
+const FACE_CROPS_DIR = path.join(STORAGE_DIR, "face-crops");
 
 const EXTENSION_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -62,4 +63,15 @@ export function writeHeatmap(evidenceId: string, heatmapPngBase64: string): stri
   const filename = `${evidenceId}.png`;
   writeFileSync(path.join(HEATMAPS_DIR, filename), Buffer.from(heatmapPngBase64, "base64"));
   return path.join("heatmaps", filename);
+}
+
+/** Decodes and writes the real aligned face crop MTCNN produced (the literal
+ * input the classifier scores) to storage/face-crops/ — same keyed-by-
+ * evidence-ID pattern as writeHeatmap, since it's likewise a derived
+ * artifact tied to one detection run. */
+export function writeFaceCrop(evidenceId: string, faceCropPngBase64: string): string {
+  mkdirSync(FACE_CROPS_DIR, { recursive: true });
+  const filename = `${evidenceId}.png`;
+  writeFileSync(path.join(FACE_CROPS_DIR, filename), Buffer.from(faceCropPngBase64, "base64"));
+  return path.join("face-crops", filename);
 }

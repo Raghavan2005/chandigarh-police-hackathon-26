@@ -9,6 +9,11 @@ const ML_SERVICE_URL = process.env.ML_SERVICE_URL ?? "http://127.0.0.1:8008";
 export interface DetectionResponse {
   probability: number;
   heatmapPngBase64: string;
+  faceDetected: boolean;
+  // Normalized [x1, y1, x2, y2] fractions (0-1) of the source image's
+  // width/height, or null when no face was detected -- never fabricated.
+  faceBox: [number, number, number, number] | null;
+  faceCropPngBase64: string | null;
 }
 
 export interface AudioDetectionResponse {
