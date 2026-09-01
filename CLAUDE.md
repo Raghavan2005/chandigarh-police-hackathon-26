@@ -30,6 +30,10 @@ This is a workspace for a student team competing in the **Chandigarh Police Hack
 
 Each subfolder is a documented incident used as evidence/test material for the PS4 platform (e.g. deepfake or fact-check cases), containing a `case-data.md` or `INCIDENT_DOCUMENTATION_*.md` write-up plus supporting screenshots/video.
 
+## Commit conventions
+
+- Do not add any AI/assistant co-author or attribution line (e.g. `Co-Authored-By: Claude ...`, session links) to commit messages in this repo. Commit messages should read as if written by the team, with no signature indicating an AI made the change.
+
 ## Working in `Docs/`
 
 - There are no build/lint/test commands for `Docs/` content — do not invent or guess at any (no `npm`, `pip`, `make`, etc. apply here). For build/lint/test commands, see `police-evidence-platform/CLAUDE.md`.
