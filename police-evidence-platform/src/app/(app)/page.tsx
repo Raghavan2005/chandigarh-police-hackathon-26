@@ -7,9 +7,10 @@ import { RelationshipSnapshot } from "@/components/dashboard/relationship-snapsh
 import { buttonVariants } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { listRealCases } from "@/lib/cases-server";
+import { getDashboardKpis } from "@/lib/dashboard-server";
 
 export default async function DashboardPage() {
-  const cases = await listRealCases();
+  const [cases, kpis] = await Promise.all([listRealCases(), getDashboardKpis()]);
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
@@ -31,7 +32,7 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      <KpiRow />
+      <KpiRow kpis={kpis} />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <Card className="border-border-subtle bg-surface shadow-none xl:col-span-2">

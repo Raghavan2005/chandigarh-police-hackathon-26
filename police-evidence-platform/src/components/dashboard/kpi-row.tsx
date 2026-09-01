@@ -1,8 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { Sparkline } from "@/components/dashboard/sparkline";
-import { kpis } from "@/lib/mock-data";
+import type { Kpi } from "@/lib/dashboard-server";
 
-export function KpiRow() {
+export function KpiRow({ kpis }: { kpis: Kpi[] }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {kpis.map((kpi) => (
