@@ -9,15 +9,21 @@ This is a workspace for a student team competing in the **Chandigarh Police Hack
 - **`Docs/`** — research, decision-support material, and case dossiers. No source code, build system, or test suite here.
 - **`police-evidence-platform/`** — the actual application: a Next.js prototype implementing **PS4 (AI-Generated Media Detection & Cross-Platform Origin Tracing)**. It has its own `CLAUDE.md`/`AGENTS.md` governing conventions inside it; treat it as a separate project.
 
-**Current track:** the team is building for **PS4**, evidenced by `Docs/detailed_project_report.md` and the `police-evidence-platform/` app. This supersedes the original PS5 recommendation in `Docs/CH26/MASTER_HACKATHON_PS_SELECTION_REPORT.md` (see below) — that report is kept as a historical record of the selection process, not as the live decision.
+**Current track:** the team is building for **PS4**, evidenced by `Docs/Plan/PS4_MVP_BUILD_PLAN.md` and the `police-evidence-platform/` app. This supersedes the original PS5 recommendation in `Docs/CH26/MASTER_HACKATHON_PS_SELECTION_REPORT.md` (see below) — that report is kept as a historical record of the selection process, not as the live decision.
 
 ## File organization rules
 
 - All documentation, research, and case-file content lives under `Docs/` — never save a new `.md`, `.pdf`, screenshot, or report loose at the repository root.
+- `Docs/Plan/` holds the live PS4 MVP build plan and its status tracker — see below.
 - `Docs/CH26/` holds the PS-selection research phase (brochure, track PDFs, specialist reports, master report). New track/PS research or scoring documents belong here.
 - `Docs/incidents/` holds individual incident dossiers (one folder per case, named after the case, containing its `case-data.md`/`INCIDENT_DOCUMENTATION_*.md` plus supporting screenshots/videos). New incident write-ups get their own subfolder here, not a loose folder at root.
 - `Docs/detailed_project_report.md` is the top-level project report; keep report-style docs that aren't tied to one case or track directly under `Docs/`.
 - `police-evidence-platform/` is out of scope for these rules — it's real app code with its own structure and its own `CLAUDE.md`/`AGENTS.md`.
+
+## `Docs/Plan/` — live PS4 build plan (active, not historical)
+
+- `PS4_MVP_BUILD_PLAN.md` — the master plan: MVP-ready definition, architecture, detection model, data model (incl. the coverage-aware Evidence Fusion algorithm), API surface, team split, risks, phased schedule (Phase 0–5), phase-completion workflow, judging-criteria alignment, and open questions. Update this in place as scope decisions change — don't fork a new version.
+- `PS4_BUILD_STATUS.md` — the phase-by-phase status tracker; single source of truth for "where are we." Update per the workflow in the plan's own §9, after each phase's review/push, not before. Check this file before starting new work instead of re-deriving status from git log or chat history — it also documents *why* specific engineering/scope decisions were made (e.g. why the seeded corpus is illustrative demo data, why the propagation graph was rebuilt from real matches instead of curated fake spread data), which is closer to "why this was built this way" than anything else in the repo.
 
 ## `Docs/CH26/` — PS-selection research (historical)
 

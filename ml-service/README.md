@@ -3,7 +3,7 @@
 A small FastAPI service that scores an image (or a sampled video frame) for
 AI-generated/deepfake manipulation probability and returns a Grad-CAM heatmap.
 Called over `localhost` HTTP by the Next.js backend in `police-evidence-platform/`
-— never called from the browser directly. See `../Docs/CH26/PS4_MVP_BUILD_PLAN.md`
+— never called from the browser directly. See `../Docs/Plan/PS4_MVP_BUILD_PLAN.md`
 (§2, §3) for the architecture this fits into.
 
 ## Model
