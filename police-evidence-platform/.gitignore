@@ -41,8 +41,10 @@ yarn-error.log*
 /storage/audit-checkpoints.log
 /storage/uploads/*
 /storage/reports/*
+/storage/heatmaps/*
 !/storage/uploads/.gitkeep
 !/storage/reports/.gitkeep
+!/storage/heatmaps/.gitkeep
 
 # vercel
 .vercel

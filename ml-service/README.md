@@ -173,6 +173,44 @@ Ran the service locally on port 8008 and exercised all three endpoints with
 - Error handling: an empty file → `400`; a `.txt` file sent with
   `content-type: text/plain` → `400 {"detail":"Expected an image file, got
   content-type 'text/plain'"}`.
+
+**Calibration finding (§11 of the build plan — "recalibrate the fusion
+confidence-cap constants once real classifier score distribution is known"):**
+ran the live classifier against 6 known-real photos (genuine photographed
+people, `randomuser.me` model-released stock portraits — not from this
+repo's case evidence, whose provenance isn't independently confirmed) and 6
+known-fake images (`thispersondoesnotexist.com` StyleGAN output — no real
+person exists, unambiguously synthetic). Result: the known-real photos
+scored **88–100%** "manipulated" and the known-fake StyleGAN photos scored
+**0–1%** — nearly inverted from naive expectation. Ruled out two candidate
+causes before accepting this as a real classifier limitation, not a bug:
+`face_detected` was `True` for all 12 (not an MTCNN-fallback artifact), and
+forcibly upscaling a real photo / downscaling-then-upscaling a fake one left
+scores unchanged (not a resolution artifact). The actual cause is a known,
+documented class of deepfake-detector generalization failure (also flagged
+in this file's own honesty note and the build plan's risk table): this
+checkpoint is trained on face-*swap* manipulation (blending-seam artifacts
+from compositing a fake face onto a real frame), so a fully-synthetic
+GAN image with no seam at all is genuinely out-of-distribution and scores
+low, while ordinary stock-photo JPEG/compression characteristics apparently
+resemble the training set's "fake" class closely enough to score high — this
+is dataset-specific shortcut learning, not evidence the raw score is random.
+**This is exactly the failure mode the coverage-aware fusion cap exists
+for** — confirmed live, not assumed: uploaded the real photo that scored
+100% as case evidence and ran it through the actual `/investigate`
+pipeline. With no metadata inconsistency, no C2PA, and no hash match
+(`coverageCount: 0`), the verdict came back `INCONCLUSIVE` at 60% confidence,
+never `MANIPULATED`, exactly per §4's rule that zero corroboration forces
+INCONCLUSIVE regardless of raw score. **Conclusion: the numeric constants
+(`60 + coverageCount × 13`, the 50/80 verdict thresholds) are not adjusted
+by this finding** — tuning them to this test set would be calibrating to a
+known-unreliable signal on out-of-distribution images, not improving
+anything. The real, actionable takeaway is the opposite of "tune the
+numbers": it's confirmation that raw classifier score alone must never be
+trusted as a verdict, which is the design the fusion algorithm already
+enforces. This should be stated plainly to judges/officers as a real,
+checked limitation, not glossed over — a single high classifier score on
+an unfamiliar image type is not proof of manipulation.
 - Visually inspected the returned heatmap PNG for the face-image test — it
   renders a proper jet-colormap Grad-CAM overlay concentrated around
   face/hair regions, not blank or uniform noise, confirming Grad-CAM is
