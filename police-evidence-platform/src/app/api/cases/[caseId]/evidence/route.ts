@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { appendCheckpoint, writeAuditEntryInTx } from "@/lib/audit";
-import { sha256Hex, writeEvidenceFile } from "@/lib/storage";
+import { resolveEvidencePath, sha256Hex, writeEvidenceFile } from "@/lib/storage";
+import { extractMetadata } from "@/lib/metadata";
 
 /**
  * Real upload: server-side SHA-256 computed on the actual stored bytes, not
@@ -85,6 +86,40 @@ export async function POST(
   });
 
   appendCheckpoint(auditEntry);
+
+  // Stage 1 (PS4_ANALYSIS_PIPELINE.md) — real metadata/EXIF extraction, run
+  // after the upload transaction commits (ffprobe/exifr are external I/O,
+  // not something to hold a SQLite transaction open for). A failure here
+  // must not fail the upload itself — the evidence is already safely
+  // recorded; a missing metadata row is a visible, honest gap, not a lost
+  // upload. See extractMetadata's own per-file-type fallback behavior for
+  // why this never throws.
+  const extracted = await extractMetadata(resolveEvidencePath(evidence.filePath), mimeType, buffer);
+  const { metadataAuditEntry } = await db.$transaction(async (tx) => {
+    await tx.metadataResult.create({
+      data: {
+        evidenceId: evidence.id,
+        container: extracted.container,
+        resolution: extracted.resolution,
+        duration: extracted.duration,
+        codec: extracted.codec,
+        encoderSignature: extracted.encoderSignature,
+        exifJson: extracted.exifJson,
+      },
+    });
+    const metadataAuditEntry = await writeAuditEntryInTx(
+      {
+        caseId,
+        evidenceHash: sha256,
+        actorId: session.userId,
+        action: "ANALYZED",
+        device: "pramana-metadata-extractor",
+      },
+      tx,
+    );
+    return { metadataAuditEntry };
+  });
+  appendCheckpoint(metadataAuditEntry);
 
   return NextResponse.json(evidence, { status: 201 });
 }

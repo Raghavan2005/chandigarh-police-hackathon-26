@@ -4,7 +4,8 @@ import path from "path";
 
 // storage/ lives inside police-evidence-platform/ (alongside package.json),
 // which is process.cwd() when the Next.js server is running — no ".." here.
-const UPLOADS_DIR = path.join(process.cwd(), "storage", "uploads");
+const STORAGE_DIR = path.join(process.cwd(), "storage");
+const UPLOADS_DIR = path.join(STORAGE_DIR, "uploads");
 
 const EXTENSION_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -43,4 +44,10 @@ export function writeEvidenceFile(sha256: string, mimeType: string, buffer: Buff
     writeFileSync(fullPath, buffer);
   }
   return path.join("uploads", filename);
+}
+
+/** Resolves an Evidence.filePath (relative to storage/) back to an absolute
+ * path — needed by anything that opens the file directly (ffprobe, exifr). */
+export function resolveEvidencePath(relativeFilePath: string): string {
+  return path.join(STORAGE_DIR, relativeFilePath);
 }
