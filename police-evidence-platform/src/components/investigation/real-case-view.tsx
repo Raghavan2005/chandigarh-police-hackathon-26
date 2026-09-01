@@ -2,7 +2,9 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
-import { ArrowLeft, Clock3, FileDigit, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Clock3, FileBarChart, FileDigit, ShieldAlert } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { EvidenceKind } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
 
@@ -125,6 +127,16 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
               {caseData.investigatorBadgeNo && <Row label="Badge/PIS No." value={caseData.investigatorBadgeNo} mono />}
               <Row label="Opened" value={new Date(caseData.openedAt).toLocaleString()} />
             </dl>
+            <Link
+              href={`/cases/${caseData.id}/report`}
+              className={cn(
+                buttonVariants({ size: "sm" }),
+                "mt-4 w-full justify-start bg-accent-primary text-white hover:bg-accent-primary-hover",
+              )}
+            >
+              <FileBarChart className="size-4" />
+              View report
+            </Link>
           </CardContent>
         </Card>
       </div>

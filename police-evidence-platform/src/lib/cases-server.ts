@@ -59,9 +59,21 @@ export async function getRealCase(caseId: string) {
           detectionResult: true,
           provenanceResult: true,
           fusionVerdict: true,
+          forensicExpert: true,
+          overrides: { orderBy: { timestamp: "desc" }, include: { overriddenBy: { select: { name: true } } } },
           uploadedBy: { select: { name: true } },
         },
       },
     },
+  });
+}
+
+/** Chain-of-custody trail for a case's report — real AuditLogEntry rows,
+ * oldest first, matching how the printed report reads chronologically. */
+export async function getRealCaseAuditLog(caseId: string) {
+  return db.auditLogEntry.findMany({
+    where: { caseId },
+    orderBy: { id: "asc" },
+    include: { actor: { select: { name: true } } },
   });
 }

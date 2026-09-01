@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { FEATURED_CASE_ID } from "@/lib/mock-data";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -30,7 +29,12 @@ const NAV = [
     isActive: (p: string) => p === "/cases" || p === "/cases/new",
   },
   {
-    href: `/cases/${FEATURED_CASE_ID}/report`,
+    // No dedicated multi-case reports index yet — a report is per-case, so
+    // this points at the case list (each case's own page links to its
+    // report) rather than hardcoding one specific case's report the way
+    // this used to point at the old mock demo case regardless of what real
+    // cases actually exist.
+    href: "/cases",
     label: "Reports",
     icon: FileBarChart,
     isActive: (p: string) => p.includes("/report"),
