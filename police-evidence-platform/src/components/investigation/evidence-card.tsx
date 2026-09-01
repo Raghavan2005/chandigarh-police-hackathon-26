@@ -47,12 +47,10 @@ const VERDICT_STYLE: Record<string, string> = {
  */
 export function EvidenceCard({
   caseId,
-  evidenceKind,
   sensitivityLevel,
   evidence,
 }: {
   caseId: string;
-  evidenceKind: string;
   sensitivityLevel: string;
   evidence: Evidence;
 }) {
@@ -65,6 +63,19 @@ export function EvidenceCard({
     evidence.mimeType.startsWith("image/") || evidence.mimeType.startsWith("video/") || evidence.mimeType.startsWith("audio/");
   const isVideo = evidence.mimeType.startsWith("video/");
   const isAudio = evidence.mimeType.startsWith("audio/");
+  const isImage = evidence.mimeType.startsWith("image/");
+  // A case's evidenceKind is one value for the whole case, but individual
+  // evidence items can be a different real mimeType (e.g. a document
+  // uploaded onto an "audio" case) — the icon must reflect the actual file,
+  // not the case-level label, or a case with mixed evidence shows the wrong
+  // icon on every card (caught visually, not by inspection).
+  const kindFromMimeType: EvidenceKind = isImage
+    ? "image"
+    : isVideo
+      ? "video"
+      : isAudio
+        ? "audio"
+        : "document";
 
   async function handleInvestigate() {
     setStatus("investigating");
@@ -90,7 +101,7 @@ export function EvidenceCard({
     router.refresh();
   }
 
-  const Icon = KIND_ICON[evidenceKind as EvidenceKind] ?? FileDigit;
+  const Icon = KIND_ICON[kindFromMimeType] ?? FileDigit;
   const verdict = result?.verdict ?? evidence.fusionVerdict?.verdict;
   const confidence = result?.confidence ?? evidence.fusionVerdict?.confidence;
   const explanation = result?.explanation ?? evidence.fusionVerdict?.explanation;
@@ -100,17 +111,12 @@ export function EvidenceCard({
   // Falls back to the immediate API response's bare counts for the split
   // second between a fresh match and the refresh completing.
   const hasRealMatches = evidence.matchesFrom.length > 0 || evidence.corpusMatches.length > 0;
+  const showFaceMatchSlot = evidence.mimeType.startsWith("image/") || evidence.mimeType.startsWith("video/");
+  const meta = evidence.metadataResult;
+  const provenance = evidence.provenanceResult;
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border-subtle p-3">
-      <RealEvidenceViewer
-        caseId={caseId}
-        evidenceId={evidence.id}
-        mimeType={evidence.mimeType}
-        sensitivityLevel={sensitivityLevel}
-        hasHeatmap={Boolean(evidence.detectionResult?.heatmapPath)}
-      />
-
+    <div className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-4">
       <div className="flex items-center gap-3">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-surface-sunken">
           <Icon className="size-4 text-text-tertiary" />
@@ -124,39 +130,141 @@ export function EvidenceCard({
         </span>
       </div>
 
-      {canInvestigate ? (
-        <div className="border-t border-border-subtle pt-3">
-          <RealPipelinePanel evidence={evidence} />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr_1fr_280px]">
+        <div className="flex min-w-0 flex-col gap-3">
+          <RealEvidenceViewer
+            caseId={caseId}
+            evidenceId={evidence.id}
+            mimeType={evidence.mimeType}
+            sensitivityLevel={sensitivityLevel}
+            hasHeatmap={Boolean(evidence.detectionResult?.heatmapPath)}
+          />
+          {showFaceMatchSlot && (
+            <p className="rounded-md border border-dashed border-border-subtle px-3 py-2 text-[11px] text-text-tertiary">
+              Face match / reverse-image (OSINT) search — not available in this build (no live search API wired
+              in). Cross-case &amp; corpus hash matching below is real; this slot is a roadmap item.
+            </p>
+          )}
+          {meta && meta.container === "PDF" && meta.exifJson && <DocumentDetails exifJson={meta.exifJson} />}
         </div>
-      ) : evidence.metadataResult ? (
-        <>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border-subtle pt-3 text-xs sm:grid-cols-4">
-            <Field label="Container" value={evidence.metadataResult.container} />
-            <Field label="Resolution" value={evidence.metadataResult.resolution} />
-            <Field label="Duration" value={evidence.metadataResult.duration} />
-            <Field label="Codec" value={evidence.metadataResult.codec} />
-            {evidence.metadataResult.encoderSignature && (
-              <Field
-                label={evidence.metadataResult.container === "PDF" ? "Editing tool signature" : "Encoder signature"}
-                value={evidence.metadataResult.encoderSignature}
-                className="col-span-2 sm:col-span-4"
-                highlight
+
+        <div className="min-w-0 rounded-lg border border-border-subtle bg-surface-sunken p-4">
+          {canInvestigate ? (
+            <RealPipelinePanel evidence={evidence} />
+          ) : (
+            <div className="flex flex-col gap-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Analysis pipeline</p>
+              <p className="mt-2 text-xs text-text-tertiary">
+                Detection isn&apos;t available for this evidence type yet (image/video/audio only in this build).
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="rounded-lg border border-border-subtle bg-surface-sunken p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Verdict</p>
+            {verdict ? (
+              <div className={cn("rounded-md border px-2.5 py-2 text-xs", VERDICT_STYLE[verdict] ?? VERDICT_STYLE.INCONCLUSIVE)}>
+                <p className="font-semibold uppercase tracking-wide">
+                  {verdict.replace("_", "-")} · {confidence}%
+                </p>
+                {explanation && <p className="mt-1 text-[11px] opacity-90">{explanation}</p>}
+              </div>
+            ) : status === "error" ? (
+              <p className="flex items-center gap-1.5 rounded-md border border-status-critical/30 bg-status-critical-bg px-2.5 py-1.5 text-xs text-status-critical">
+                <AlertTriangle className="size-3.5 shrink-0" />
+                {errorMessage}
+              </p>
+            ) : (
+              <p className="rounded-md border border-status-inconclusive/30 bg-status-inconclusive-bg px-2.5 py-1.5 text-xs text-status-inconclusive">
+                {canInvestigate
+                  ? "Detection and Evidence Fusion haven't run on this file yet — no verdict to show."
+                  : "Not available — no verdict to show."}
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-border-subtle bg-surface-sunken p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+              Technical provenance
+            </p>
+            {meta ? (
+              <dl className="space-y-1.5 text-xs">
+                <ProvenanceRow label="Container" value={meta.container} />
+                <ProvenanceRow label="Resolution" value={meta.resolution} />
+                <ProvenanceRow label="Duration" value={meta.duration} />
+                <ProvenanceRow label="Codec" value={meta.codec} />
+                <ProvenanceRow
+                  label="C2PA manifest"
+                  value={
+                    !provenance
+                      ? "Not yet checked"
+                      : !provenance.c2paPresent
+                        ? "Not present (neutral)"
+                        : provenance.c2paValid
+                          ? "Present, valid"
+                          : "Present, INVALID"
+                  }
+                  warn={Boolean(provenance?.c2paPresent && !provenance.c2paValid)}
+                />
+                {meta.encoderSignature && (
+                  <ProvenanceRow
+                    label={meta.container === "PDF" ? "Editing tool signature" : "Encoder signature"}
+                    value={meta.encoderSignature}
+                    warn
+                  />
+                )}
+              </dl>
+            ) : (
+              <p className="flex items-center gap-1.5 text-xs text-text-tertiary">
+                <Clock3 className="size-3.5" />
+                Metadata extraction pending.
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Actions</p>
+            {canInvestigate && (
+              <button
+                type="button"
+                onClick={handleInvestigate}
+                disabled={status === "investigating"}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "justify-start")}
+              >
+                {status === "investigating" ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    {isVideo
+                      ? "Sampling frames + running detection…"
+                      : isAudio
+                        ? "Running voice-spoofing detection…"
+                        : "Running detection…"}
+                  </>
+                ) : (
+                  <>
+                    <ScanSearch className="size-3.5" />
+                    {verdict ? "Re-investigate" : "Investigate"}
+                  </>
+                )}
+              </button>
+            )}
+            {evidence.fusionVerdict && (
+              <OverrideDialog
+                caseId={caseId}
+                evidenceId={evidence.id}
+                currentVerdict={evidence.fusionVerdict.verdict as Verdict}
               />
             )}
-          </dl>
-          {evidence.metadataResult.container === "PDF" && evidence.metadataResult.exifJson && (
-            <DocumentDetails exifJson={evidence.metadataResult.exifJson} />
-          )}
-        </>
-      ) : (
-        <p className="flex items-center gap-1.5 border-t border-border-subtle pt-3 text-xs text-text-tertiary">
-          <Clock3 className="size-3.5" />
-          Metadata extraction pending.
-        </p>
-      )}
+            <ForensicExpertDialog caseId={caseId} evidenceId={evidence.id} existing={evidence.forensicExpert} />
+          </div>
+        </div>
+      </div>
 
-      {evidence.fusionVerdict ? (
-        <div className="border-t border-border-subtle pt-3">
+      {evidence.fusionVerdict && (
+        <div className="rounded-lg border border-border-subtle bg-surface-sunken p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Evidence fusion</p>
           <RealFusionSignals
             signalBreakdownJson={evidence.fusionVerdict.signalBreakdownJson}
             coverageCount={evidence.fusionVerdict.coverageCount}
@@ -166,26 +274,6 @@ export function EvidenceCard({
             explanation={evidence.fusionVerdict.explanation}
           />
         </div>
-      ) : verdict ? (
-        // Optimistic view for the instant right after a fresh Investigate
-        // call, before router.refresh() has pulled the full FusionVerdict
-        // (with signalBreakdownJson etc.) back from the server — the
-        // /investigate response itself only returns the bare numbers.
-        <div className={cn("rounded-md border px-2.5 py-2 text-xs", VERDICT_STYLE[verdict] ?? VERDICT_STYLE.INCONCLUSIVE)}>
-          <p className="font-semibold uppercase tracking-wide">
-            {verdict.replace("_", "-")} · {confidence}%
-          </p>
-          {explanation && <p className="mt-1 text-[11px] opacity-90">{explanation}</p>}
-        </div>
-      ) : status === "error" ? (
-        <p className="flex items-center gap-1.5 rounded-md border border-status-critical/30 bg-status-critical-bg px-2.5 py-1.5 text-xs text-status-critical">
-          <AlertTriangle className="size-3.5 shrink-0" />
-          {errorMessage}
-        </p>
-      ) : (
-        <p className="rounded-md border border-status-inconclusive/30 bg-status-inconclusive-bg px-2.5 py-1.5 text-xs text-status-inconclusive">
-          Detection and Evidence Fusion haven&apos;t run on this file yet — no verdict to show.
-        </p>
       )}
 
       {evidence.overrides.length > 0 && (
@@ -241,45 +329,16 @@ export function EvidenceCard({
           Refreshing…
         </p>
       )}
+    </div>
+  );
+}
 
-      <div className="flex items-center gap-2">
-        {canInvestigate ? (
-          <button
-            type="button"
-            onClick={handleInvestigate}
-            disabled={status === "investigating"}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit")}
-          >
-            {status === "investigating" ? (
-              <>
-                <Loader2 className="size-3.5 animate-spin" />
-                {isVideo
-                  ? "Sampling frames + running detection…"
-                  : isAudio
-                    ? "Running voice-spoofing detection… (first run downloads the model, can be slow)"
-                    : "Running detection…"}
-              </>
-            ) : (
-              <>
-                <ScanSearch className="size-3.5" />
-                {verdict ? "Re-investigate" : "Investigate"}
-              </>
-            )}
-          </button>
-        ) : (
-          <p className="text-[11px] text-text-tertiary">
-            Detection isn&apos;t available for this evidence type yet (image/video/audio only in this build).
-          </p>
-        )}
-        {evidence.fusionVerdict && (
-          <OverrideDialog
-            caseId={caseId}
-            evidenceId={evidence.id}
-            currentVerdict={evidence.fusionVerdict.verdict as Verdict}
-          />
-        )}
-        <ForensicExpertDialog caseId={caseId} evidenceId={evidence.id} existing={evidence.forensicExpert} />
-      </div>
+function ProvenanceRow({ label, value, warn }: { label: string; value: string | null; warn?: boolean }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-text-tertiary">{label}</dt>
+      <dd className={cn("text-right", warn ? "font-medium text-status-warning" : "text-text-primary")}>{value}</dd>
     </div>
   );
 }
