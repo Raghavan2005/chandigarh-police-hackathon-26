@@ -4,7 +4,11 @@ FastAPI detection microservice for the PS4 evidence platform.
 Called over localhost HTTP by the Next.js backend (never from the browser
 directly). Endpoints:
   - GET  /health              liveness check
-  - POST /detect/image        image -> { probability, heatmapPngBase64 }
+  - POST /detect/image        image -> { probability, heatmapPngBase64,
+                               faceDetected, faceBox, faceCropPngBase64 }
+                               faceBox/faceCropPngBase64 are null when no
+                               face was detected — never a fabricated
+                               position or crop.
   - POST /detect/video-frame  same contract, same model; the Next.js side
                                samples frames from video and calls this once
                                per sampled frame (frame extraction happens on
@@ -41,6 +45,12 @@ _audio_detector: AudioDeepfakeDetector | None = None
 class DetectionResponse(BaseModel):
     probability: float
     heatmapPngBase64: str
+    faceDetected: bool
+    # Normalized [x1, y1, x2, y2] fractions (0-1) of the original image's
+    # width/height, or null when no face was detected — never a fabricated
+    # position.
+    faceBox: list[float] | None
+    faceCropPngBase64: str | None
 
 
 class AudioDetectionResponse(BaseModel):
@@ -95,7 +105,13 @@ async def _run_detection(file: UploadFile) -> DetectionResponse:
         logger.exception("Detection failed")
         raise HTTPException(status_code=500, detail=f"Detection failed: {exc}") from exc
 
-    return DetectionResponse(probability=result.probability, heatmapPngBase64=result.heatmap_png_base64)
+    return DetectionResponse(
+        probability=result.probability,
+        heatmapPngBase64=result.heatmap_png_base64,
+        faceDetected=result.face_detected,
+        faceBox=result.face_box,
+        faceCropPngBase64=result.face_crop_png_base64,
+    )
 
 
 @app.post("/detect/image", response_model=DetectionResponse)

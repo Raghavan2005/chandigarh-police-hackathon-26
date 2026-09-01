@@ -108,9 +108,16 @@ whether the voice itself sounds synthetic/spoofed.
   (`audioModelLoaded` only flips to `true` after the first `/detect/audio`
   call, per the lazy-loading behavior above.)
 - `POST /detect/image` (multipart form field `file`, an image) →
-  `{ "probability": <float 0-100>, "heatmapPngBase64": "<base64 PNG>" }`
-  — `probability` is the model's estimated probability the face is
-  manipulated/deepfake (sigmoid output × 100, rounded to 2dp).
+  `{ "probability": <float 0-100>, "heatmapPngBase64": "<base64 PNG>",
+  "faceDetected": <bool>, "faceBox": [x1,y1,x2,y2] | null,
+  "faceCropPngBase64": "<base64 PNG>" | null }` — `probability` is the
+  model's estimated probability the face is manipulated/deepfake (sigmoid
+  output × 100, rounded to 2dp). `faceBox` is MTCNN's real detected-face
+  bounding box, normalized to 0-1 fractions of the source image's
+  width/height — `null` whenever no face was detected, never a fabricated
+  position. `faceCropPngBase64` is the actual aligned face crop MTCNN
+  produced (the literal input the classifier scored), likewise `null` when
+  no face was found.
 - `POST /detect/video-frame` — identical contract and identical underlying
   model/pipeline as `/detect/image`. Video support is frame sampling done on
   the Next.js side (per the build plan) — this endpoint just scores one
@@ -173,6 +180,25 @@ Ran the service locally on port 8008 and exercised all three endpoints with
 - Error handling: an empty file → `400`; a `.txt` file sent with
   `content-type: text/plain` → `400 {"detail":"Expected an image file, got
   content-type 'text/plain'"}`.
+
+**Real face box + crop** (added later, replacing the frontend's old mock
+face-highlight overlay — a hardcoded `left-[34%] top-[18%]` box with a
+fabricated "98.4%" label on every image regardless of content): verified
+standalone by drawing the returned `faceBox` on the actual source image and
+confirming visually it lands exactly on the region MTCNN detected — checked
+against both a real front-facing portrait (clean, centered box) and a
+photo where MTCNN's real detection was a small, low-confidence background
+face (the box correctly landed there too, not on the actual visible person
+in frame — an honest reflection of a real, if marginal, model output, not
+smoothed over). Confirmed `faceBox`/`faceCropPngBase64` are both `null`
+together whenever no face is detected (tested with a random-noise image),
+never a fabricated fallback position. Full Next.js-side rendering
+(letterbox-aware bounding-box overlay positioned via the element's actual
+displayed size, not just the container's) verified live for both image and
+video evidence — see `PS4_BUILD_STATUS.md`'s Phase 3 log for that pass,
+including two real bugs it caught (`onLoad` never firing for an
+already-cached image, and an infinite-render loop from an early fix
+attempt).
 
 **Calibration finding (§11 of the build plan — "recalibrate the fusion
 confidence-cap constants once real classifier score distribution is known"):**
