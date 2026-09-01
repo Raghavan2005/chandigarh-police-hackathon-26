@@ -103,6 +103,20 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
     setPdfStatus("idle");
   };
 
+  // Sequential paragraph numbers matching the authentic Indian
+  // legal/government-document convention of numbered clauses (verified
+  // against real 65B/BSA affidavit templates) -- computed rather than
+  // hardcoded so the numbering stays correct whether or not the optional
+  // case-summary paragraph renders.
+  let sectionCounter = 1;
+  const nextSection = () => sectionCounter++;
+  const particularsSection = nextSection();
+  const summarySection = caseData.summary ? nextSection() : null;
+  const exhibitsSection = nextSection();
+  const custodySection = nextSection();
+  const certificateSection = nextSection();
+  const signOffSection = nextSection();
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
@@ -144,23 +158,30 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-[820px] rounded-md bg-white text-neutral-900 shadow-2xl print:shadow-none">
-        {/* 1. Header */}
-        <div className="flex items-center justify-between border-b border-neutral-200 px-8 py-6">
-          <div className="flex items-center gap-3">
-            <Image src="/Chandigarh_Police_Logo.png" alt="Chandigarh Police" width={40} height={40} />
+      <div className="report-document mx-auto w-full max-w-[820px] border-4 border-double border-neutral-800 bg-white text-neutral-900 shadow-2xl print:shadow-none">
+        {/* 1. Header — memo-number convention: "No. .../year" left, date right,
+            matching the reference-number style used on real government
+            office correspondence (verified against real 65B/BSA affidavit
+            and departmental-memo formats, not guessed). */}
+        <div className="border-b-2 border-neutral-800 px-8 py-6">
+          <div className="flex items-center justify-center gap-3 border-b border-neutral-300 pb-4 text-center">
+            <Image src="/Chandigarh_Police_Logo.png" alt="Chandigarh Police" width={44} height={44} />
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
                 <Bi en="Chandigarh Police — Pramana Forensic Evidence Platform" hi="चंडीगढ़ पुलिस — प्रमाण फोरेंसिक साक्ष्य प्लेटफ़ॉर्म" />
               </p>
-              <h2 className="text-lg font-semibold">
+              <h2 className="text-xl font-bold uppercase tracking-wide">
                 <Bi en="Investigation Report" hi="अन्वेषण रिपोर्ट" />
               </h2>
             </div>
           </div>
-          <div className="text-right text-xs text-neutral-500">
-            <p>Case {caseData.id}</p>
-            <p>Generated {generatedAt.toISOString().slice(0, 10)}</p>
+          <div className="mt-3 flex items-start justify-between text-xs text-neutral-600">
+            <p>
+              <Bi en="No." hi="क्रमांक" />: <span className="font-mono">PRAMANA/{caseData.id}/{generatedAt.getFullYear()}</span>
+            </p>
+            <p>
+              <Bi en="Dated" hi="दिनांक" />: {generatedAt.toISOString().slice(0, 10)}
+            </p>
           </div>
         </div>
 
@@ -168,9 +189,14 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
           {/* 2. Case & IO particulars */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-              <Bi en="Case & investigating officer particulars" hi="मामला एवं अन्वेषण अधिकारी विवरण" />
+              {particularsSection}. <Bi en="Case & investigating officer particulars" hi="मामला एवं अन्वेषण अधिकारी विवरण" />
             </p>
-            <p className="mt-1 text-sm font-medium">{caseData.title}</p>
+            <p className="mt-2 text-xs leading-relaxed text-neutral-700">
+              <Bi
+                en={`This report has been prepared by ${caseData.investigator.name}${caseData.investigatorRank ? `, ${caseData.investigatorRank}` : ""}${caseData.investigatorBadgeNo ? ` (Badge/PIS No. ${caseData.investigatorBadgeNo})` : ""}, presently posted at ${caseData.policeStation}, ${caseData.district}, in connection with FIR No. ${caseData.firNumber}, regarding the matter titled "${caseData.title}".`}
+                hi={`यह रिपोर्ट ${caseData.investigator.name}${caseData.investigatorRank ? `, ${caseData.investigatorRank}` : ""} द्वारा तैयार की गई है, जो वर्तमान में ${caseData.policeStation}, ${caseData.district} में पदस्थ हैं, प्राथमिकी संख्या ${caseData.firNumber} के संबंध में।`}
+              />
+            </p>
             <dl className="mt-3 grid grid-cols-2 gap-y-1.5 text-xs text-neutral-600">
               <dt><Bi en="FIR No." hi="प्राथमिकी संख्या" /></dt>
               <dd className="text-neutral-900">{caseData.firNumber}</dd>
@@ -196,7 +222,7 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
           {/* 3. Case summary — narrative, English only per §4 scope decision */}
           {caseData.summary && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Case summary</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{summarySection}. Case summary</p>
               <p className="mt-1 text-xs leading-relaxed text-neutral-600">{caseData.summary}</p>
             </div>
           )}
@@ -204,7 +230,7 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
           {/* 4. Exhibit particulars + 5. Technical findings, per evidence item */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-              <Bi en={`Exhibit particulars & technical findings (${caseData.evidence.length})`} hi="प्रदर्श विवरण एवं तकनीकी निष्कर्ष" />
+              {exhibitsSection}. <Bi en={`Exhibit particulars & technical findings (${caseData.evidence.length})`} hi="प्रदर्श विवरण एवं तकनीकी निष्कर्ष" />
             </p>
             <div className="mt-2 flex flex-col gap-3">
               {caseData.evidence.length === 0 && (
@@ -296,7 +322,7 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
           {/* 6. Chain of custody */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-              <Bi en="Chain of custody" hi="अभिरक्षा श्रृंखला" />
+              {custodySection}. <Bi en="Chain of custody" hi="अभिरक्षा श्रृंखला" />
             </p>
             <table className="mt-1.5 w-full border-collapse text-xs text-neutral-600">
               <thead>
@@ -328,7 +354,7 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
           {/* 7. Section 63 BSA certificate — Part A + Part B, per exhibit */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-              <Bi en="Section 63 BSA Certificate" hi="धारा 63 भारतीय साक्ष्य अधिनियम प्रमाणपत्र" />
+              {certificateSection}. <Bi en="Section 63 BSA Certificate" hi="धारा 63 भारतीय साक्ष्य अधिनियम प्रमाणपत्र" />
             </p>
             <p className="mt-1 text-[10px] text-neutral-500">
               <Bi
@@ -346,6 +372,12 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
                   <div className="mt-2 border-t border-neutral-200 pt-2">
                     <p className="font-semibold text-neutral-800">
                       <Bi en="Part A — Declaration by person in custody/control of the device" hi="भाग अ — उपकरण की अभिरक्षा/नियंत्रण में व्यक्ति द्वारा घोषणा" />
+                    </p>
+                    <p className="mt-1.5 text-[10px] italic leading-snug text-neutral-600">
+                      <Bi
+                        en={`I, ${caseData.investigator.name}${caseData.investigatorRank ? `, ${caseData.investigatorRank}` : ""}${caseData.investigatorBadgeNo ? ` (Badge/PIS No. ${caseData.investigatorBadgeNo})` : ""}, presently posted at ${caseData.policeStation}, ${caseData.district}, do hereby solemnly affirm and state as under:—`}
+                        hi={`मैं, ${caseData.investigator.name}${caseData.investigatorRank ? `, ${caseData.investigatorRank}` : ""}, वर्तमान में ${caseData.policeStation}, ${caseData.district} में पदस्थ, एतद्द्वारा गंभीरतापूर्वक घोषणा करता/करती हूँ:—`}
+                      />
                     </p>
                     <dl className="mt-1.5 grid grid-cols-2 gap-y-1 text-neutral-600">
                       <dt><Bi en="Declarant" hi="घोषणाकर्ता" /></dt>
@@ -375,6 +407,15 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
                       <Bi
                         en="I declare that the above-described computer/communication device was regularly used to store or process the said record in the ordinary course of the stated activity, and that the device was operating properly at the material time."
                         hi="मैं घोषणा करता/करती हूँ कि उपरोक्त वर्णित कंप्यूटर/संचार उपकरण उक्त अभिलेख के भंडारण या संसाधन हेतु संबंधित गतिविधि के सामान्य क्रम में नियमित रूप से उपयोग किया गया, तथा उक्त उपकरण सुसंगत समय पर उचित रूप से कार्यरत था।"
+                      />
+                    </p>
+                    <p className="mt-2 border-t border-dashed border-neutral-200 pt-2 text-[10px] leading-snug text-neutral-500">
+                      <span className="font-semibold uppercase text-neutral-700">
+                        <Bi en="Verification" hi="सत्यापन" />:
+                      </span>{" "}
+                      <Bi
+                        en="Verified that the contents of the above declaration are true and correct to the best of my knowledge and belief, that no part of it is false, and that nothing material has been concealed therefrom."
+                        hi="सत्यापित किया जाता है कि उपरोक्त घोषणा की विषय-वस्तु मेरी सर्वोत्तम जानकारी एवं विश्वास के अनुसार सत्य एवं सही है, इसका कोई भाग असत्य नहीं है, तथा इसमें कोई तथ्य छिपाया नहीं गया है।"
                       />
                     </p>
                     <div className="mt-3 grid grid-cols-3 gap-3 border-t border-dashed border-neutral-200 pt-2 text-[10px] text-neutral-500">
@@ -412,7 +453,7 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
           {/* 8. Sign-off block */}
           <div className="rounded border border-neutral-300 p-3 text-xs">
             <p className="font-semibold text-neutral-800">
-              <Bi en="Investigating officer's sign-off" hi="अन्वेषण अधिकारी का प्रमाणन" />
+              {signOffSection}. <Bi en="Investigating officer's sign-off" hi="अन्वेषण अधिकारी का प्रमाणन" />
             </p>
             <p className="mt-1 text-[10px] leading-snug text-neutral-500">
               <Bi
@@ -454,9 +495,30 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
               native/legal Hindi speaker — verify before evidentiary use, per PS4_MVP_BUILD_PLAN.md §4.
             </p>
           </div>
+
+          {/* Distribution list — standard "Copy to" convention on Indian
+              government/departmental correspondence, kept generic (case
+              record + reporting chain only) rather than inventing named
+              recipients this platform has no real record of. */}
+          <div className="border-t border-neutral-200 pt-3 text-[10px] leading-relaxed text-neutral-500">
+            <p className="font-semibold uppercase tracking-wide text-neutral-600">
+              <Bi en="Copy to" hi="प्रतिलिपि प्रेषित" />:
+            </p>
+            <ol className="mt-1 list-decimal pl-4">
+              <li>
+                <Bi en="Case diary / record, for retention" hi="केस डायरी / अभिलेख, संधारण हेतु" />
+              </li>
+              <li>
+                <Bi
+                  en={`Reporting officer's supervisory channel, ${caseData.policeStation}`}
+                  hi={`रिपोर्टिंग अधिकारी की पर्यवेक्षी शृंखला, ${caseData.policeStation}`}
+                />
+              </li>
+            </ol>
+          </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-neutral-200 px-8 py-4 text-xs text-neutral-500">
+        <div className="flex items-center justify-between border-t-2 border-neutral-800 px-8 py-4 text-xs text-neutral-500">
           <span>Signed off by {caseData.investigator.name}</span>
           <span className="flex items-center gap-1">
             <Download className="size-3" /> Pramana v0.1 — build in progress

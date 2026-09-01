@@ -60,7 +60,17 @@ export async function renderPageToPdf(url: string, cookieHeader: string | null):
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "12mm", bottom: "12mm", left: "10mm", right: "10mm" },
+      margin: { top: "12mm", bottom: "16mm", left: "10mm", right: "10mm" },
+      // Real page numbers (Puppeteer computes these against the actual
+      // rendered page count, not a hardcoded value) — matches the
+      // pagination convention on real Indian government/court documents.
+      displayHeaderFooter: true,
+      headerTemplate: "<span></span>",
+      footerTemplate: `
+        <div style="width: 100%; font-size: 9px; text-align: center; color: #666; font-family: 'Times New Roman', serif;">
+          Page <span class="pageNumber"></span> of <span class="totalPages"></span>
+        </div>
+      `,
     });
     return Buffer.from(pdf);
   } finally {

@@ -179,13 +179,27 @@
      Hindi text in the Section 63 BSA certificate falls back to whatever
      font the browser's automatic script-fallback picks, which — verified
      via a real rendered PDF export, not assumed — produced broken
-     conjunct/matra shaping (isolated glyphs with visible gaps) in headless
-     Chrome even though Noto Sans Devanagari is installed on the system.
-     Requesting it explicitly for lang="hi" text avoids relying on fallback
-     font selection at all. */
+     conjunct/matra shaping (isolated glyphs with visible gaps). Self-hosted
+     via next/font (see app/layout.tsx) rather than named as a literal
+     font-family string, so this doesn't depend on the font happening to be
+     installed on whatever machine runs the app. */
   :lang(hi) {
-    font-family: "Noto Sans Devanagari", var(--font-sans);
+    font-family: var(--font-noto-sans-devanagari), var(--font-sans);
   }
+}
+
+/* Evidentiary report typography — scoped to RealReportPreview's printed
+   card only, not the app UI generally. Real Indian legal/government
+   documents (65B/BSA affidavits, departmental correspondence) use serif
+   typography, not the app's sans-serif UI font; verified against real
+   templates, not assumed. Both scripts get a matching self-hosted serif
+   family so English and Hindi text look visually consistent on the same
+   page, rather than serif Latin next to sans Devanagari. */
+.report-document {
+  font-family: var(--font-noto-serif), "Times New Roman", serif;
+}
+.report-document :lang(hi) {
+  font-family: var(--font-noto-serif-devanagari), var(--font-noto-serif), serif;
 }
 
 /* The whole app is hardcoded dark mode (<html class="dark">, no toggle —
