@@ -1,0 +1,244 @@
+// Prisma schema for the Pramana Forensic Evidence Platform.
+// Source of truth for this schema's design: ../../Docs/CH26/PS4_MVP_BUILD_PLAN.md §4.
+//
+// SQLite has no native enum type, so Prisma enums aren't available on this
+// connector — fields that are conceptually enums are plain String columns
+// with the allowed values documented in a comment; validation is enforced
+// at the application layer (Zod schemas in the API route handlers), not the DB.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// --- Identity & access -------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String // "investigator" | "admin" — enforced in route-handler guards, not the DB
+  createdAt    DateTime @default(now())
+
+  casesInvestigating Case[]            @relation("CaseInvestigator")
+  evidenceUploaded   Evidence[]        @relation("EvidenceUploadedBy")
+  auditEntries       AuditLogEntry[]   @relation("AuditActor")
+  overridesGiven     VerdictOverride[] @relation("OverriddenBy")
+}
+
+// --- Case ----------------------------------------------------------------
+
+model Case {
+  id      String @id // display ID, e.g. "CHD-2026-00131" — matches CCTNS-style case numbering
+  firNumber String // required at creation — §1 item 8, no case exists without a real FIR link
+  policeStation String
+  district      String
+
+  title             String
+  summary           String?
+  evidenceKind      String // "image" | "video" | "audio" | "document" — display-level; per-file truth is Evidence.mimeType
+  status            String   @default("new") // "new" | "analyzing" | "review" | "closed"
+  sensitivityLevel  String   @default("standard") // "standard" | "ncii" | "minor" — drives blur-by-default rendering, §2
+  openedAt          DateTime @default(now())
+
+  investigatorId       String
+  investigator         User    @relation("CaseInvestigator", fields: [investigatorId], references: [id])
+  investigatorRank     String?
+  investigatorBadgeNo  String?
+
+  evidence          Evidence[]
+  auditEntries      AuditLogEntry[]
+  propagationEdges  PropagationEdge[]
+
+  @@index([investigatorId])
+  @@index([firNumber])
+}
+
+// --- Evidence & analysis results -----------------------------------------
+
+model Evidence {
+  id               String   @id @default(cuid())
+  caseId           String
+  case             Case     @relation(fields: [caseId], references: [id])
+  sha256           String   @unique
+  filePath         String
+  mimeType         String
+  uploadedAt       DateTime @default(now())
+  uploadedById     String
+  uploadedBy       User     @relation("EvidenceUploadedBy", fields: [uploadedById], references: [id])
+  deviceIdentifier String? // IMEI/MAC/serial — only when evidence comes from a specific seized device, not a generic upload
+
+  metadataResult   MetadataResult?
+  detectionResult  DetectionResult?
+  provenanceResult ProvenanceResult?
+  forensicExpert   ForensicExpert?
+  fusionVerdict    FusionVerdict?
+
+  corpusMatches       CorpusMatch[]
+  matchesFrom         EvidenceMatch[] @relation("EvidenceMatchSource")
+  matchesTo           EvidenceMatch[] @relation("EvidenceMatchTarget")
+  overrides           VerdictOverride[]
+
+  @@index([caseId])
+}
+
+model MetadataResult {
+  id               String   @id @default(cuid())
+  evidenceId       String   @unique
+  evidence         Evidence @relation(fields: [evidenceId], references: [id])
+  container        String?
+  resolution       String?
+  duration         String?
+  codec            String?
+  encoderSignature String?
+  exifJson         String? // JSON-encoded — SQLite has no native JSON type
+}
+
+model DetectionResult {
+  id                     String   @id @default(cuid())
+  evidenceId             String   @unique
+  evidence               Evidence @relation(fields: [evidenceId], references: [id])
+  manipulationProbability Float
+  heatmapPath            String?
+  modelName              String
+  modelVersion           String
+  ranAt                  DateTime @default(now())
+}
+
+model ProvenanceResult {
+  id           String   @id @default(cuid())
+  evidenceId   String   @unique
+  evidence     Evidence @relation(fields: [evidenceId], references: [id])
+  c2paPresent  Boolean  @default(false)
+  c2paValid    Boolean  @default(false)
+  manifestJson String?
+}
+
+// Part B of the Section 63 BSA certificate — only populated when a court has
+// directed independent expert verification. Absence means "not applicable",
+// never fabricated. See PS4_MVP_BUILD_PLAN.md §4 "Report format".
+model ForensicExpert {
+  id          String   @id @default(cuid())
+  evidenceId  String   @unique
+  evidence    Evidence @relation(fields: [evidenceId], references: [id])
+  name        String
+  designation String
+  labRef      String
+}
+
+// --- Cross-case & seeded-corpus matching ---------------------------------
+
+model CorpusItem {
+  id             String   @id @default(cuid())
+  sourcePlatform String
+  sourceUrl      String
+  firstSeenAt    DateTime
+  sha256         String   @unique
+  phash          String
+  thumbnailPath  String
+
+  corpusMatches    CorpusMatch[]
+  propagationFrom  PropagationEdge[] @relation("PropagationFrom")
+  propagationTo    PropagationEdge[] @relation("PropagationTo")
+}
+
+model CorpusMatch {
+  id             String     @id @default(cuid())
+  evidenceId     String
+  evidence       Evidence   @relation(fields: [evidenceId], references: [id])
+  corpusItemId   String
+  corpusItem     CorpusItem @relation(fields: [corpusItemId], references: [id])
+  similarity     Float
+  hammingDistance Int
+
+  @@index([evidenceId])
+  @@index([corpusItemId])
+}
+
+// Cross-case search (§2, §4) — deliberately hash/pHash only for the MVP,
+// not face-embedding based. Generalizes the same matching used against
+// CorpusItem to run against every case's own evidence.
+model EvidenceMatch {
+  id               String   @id @default(cuid())
+  evidenceId       String
+  evidence         Evidence @relation("EvidenceMatchSource", fields: [evidenceId], references: [id])
+  matchedEvidenceId String
+  matchedEvidence  Evidence @relation("EvidenceMatchTarget", fields: [matchedEvidenceId], references: [id])
+  matchedCaseId    String // denormalized for quick "which other case" lookups without an extra join
+  matchType        String // "sha256_exact" | "phash_near"
+  similarity       Float
+  hammingDistance  Int
+
+  @@index([evidenceId])
+  @@index([matchedCaseId])
+}
+
+model PropagationEdge {
+  id                String     @id @default(cuid())
+  caseId            String
+  case              Case       @relation(fields: [caseId], references: [id])
+  fromCorpusItemId  String
+  fromCorpusItem    CorpusItem @relation("PropagationFrom", fields: [fromCorpusItemId], references: [id])
+  toCorpusItemId    String
+  toCorpusItem      CorpusItem @relation("PropagationTo", fields: [toCorpusItemId], references: [id])
+  timeDeltaLabel    String
+
+  @@index([caseId])
+}
+
+// --- Fusion, override, audit ----------------------------------------------
+
+// Coverage-aware Evidence Fusion — see PS4_MVP_BUILD_PLAN.md §4 "Fusion algorithm"
+// for the exact coverageCount/confidenceCeiling capping logic this schema backs.
+model FusionVerdict {
+  id                 String   @id @default(cuid())
+  evidenceId         String   @unique
+  evidence           Evidence @relation(fields: [evidenceId], references: [id])
+  verdict            String // "AUTHENTIC" | "MANIPULATED" | "AI_GENERATED" | "INCONCLUSIVE"
+  confidence         Int // 0-100, post-cap displayed confidence
+  coverageCount      Int // 0-3 corroborating signals that fired
+  confidenceCeiling  Int // 60 + coverageCount*13, per the fusion algorithm spec
+  explanation        String
+  signalBreakdownJson String // each corroborating check recorded as fired/absent/contradicted — never omitted
+  computedAt         DateTime @default(now())
+}
+
+model VerdictOverride {
+  id               String   @id @default(cuid())
+  evidenceId       String
+  evidence         Evidence @relation(fields: [evidenceId], references: [id])
+  overriddenById   String
+  overriddenBy     User     @relation("OverriddenBy", fields: [overriddenById], references: [id])
+  previousVerdict  String
+  newVerdict       String
+  reason           String
+  timestamp        DateTime @default(now())
+
+  @@index([evidenceId])
+}
+
+// Append-only, hash-chained (§1 item 10, §2). entryHash/prevEntryHash form a
+// chain from the very first entry; prevEntryHash is null only for entry #1.
+// Every write here is mirrored to storage/audit-checkpoints.log (chattr +a)
+// per §2 — that mirroring happens at the application layer, not in this schema.
+model AuditLogEntry {
+  id            String   @id @default(cuid())
+  caseId        String
+  case          Case     @relation(fields: [caseId], references: [id])
+  evidenceHash  String?
+  actorId       String?
+  actor         User?    @relation("AuditActor", fields: [actorId], references: [id])
+  action        String // "UPLOADED" | "ANALYZED" | "VIEWED" | "OVERRIDDEN" | "EXPORTED" | "ASSIGNED"
+  timestamp     DateTime @default(now())
+  device        String?
+  entryHash     String   @unique
+  prevEntryHash String?
+
+  @@index([caseId])
+  @@index([timestamp])
+}

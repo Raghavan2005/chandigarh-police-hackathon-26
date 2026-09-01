@@ -30,8 +30,19 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — keep the safe example committed, never the real one
 .env*
+!.env.example
+
+# runtime data — DB file, uploads, generated reports, audit checkpoint log
+# (per PS4_MVP_BUILD_PLAN.md §2: none of this belongs in source control)
+/storage/*.db
+/storage/*.db-journal
+/storage/audit-checkpoints.log
+/storage/uploads/*
+/storage/reports/*
+!/storage/uploads/.gitkeep
+!/storage/reports/.gitkeep
 
 # vercel
 .vercel
