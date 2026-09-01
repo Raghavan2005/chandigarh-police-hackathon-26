@@ -62,6 +62,14 @@ export async function getRealCase(caseId: string) {
           forensicExpert: true,
           overrides: { orderBy: { timestamp: "desc" }, include: { overriddenBy: { select: { name: true } } } },
           uploadedBy: { select: { name: true } },
+          // Cross-case search results (§2/§4) — matchesFrom is this
+          // evidence -> other cases' evidence; matchedCaseId is
+          // denormalized on EvidenceMatch (no direct Prisma relation to
+          // Case), so the link target is just the case ID, not a fetched
+          // title — that's still the primary identifier used everywhere
+          // else in this app.
+          matchesFrom: true,
+          corpusMatches: { include: { corpusItem: true } },
         },
       },
     },

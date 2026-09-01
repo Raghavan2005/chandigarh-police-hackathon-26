@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Clock3, FileDigit, Loader2, ScanSearch } from "lucide-react";
+import { AlertTriangle, Clock3, FileDigit, GitCompareArrows, Loader2, ScanSearch } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
@@ -76,8 +77,12 @@ export function EvidenceCard({ caseId, evidenceKind, evidence }: { caseId: strin
   const verdict = result?.verdict ?? evidence.fusionVerdict?.verdict;
   const confidence = result?.confidence ?? evidence.fusionVerdict?.confidence;
   const explanation = result?.explanation ?? evidence.fusionVerdict?.explanation;
-  const corpusMatches = result?.corpusMatches ?? 0;
-  const crossCaseMatches = result?.crossCaseMatches ?? 0;
+  // Real match records (not just counts) once the server data reflects
+  // them — populated on the initial page load if a prior Investigate run
+  // already found matches, or after router.refresh() following this run.
+  // Falls back to the immediate API response's bare counts for the split
+  // second between a fresh match and the refresh completing.
+  const hasRealMatches = evidence.matchesFrom.length > 0 || evidence.corpusMatches.length > 0;
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border-subtle p-3">
@@ -134,10 +139,35 @@ export function EvidenceCard({ caseId, evidenceKind, evidence }: { caseId: strin
         </p>
       )}
 
-      {(corpusMatches > 0 || crossCaseMatches > 0) && (
+      {hasRealMatches && (
+        <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
+          <p className="flex items-center gap-1.5 text-[11px] font-medium text-text-secondary">
+            <GitCompareArrows className="size-3.5" />
+            Matches found
+          </p>
+          {evidence.matchesFrom.map((m) => (
+            <Link
+              key={m.id}
+              href={`/cases/${m.matchedCaseId}`}
+              className="text-[11px] text-accent-primary hover:underline"
+            >
+              Same/near-identical file found in case {m.matchedCaseId} — {Math.round(m.similarity * 100)}% similar
+              (Hamming distance {m.hammingDistance})
+            </Link>
+          ))}
+          {evidence.corpusMatches.map((m) => (
+            <p key={m.id} className="text-[11px] text-text-secondary">
+              Matches seeded corpus item from {m.corpusItem.sourcePlatform} (first seen{" "}
+              {new Date(m.corpusItem.firstSeenAt).toLocaleDateString()}) — {Math.round(m.similarity * 100)}% similar
+            </p>
+          ))}
+        </div>
+      )}
+      {!hasRealMatches && result && (result.corpusMatches > 0 || result.crossCaseMatches > 0) && (
         <p className="text-[11px] text-text-tertiary">
-          {corpusMatches > 0 && `${corpusMatches} match(es) in the seeded corpus. `}
-          {crossCaseMatches > 0 && `${crossCaseMatches} match(es) found in other cases.`}
+          {result.corpusMatches > 0 && `${result.corpusMatches} match(es) in the seeded corpus. `}
+          {result.crossCaseMatches > 0 && `${result.crossCaseMatches} match(es) found in other cases.`}{" "}
+          Refreshing…
         </p>
       )}
 
