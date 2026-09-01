@@ -46,49 +46,15 @@ function signalLabel(key: string): string {
 export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; auditLog: AuditEntries }) {
   const generatedAt = new Date();
 
-  const downloadJson = () => {
-    const payload = {
-      case: {
-        id: caseData.id,
-        firNumber: caseData.firNumber,
-        policeStation: caseData.policeStation,
-        district: caseData.district,
-        title: caseData.title,
-        summary: caseData.summary,
-        evidenceKind: caseData.evidenceKind,
-        status: caseData.status,
-        sensitivityLevel: caseData.sensitivityLevel,
-        investigator: caseData.investigator.name,
-        investigatorRank: caseData.investigatorRank,
-        investigatorBadgeNo: caseData.investigatorBadgeNo,
-        openedAt: caseData.openedAt,
-      },
-      evidence: caseData.evidence.map((ev) => ({
-        id: ev.id,
-        sha256: ev.sha256,
-        deviceIdentifier: ev.deviceIdentifier,
-        mimeType: ev.mimeType,
-        uploadedBy: ev.uploadedBy.name,
-        uploadedAt: ev.uploadedAt,
-        metadata: ev.metadataResult,
-        detection: ev.detectionResult,
-        provenance: ev.provenanceResult,
-        verdict: ev.fusionVerdict,
-        overrides: ev.overrides,
-        forensicExpert: ev.forensicExpert,
-      })),
-      auditLog: auditLog.map((a) => ({
-        timestamp: a.timestamp,
-        actor: a.actor?.name ?? "system",
-        action: a.action,
-        evidenceHash: a.evidenceHash,
-        device: a.device,
-        entryHash: a.entryHash,
-      })),
-      generatedAt: generatedAt.toISOString(),
-      legalStatus:
-        "This is a system-generated draft correctly structured to satisfy Section 63, Bharatiya Sakshya Adhiniyam, 2023 (BSA) evidentiary requirements. It attains legal validity only once physically or digitally signed/executed by the investigating officer and, where applicable, countersigned by the certifying forensic expert. The software does not itself certify anything.",
-    };
+  // Fetches from GET /api/cases/:id/report.json — the single source of
+  // truth for the export payload (PS4_MVP_BUILD_PLAN.md §5) — instead of
+  // re-building the same shape client-side, and writes a real EXPORTED
+  // audit entry as a side effect (closes the "Audit log wired to every
+  // real action" gap: export previously had no server round-trip at all).
+  const downloadJson = async () => {
+    const response = await fetch(`/api/cases/${caseData.id}/report.json`).catch(() => null);
+    if (!response || !response.ok) return;
+    const payload = await response.json();
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -96,6 +62,14 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
     a.download = `${caseData.id}-evidence-report.json`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // Same audited action for the PDF/print path — window.print() can't wait
+  // on a response mid-flow, so this fires the audit write and opens the
+  // print dialog without blocking on it.
+  const printReport = () => {
+    fetch(`/api/cases/${caseData.id}/report.json`, { method: "POST" }).catch(() => null);
+    window.print();
   };
 
   return (
@@ -111,7 +85,7 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
             Export JSON
           </button>
           <button
-            onClick={() => window.print()}
+            onClick={printReport}
             className={cn(buttonVariants({ size: "sm" }), "bg-accent-primary text-white hover:bg-accent-primary-hover")}
           >
             <Printer className="size-4" />

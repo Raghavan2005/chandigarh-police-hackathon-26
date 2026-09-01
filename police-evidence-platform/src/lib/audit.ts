@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { appendFileSync, existsSync, writeFileSync } from "fs";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
 import type { Prisma } from "@prisma/client";
@@ -158,6 +158,34 @@ export async function writeAuditEntry(input: WriteAuditEntryInput) {
  */
 export async function writeAuditEntryInTx(input: WriteAuditEntryInput, tx: Prisma.TransactionClient) {
   return writeAuditEntryDb(input, tx);
+}
+
+/**
+ * Reads storage/audit-checkpoints.log back into { id -> entryHash }, for
+ * cross-checking against the DB (PS4_MVP_BUILD_PLAN.md §5: "every entry's
+ * entryHash/prevEntryHash must be... cross-checkable against
+ * storage/audit-checkpoints.log, not just stored"). This is the actual
+ * point of a separate checkpoint file: internal DB chain verification
+ * alone (each row's prevEntryHash matching the prior row's entryHash)
+ * cannot catch a full, self-consistent rewrite of the DB after the fact —
+ * whoever rewrote it could recompute every downstream hash to still chain
+ * correctly. The checkpoint file is a second, independently-written record
+ * of what entryHash each id had at the moment it was created, so a DB row
+ * that now disagrees with its own checkpoint line is caught regardless of
+ * whether the rest of the DB chain still looks internally consistent.
+ */
+export function readCheckpoints(): Map<number, string> {
+  const checkpoints = new Map<number, string>();
+  if (!existsSync(CHECKPOINT_PATH)) return checkpoints;
+
+  const lines = readFileSync(CHECKPOINT_PATH, "utf8").split("\n");
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const [idStr, entryHash] = line.split("\t");
+    const id = Number(idStr);
+    if (Number.isFinite(id) && entryHash) checkpoints.set(id, entryHash);
+  }
+  return checkpoints;
 }
 
 export { appendCheckpoint };

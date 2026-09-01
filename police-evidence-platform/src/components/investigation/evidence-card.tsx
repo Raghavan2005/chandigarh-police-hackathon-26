@@ -10,7 +10,8 @@ import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
 import { RealEvidenceViewer } from "@/components/investigation/real-evidence-viewer";
 import { RealFusionSignals } from "@/components/investigation/real-fusion-signals";
 import { RealPipelinePanel } from "@/components/investigation/real-pipeline-panel";
-import type { EvidenceKind } from "@/lib/types";
+import { OverrideDialog } from "@/components/investigation/override-dialog";
+import type { EvidenceKind, Verdict } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
 
 type RealCase = NonNullable<Awaited<ReturnType<typeof getRealCase>>>;
@@ -179,6 +180,18 @@ export function EvidenceCard({
         </p>
       )}
 
+      {evidence.overrides.length > 0 && (
+        <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
+          <p className="text-[11px] font-medium text-text-secondary">Human override history</p>
+          {evidence.overrides.map((o) => (
+            <p key={o.id} className="text-[11px] text-text-tertiary">
+              {o.previousVerdict.replace("_", "-")} → {o.newVerdict.replace("_", "-")} by {o.overriddenBy.name}
+              {" "}({new Date(o.timestamp).toLocaleString()}): {o.reason}
+            </p>
+          ))}
+        </div>
+      )}
+
       {hasRealMatches && (
         <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
           <p className="flex items-center gap-1.5 text-[11px] font-medium text-text-secondary">
@@ -211,30 +224,39 @@ export function EvidenceCard({
         </p>
       )}
 
-      {canInvestigate ? (
-        <button
-          type="button"
-          onClick={handleInvestigate}
-          disabled={status === "investigating"}
-          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit")}
-        >
-          {status === "investigating" ? (
-            <>
-              <Loader2 className="size-3.5 animate-spin" />
-              {isVideo ? "Sampling frames + running detection…" : "Running detection…"}
-            </>
-          ) : (
-            <>
-              <ScanSearch className="size-3.5" />
-              {verdict ? "Re-investigate" : "Investigate"}
-            </>
-          )}
-        </button>
-      ) : (
-        <p className="text-[11px] text-text-tertiary">
-          Detection isn&apos;t available for this evidence type yet (image/video only in this build).
-        </p>
-      )}
+      <div className="flex items-center gap-2">
+        {canInvestigate ? (
+          <button
+            type="button"
+            onClick={handleInvestigate}
+            disabled={status === "investigating"}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit")}
+          >
+            {status === "investigating" ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                {isVideo ? "Sampling frames + running detection…" : "Running detection…"}
+              </>
+            ) : (
+              <>
+                <ScanSearch className="size-3.5" />
+                {verdict ? "Re-investigate" : "Investigate"}
+              </>
+            )}
+          </button>
+        ) : (
+          <p className="text-[11px] text-text-tertiary">
+            Detection isn&apos;t available for this evidence type yet (image/video only in this build).
+          </p>
+        )}
+        {evidence.fusionVerdict && (
+          <OverrideDialog
+            caseId={caseId}
+            evidenceId={evidence.id}
+            currentVerdict={evidence.fusionVerdict.verdict as Verdict}
+          />
+        )}
+      </div>
     </div>
   );
 }

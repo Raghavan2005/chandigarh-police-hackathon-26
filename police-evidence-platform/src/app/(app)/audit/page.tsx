@@ -73,16 +73,32 @@ export default async function AuditLogPage() {
         {verification.intact ? <ShieldCheck className="size-4 shrink-0" /> : <ShieldAlert className="size-4 shrink-0" />}
         {verification.intact ? (
           <span>
-            Hash chain verified — all {verification.totalEntries} entries link correctly, oldest to newest. No
-            tampering detected.
+            Hash chain verified — all {verification.totalEntries} entries link correctly, oldest to newest, and
+            match storage/audit-checkpoints.log. No tampering detected.
           </span>
-        ) : (
+        ) : verification.brokenAtId !== null ? (
           <span>
             Hash chain broken at entry #{verification.brokenAtId} — its recorded previous-entry hash doesn&apos;t
             match the entry before it. This entry (or one before it) may have been altered outside the app.
           </span>
+        ) : (
+          <span>
+            {verification.checkpointMismatchIds.length} entr{verification.checkpointMismatchIds.length === 1 ? "y" : "ies"} (#
+            {verification.checkpointMismatchIds.join(", #")}) disagree{verification.checkpointMismatchIds.length === 1 ? "s" : ""} with
+            storage/audit-checkpoints.log — the DB chain looks internally consistent, but its recorded hash for this entry
+            doesn&apos;t match what was independently logged when it was created. That combination is the specific signature
+            of a rewritten DB row with recomputed downstream hashes.
+          </span>
         )}
       </div>
+
+      {verification.checkpointMissingIds.length > 0 && (
+        <p className="text-[11px] text-text-tertiary">
+          Note: {verification.checkpointMissingIds.length} entr{verification.checkpointMissingIds.length === 1 ? "y has" : "ies have"} no
+          corresponding line in storage/audit-checkpoints.log (#{verification.checkpointMissingIds.join(", #")}) — not counted as a
+          tamper signal on its own (e.g. possible on a freshly reset dev DB), but worth checking directly if unexpected.
+        </p>
+      )}
 
       <Card className="border-border-subtle bg-surface shadow-none">
         <CardHeader>

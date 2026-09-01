@@ -1,0 +1,110 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { requireSession } from "@/lib/session";
+import { writeAuditEntry } from "@/lib/audit";
+import { getRealCase, getRealCaseAuditLog } from "@/lib/cases-server";
+
+/**
+ * GET /api/cases/:id/report.json — named explicitly in
+ * PS4_MVP_BUILD_PLAN.md §5's API surface. Single source of truth for the
+ * JSON export payload (RealReportPreview's "Export JSON" button fetches
+ * this instead of re-building the same shape client-side, so there's one
+ * place this can drift out of sync with the on-screen report, not two).
+ *
+ * Also closes a real Phase 2 gap: "Audit log wired to every real action"
+ * names EXPORTED as one of the tracked actions, but nothing ever wrote one
+ * — the JSON/PDF export buttons were both pure client-side actions with no
+ * server round-trip at all. GET writes it here; POST (same route, used by
+ * the PDF/print button, which can't await a JSON body before opening the
+ * print dialog) writes the same entry without building the payload.
+ */
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ caseId: string }> },
+) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
+  const { caseId } = await params;
+  const caseData = await getRealCase(caseId);
+  if (!caseData) {
+    return NextResponse.json({ error: "Case not found." }, { status: 404 });
+  }
+
+  const auditLog = await getRealCaseAuditLog(caseId);
+
+  await writeAuditEntry({
+    caseId,
+    actorId: session.userId,
+    action: "EXPORTED",
+    device: request.headers.get("user-agent") ?? undefined,
+  });
+
+  return NextResponse.json({
+    case: {
+      id: caseData.id,
+      firNumber: caseData.firNumber,
+      policeStation: caseData.policeStation,
+      district: caseData.district,
+      title: caseData.title,
+      summary: caseData.summary,
+      evidenceKind: caseData.evidenceKind,
+      status: caseData.status,
+      sensitivityLevel: caseData.sensitivityLevel,
+      investigator: caseData.investigator.name,
+      investigatorRank: caseData.investigatorRank,
+      investigatorBadgeNo: caseData.investigatorBadgeNo,
+      openedAt: caseData.openedAt,
+    },
+    evidence: caseData.evidence.map((ev) => ({
+      id: ev.id,
+      sha256: ev.sha256,
+      deviceIdentifier: ev.deviceIdentifier,
+      mimeType: ev.mimeType,
+      uploadedBy: ev.uploadedBy.name,
+      uploadedAt: ev.uploadedAt,
+      metadata: ev.metadataResult,
+      detection: ev.detectionResult,
+      provenance: ev.provenanceResult,
+      verdict: ev.fusionVerdict,
+      overrides: ev.overrides,
+      forensicExpert: ev.forensicExpert,
+    })),
+    auditLog: auditLog.map((a) => ({
+      timestamp: a.timestamp,
+      actor: a.actor?.name ?? "system",
+      action: a.action,
+      evidenceHash: a.evidenceHash,
+      device: a.device,
+      entryHash: a.entryHash,
+    })),
+    generatedAt: new Date().toISOString(),
+    legalStatus:
+      "This is a system-generated draft correctly structured to satisfy Section 63, Bharatiya Sakshya Adhiniyam, 2023 (BSA) evidentiary requirements. It attains legal validity only once physically or digitally signed/executed by the investigating officer and, where applicable, countersigned by the certifying forensic expert. The software does not itself certify anything.",
+  });
+}
+
+/** Used by the PDF/print export button — same audited action, no payload
+ * needed since window.print() renders the already-loaded page directly. */
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ caseId: string }> },
+) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
+  const { caseId } = await params;
+  const exists = await db.case.findUnique({ where: { id: caseId }, select: { id: true } });
+  if (!exists) {
+    return NextResponse.json({ error: "Case not found." }, { status: 404 });
+  }
+
+  await writeAuditEntry({
+    caseId,
+    actorId: session.userId,
+    action: "EXPORTED",
+    device: request.headers.get("user-agent") ?? undefined,
+  });
+
+  return NextResponse.json({ ok: true });
+}
