@@ -6,8 +6,10 @@ import { RecentAlertsTable } from "@/components/dashboard/recent-alerts-table";
 import { RelationshipSnapshot } from "@/components/dashboard/relationship-snapshot";
 import { buttonVariants } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { listRealCases } from "@/lib/cases-server";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const cases = await listRealCases();
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
@@ -62,7 +64,7 @@ export default function DashboardPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <RecentAlertsTable />
+          <RecentAlertsTable cases={cases.slice(0, 5)} />
         </CardContent>
       </Card>
     </div>

@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RecentAlertsTable } from "@/components/dashboard/recent-alerts-table";
 import { buttonVariants } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { listRealCases } from "@/lib/cases-server";
 
-export default function CasesPage() {
+export default async function CasesPage() {
+  const cases = await listRealCases();
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
@@ -33,7 +35,7 @@ export default function CasesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <RecentAlertsTable />
+          <RecentAlertsTable cases={cases} />
         </CardContent>
       </Card>
     </div>

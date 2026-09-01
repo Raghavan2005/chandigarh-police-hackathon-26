@@ -1,66 +1,96 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Loader2, UploadCloud } from "lucide-react";
 
-const DEMO_HASH = "9f2a7c14b8e0d3f6a51c2b9d7e4f0a3c8b6d1e2f4a7c9b0d3e6f1a4c7b8e41b";
-
 type UploadState = "idle" | "hashing" | "done";
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  return `${value.toFixed(1)} ${units[unitIndex]}`;
+}
+
+/**
+ * Real client-side hash via the Web Crypto API — computed for immediate
+ * feedback (design.md's "hash appears before the investigator even clicks
+ * submit" beat), but this is a preview only. The server independently
+ * recomputes SHA-256 on the bytes it actually receives and stores (see
+ * /api/cases/:id/evidence) — that server-side value, not this one, is what
+ * chain-of-custody actually rests on.
+ */
+async function sha256Hex(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export function UploadDropzone({
-  fileName = "viral_clip.mp4",
-  fileMeta = "MP4 · 24.6 MB · 00:42",
   onComplete,
 }: {
-  fileName?: string;
-  fileMeta?: string;
-  onComplete?: () => void;
+  onComplete?: (file: File) => void;
 }) {
   const [state, setState] = useState<UploadState>("idle");
   const [dragOver, setDragOver] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const timerRef = useRef<number>(0);
+  const [file, setFile] = useState<File | null>(null);
+  const [hash, setHash] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    return () => window.clearTimeout(timerRef.current);
-  }, []);
-
-  const beginHashing = useCallback(() => {
-    if (state !== "idle") return;
-    setState("hashing");
-    timerRef.current = window.setTimeout(() => {
-      setState("done");
-      onComplete?.();
-    }, 1100);
-  }, [state, onComplete]);
+  const handleFile = useCallback(
+    async (selected: File | undefined | null) => {
+      if (!selected || state !== "idle") return;
+      setError(null);
+      setFile(selected);
+      setState("hashing");
+      try {
+        const digest = await sha256Hex(selected);
+        setHash(digest);
+        setState("done");
+        onComplete?.(selected);
+      } catch {
+        setState("idle");
+        setFile(null);
+        setError("Could not read this file. Try a different one.");
+      }
+    },
+    [state, onComplete],
+  );
 
   return (
     <div className="flex flex-col gap-4">
-      <div
-        onClick={() => state === "idle" && inputRef.current?.click()}
+      <label
         onDragOver={(e) => {
           e.preventDefault();
-          setDragOver(true);
+          if (state === "idle") setDragOver(true);
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
           e.preventDefault();
           setDragOver(false);
-          beginHashing();
+          void handleFile(e.dataTransfer.files?.[0]);
         }}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-10 text-center transition-colors",
+          "flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-10 text-center transition-colors",
+          state === "idle" ? "cursor-pointer" : "cursor-default",
           dragOver
             ? "border-accent-primary bg-accent-dim"
             : "border-border-subtle bg-surface-sunken hover:border-border-strong",
         )}
       >
         <input
-          ref={inputRef}
           type="file"
           className="hidden"
-          onChange={() => beginHashing()}
+          disabled={state !== "idle"}
+          onChange={(e) => void handleFile(e.target.files?.[0])}
         />
         <UploadCloud className="size-7 text-text-tertiary" />
         <p className="text-sm text-text-secondary">
@@ -70,13 +100,17 @@ export function UploadDropzone({
         <p className="text-[11px] text-text-tertiary">
           Accepted: JPG, PNG, MP4, MOV, MP3, WAV, PDF — max 500MB
         </p>
-      </div>
+      </label>
 
-      {state !== "idle" && (
+      {error && <p className="text-sm text-status-critical">{error}</p>}
+
+      {file && (
         <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface p-3">
           <div>
-            <p className="text-sm text-text-primary">{fileName}</p>
-            <p className="text-[11px] text-text-tertiary">{fileMeta}</p>
+            <p className="text-sm text-text-primary">{file.name}</p>
+            <p className="text-[11px] text-text-tertiary">
+              {file.type || "unknown type"} · {formatBytes(file.size)}
+            </p>
           </div>
           <div className="text-right">
             {state === "hashing" ? (
@@ -85,10 +119,12 @@ export function UploadDropzone({
                 hashing…
               </span>
             ) : (
-              <div className="flex items-center gap-1.5 font-mono text-xs text-status-safe">
-                <CheckCircle2 className="size-3.5" />
-                SHA-256: {DEMO_HASH.slice(0, 12)}…{DEMO_HASH.slice(-4)}
-              </div>
+              hash && (
+                <div className="flex items-center gap-1.5 font-mono text-xs text-status-safe">
+                  <CheckCircle2 className="size-3.5" />
+                  SHA-256: {hash.slice(0, 12)}…{hash.slice(-4)}
+                </div>
+              )
             )}
           </div>
         </div>
