@@ -2,6 +2,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import { path as ffprobePath } from "@ffprobe-installer/ffprobe";
 import { parse as parseExif } from "exifr";
+import { PDFParse } from "pdf-parse";
 
 const execFileAsync = promisify(execFile);
 
@@ -33,10 +34,12 @@ export async function extractMetadata(
   if (mimeType.startsWith("image/")) {
     return extractImageExif(buffer);
   }
-  // Documents and anything else: no container/EXIF concept — a real system
-  // would OCR/inspect PDF structure here (per the plan's document-modality
-  // scope, deprioritized below image/video); return an honestly-empty result
-  // rather than fabricate fields that don't apply to this file type.
+  if (mimeType === "application/pdf") {
+    return extractPdfMetadata(buffer);
+  }
+  // Anything else (unsupported document formats, etc.): no extraction path
+  // exists yet — return an honestly-empty result rather than fabricate
+  // fields that don't apply.
   return { container: null, resolution: null, duration: null, codec: null, encoderSignature: null, exifJson: null };
 }
 
@@ -121,5 +124,72 @@ async function extractImageExif(buffer: Buffer): Promise<ExtractedMetadata> {
   } catch (error) {
     console.warn(`[metadata] EXIF parse failed:`, error);
     return { container: null, resolution: null, duration: null, codec: null, encoderSignature: null, exifJson: null };
+  }
+}
+
+/**
+ * Real PDF Stage 1 extraction (document-modality stretch item from
+ * PS4_MVP_BUILD_PLAN.md §1's Phase 3 stretch list — "document OCR/tamper
+ * heuristic"). Uses `pdf-parse` (wraps pdf.js) to read the actual PDF Info
+ * dictionary and extract the document's real text content — no OCR image
+ * rendering for scanned/image-only PDFs, just direct text-layer extraction,
+ * which covers the born-digital-document case this platform's evidence is
+ * realistically going to be (court filings, screenshots-as-PDF, reports).
+ *
+ * The tamper heuristic here is deliberately narrow and checkable, not a
+ * fabricated verdict: a document's ModDate meaningfully later than its
+ * CreationDate is a real, verifiable fact (the file was edited after it
+ * was first created) — the same class of signal as the video-encoder/
+ * image-Software tag already used elsewhere, just for documents. This
+ * result is never fed into Evidence Fusion (fuseEvidence needs a
+ * classifierScore, and there's no real document-tamper ML model behind
+ * this) — it only surfaces as metadata, same as the honest gap it
+ * replaces.
+ */
+const MODIFIED_AFTER_CREATION_THRESHOLD_MS = 60_000; // >1 minute apart — same-session saves land within seconds
+
+async function extractPdfMetadata(buffer: Buffer): Promise<ExtractedMetadata> {
+  let parser: PDFParse | null = null;
+  try {
+    parser = new PDFParse({ data: buffer });
+    const info = await parser.getInfo();
+    const dates = info.getDateNode();
+    const text = await parser.getText();
+
+    const producer = typeof info.info?.Producer === "string" ? info.info.Producer : null;
+    const creator = typeof info.info?.Creator === "string" ? info.info.Creator : null;
+    const toolSignature = [creator, producer].filter((v, i, arr) => v && arr.indexOf(v) === i).join(" / ") || null;
+
+    let modifiedAfterCreation = false;
+    if (dates.CreationDate && dates.ModDate) {
+      modifiedAfterCreation =
+        dates.ModDate.getTime() - dates.CreationDate.getTime() > MODIFIED_AFTER_CREATION_THRESHOLD_MS;
+    }
+
+    const encoderSignature = modifiedAfterCreation
+      ? `${toolSignature ?? "unknown tool"} — modified after creation`
+      : toolSignature;
+
+    return {
+      container: "PDF",
+      resolution: null,
+      duration: null,
+      codec: null,
+      encoderSignature,
+      exifJson: JSON.stringify({
+        producer,
+        creator,
+        creationDate: dates.CreationDate?.toISOString() ?? null,
+        modDate: dates.ModDate?.toISOString() ?? null,
+        modifiedAfterCreation,
+        pageCount: text.total,
+        textPreview: text.text.slice(0, 2000),
+      }),
+    };
+  } catch (error) {
+    console.warn(`[metadata] PDF parse failed:`, error);
+    return { container: null, resolution: null, duration: null, codec: null, encoderSignature: null, exifJson: null };
+  } finally {
+    await parser?.destroy();
   }
 }

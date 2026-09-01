@@ -19,6 +19,13 @@ const nextConfig: NextConfig = {
     // same "Turbopack can't bundle this" class of package as the others
     // above.
     "puppeteer-core",
+    // pdfjs-dist (pdf-parse's dependency) dynamically resolves its worker
+    // script at runtime by path — Turbopack rewrites that path during
+    // bundling, so the worker file it tries to `import()` doesn't exist at
+    // the rewritten location ("Cannot find module .../pdf.worker.mjs").
+    // Native require sidesteps the rewrite, same fix as the others above.
+    "pdf-parse",
+    "pdfjs-dist",
   ],
 };
 

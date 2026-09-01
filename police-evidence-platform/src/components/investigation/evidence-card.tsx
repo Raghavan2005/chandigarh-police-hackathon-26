@@ -127,20 +127,25 @@ export function EvidenceCard({
           <RealPipelinePanel evidence={evidence} />
         </div>
       ) : evidence.metadataResult ? (
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border-subtle pt-3 text-xs sm:grid-cols-4">
-          <Field label="Container" value={evidence.metadataResult.container} />
-          <Field label="Resolution" value={evidence.metadataResult.resolution} />
-          <Field label="Duration" value={evidence.metadataResult.duration} />
-          <Field label="Codec" value={evidence.metadataResult.codec} />
-          {evidence.metadataResult.encoderSignature && (
-            <Field
-              label="Encoder signature"
-              value={evidence.metadataResult.encoderSignature}
-              className="col-span-2 sm:col-span-4"
-              highlight
-            />
+        <>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border-subtle pt-3 text-xs sm:grid-cols-4">
+            <Field label="Container" value={evidence.metadataResult.container} />
+            <Field label="Resolution" value={evidence.metadataResult.resolution} />
+            <Field label="Duration" value={evidence.metadataResult.duration} />
+            <Field label="Codec" value={evidence.metadataResult.codec} />
+            {evidence.metadataResult.encoderSignature && (
+              <Field
+                label={evidence.metadataResult.container === "PDF" ? "Editing tool signature" : "Encoder signature"}
+                value={evidence.metadataResult.encoderSignature}
+                className="col-span-2 sm:col-span-4"
+                highlight
+              />
+            )}
+          </dl>
+          {evidence.metadataResult.container === "PDF" && evidence.metadataResult.exifJson && (
+            <DocumentDetails exifJson={evidence.metadataResult.exifJson} />
           )}
-        </dl>
+        </>
       ) : (
         <p className="flex items-center gap-1.5 border-t border-border-subtle pt-3 text-xs text-text-tertiary">
           <Clock3 className="size-3.5" />
@@ -289,6 +294,54 @@ function Field({
     <div className={className}>
       <dt className="text-text-tertiary">{label}</dt>
       <dd className={highlight ? "font-medium text-status-warning" : "text-text-primary"}>{value}</dd>
+    </div>
+  );
+}
+
+interface PdfDocumentInfo {
+  producer: string | null;
+  creator: string | null;
+  creationDate: string | null;
+  modDate: string | null;
+  modifiedAfterCreation: boolean;
+  pageCount: number;
+  textPreview: string;
+}
+
+/** Real PDF Stage 1 extraction results (src/lib/metadata.ts's
+ * extractPdfMetadata) — page count, dates, and an actual text-content
+ * preview extracted from the document's real text layer, not OCR'd from a
+ * rendered image (that's a further scope cut, not something this build
+ * claims to do). */
+function DocumentDetails({ exifJson }: { exifJson: string }) {
+  let info: PdfDocumentInfo | null = null;
+  try {
+    info = JSON.parse(exifJson);
+  } catch {
+    return null;
+  }
+  if (!info) return null;
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border-subtle pt-3 text-xs">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+        <Field label="Pages" value={String(info.pageCount)} />
+        {info.creationDate && <Field label="Created" value={new Date(info.creationDate).toLocaleString()} />}
+        {info.modDate && <Field label="Modified" value={new Date(info.modDate).toLocaleString()} />}
+      </div>
+      {info.modifiedAfterCreation && (
+        <p className="flex items-center gap-1.5 rounded-md border border-status-warning/30 bg-status-warning-bg px-2.5 py-1.5 text-status-warning">
+          <AlertTriangle className="size-3.5 shrink-0" />
+          Modified after creation — not proof of tampering on its own, but worth checking against the claimed
+          chain of custody.
+        </p>
+      )}
+      {info.textPreview && (
+        <div>
+          <p className="text-[11px] font-medium text-text-secondary">Extracted text (preview)</p>
+          <p className="mt-1 line-clamp-4 whitespace-pre-line text-text-tertiary">{info.textPreview}</p>
+        </div>
+      )}
     </div>
   );
 }
