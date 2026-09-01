@@ -6,6 +6,7 @@ import path from "path";
 // which is process.cwd() when the Next.js server is running — no ".." here.
 const STORAGE_DIR = path.join(process.cwd(), "storage");
 const UPLOADS_DIR = path.join(STORAGE_DIR, "uploads");
+const HEATMAPS_DIR = path.join(STORAGE_DIR, "heatmaps");
 
 const EXTENSION_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -50,4 +51,15 @@ export function writeEvidenceFile(sha256: string, mimeType: string, buffer: Buff
  * path — needed by anything that opens the file directly (ffprobe, exifr). */
 export function resolveEvidencePath(relativeFilePath: string): string {
   return path.join(STORAGE_DIR, relativeFilePath);
+}
+
+/** Decodes and writes a Grad-CAM heatmap PNG (base64, from the ML service
+ * response) to storage/heatmaps/, keyed by evidence ID rather than content
+ * hash — unlike the source file, a heatmap is a derived artifact tied to one
+ * detection run, not a piece of evidence to dedupe by bytes. */
+export function writeHeatmap(evidenceId: string, heatmapPngBase64: string): string {
+  mkdirSync(HEATMAPS_DIR, { recursive: true });
+  const filename = `${evidenceId}.png`;
+  writeFileSync(path.join(HEATMAPS_DIR, filename), Buffer.from(heatmapPngBase64, "base64"));
+  return path.join("heatmaps", filename);
 }
