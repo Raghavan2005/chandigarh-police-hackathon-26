@@ -16,19 +16,23 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   return (
     <div className="flex h-screen w-full overflow-hidden print:block print:h-auto print:overflow-visible">
-      <div className="print:hidden">
-        <Sidebar />
-      </div>
+      {/* print:hidden lives directly on Sidebar's/Topbar's own root element
+          (not a wrapper div around them) — a wrapper div here breaks the
+          flex height-stretch chain from this container down to <aside>,
+          since the wrapper itself isn't a flex container. That regression
+          shipped with the original print-leak fix and only showed up on
+          taller viewports (short/typical browser windows happened to hide
+          it): the sidebar rendered only as tall as its own nav content
+          instead of the full screen height, leaving a visible gap below it.
+          The Puppeteer PDF export (report.pdf) navigates to the actual app
+          page and prints it, so the app shell still has to be hidden in
+          print media — otherwise it leaks into the exported PDF, which a
+          real render originally caught and window.print() alone never
+          surfaced since nobody had verified an actual printed/exported
+          output before. */}
+      <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col print:block">
-        <div className="print:hidden">
-          <Topbar session={{ name: session.name, role: session.role }} />
-        </div>
-        {/* The Puppeteer PDF export (report.pdf) navigates to the actual
-            app page and prints it, so the app shell (sidebar/topbar) must
-            be hidden in print media — otherwise it leaks into the exported
-            PDF, which a real render caught and window.print() alone never
-            surfaced since nobody had verified an actual printed/exported
-            output before. */}
+        <Topbar session={{ name: session.name, role: session.role }} />
         <main className="flex-1 overflow-y-auto print:overflow-visible">{children}</main>
       </div>
     </div>

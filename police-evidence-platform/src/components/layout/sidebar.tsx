@@ -48,7 +48,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r border-border-subtle bg-surface md:flex">
+    <aside className="hidden w-60 shrink-0 flex-col border-r border-border-subtle bg-surface md:flex print:hidden">
       <div className="flex h-14 items-center gap-2.5 border-b border-border-subtle px-4">
         <Image
           src="/Chandigarh_Police_Logo.png"

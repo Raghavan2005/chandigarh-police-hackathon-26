@@ -25,7 +25,7 @@ export function Topbar({ session }: { session: { name: string; role: string } })
   }
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border-subtle bg-canvas px-4 md:px-6">
+    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border-subtle bg-canvas px-4 md:px-6 print:hidden">
       <div className="flex md:hidden items-center gap-2">
         <Image src="/Chandigarh_Police_Logo.png" alt="Chandigarh Police" width={28} height={28} />
       </div>
