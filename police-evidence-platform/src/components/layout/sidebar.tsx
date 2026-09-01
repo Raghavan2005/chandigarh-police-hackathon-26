@@ -30,7 +30,17 @@ const NAV = [
   { href: "/cases", label: "Evidence Vault", icon: ShieldCheck, disabled: true },
   { href: "/", label: "Investigations", icon: ShieldAlert, disabled: true },
   { href: "/", label: "Alerts", icon: Bell, disabled: true },
-  { href: "/audit", label: "Audit Log", icon: ScrollText, disabled: true },
+  {
+    href: "/audit",
+    label: "Audit Log",
+    icon: ScrollText,
+    // Real, working, admin-gated page (the page itself shows a clear
+    // "Admin access required" message to non-admins) — was incorrectly
+    // marked disabled/"Soon" here, making a fully built feature reachable
+    // only by typing the URL directly. Found during the Phase 3 UI-state
+    // audit; not a placeholder like its still-disabled siblings above.
+    isActive: (p: string) => p === "/audit",
+  },
   { href: "/", label: "Settings", icon: Settings, disabled: true },
 ] as const;
 

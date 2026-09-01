@@ -164,6 +164,17 @@ export function EvidenceCard({
         <div className="flex min-w-0 flex-col gap-4">
           <div className="rounded-lg border border-border-subtle bg-surface-sunken p-4">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Verdict</p>
+            {status === "error" && (
+              // Shown in addition to (not instead of) a stale verdict below —
+              // a re-investigate call can fail after a prior one already
+              // succeeded, and silently leaving the old verdict displayed
+              // with no indication the fresh attempt failed would mislead an
+              // investigator into treating stale data as current.
+              <p className="mb-2 flex items-center gap-1.5 rounded-md border border-status-critical/30 bg-status-critical-bg px-2.5 py-1.5 text-xs text-status-critical">
+                <AlertTriangle className="size-3.5 shrink-0" />
+                Re-investigation failed: {errorMessage}
+              </p>
+            )}
             {verdict ? (
               <div className={cn("rounded-md border px-2.5 py-2 text-xs", VERDICT_STYLE[verdict] ?? VERDICT_STYLE.INCONCLUSIVE)}>
                 <p className="font-semibold uppercase tracking-wide">
@@ -171,18 +182,13 @@ export function EvidenceCard({
                 </p>
                 {explanation && <p className="mt-1 text-[11px] opacity-90">{explanation}</p>}
               </div>
-            ) : status === "error" ? (
-              <p className="flex items-center gap-1.5 rounded-md border border-status-critical/30 bg-status-critical-bg px-2.5 py-1.5 text-xs text-status-critical">
-                <AlertTriangle className="size-3.5 shrink-0" />
-                {errorMessage}
-              </p>
-            ) : (
+            ) : status !== "error" ? (
               <p className="rounded-md border border-status-inconclusive/30 bg-status-inconclusive-bg px-2.5 py-1.5 text-xs text-status-inconclusive">
                 {canInvestigate
                   ? "Detection and Evidence Fusion haven't run on this file yet — no verdict to show."
                   : "Not available — no verdict to show."}
               </p>
-            )}
+            ) : null}
           </div>
 
           <div className="rounded-lg border border-border-subtle bg-surface-sunken p-4">

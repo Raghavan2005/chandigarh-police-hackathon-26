@@ -137,7 +137,10 @@ export default async function AuditLogPage() {
                     <TableCell className="max-w-[220px] truncate font-mono text-xs text-text-tertiary">
                       {a.evidenceHash ?? "—"}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-text-tertiary">
+                    <TableCell
+                      className="max-w-[220px] truncate text-right font-mono text-xs text-text-tertiary"
+                      title={a.device ?? undefined}
+                    >
                       {a.device ?? "—"}
                     </TableCell>
                   </TableRow>
