@@ -9,6 +9,8 @@ const CANDIDATE_CHROME_PATHS = [
   "/usr/bin/chromium-browser",
   "/usr/bin/chromium",
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
 ].filter((p): p is string => Boolean(p));
 
 function findChromeExecutable(): string {

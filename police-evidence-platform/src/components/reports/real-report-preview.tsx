@@ -48,6 +48,8 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
   const generatedAt = new Date();
   const [pdfStatus, setPdfStatus] = useState<"idle" | "rendering" | "error">("idle");
   const [pdfError, setPdfError] = useState("");
+  const [jsonStatus, setJsonStatus] = useState<"idle" | "downloading" | "error">("idle");
+  const [jsonError, setJsonError] = useState("");
 
   // Fetches from GET /api/cases/:id/report.json — the single source of
   // truth for the export payload (PS4_MVP_BUILD_PLAN.md §5) — instead of
@@ -55,8 +57,15 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
   // audit entry as a side effect (closes the "Audit log wired to every
   // real action" gap: export previously had no server round-trip at all).
   const downloadJson = async () => {
+    setJsonStatus("downloading");
+    setJsonError("");
     const response = await fetch(`/api/cases/${caseData.id}/report.json`).catch(() => null);
-    if (!response || !response.ok) return;
+    if (!response || !response.ok) {
+      const body = await response?.json().catch(() => null);
+      setJsonStatus("error");
+      setJsonError(body?.error ?? "JSON export failed — check your connection and try again.");
+      return;
+    }
     const payload = await response.json();
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -65,6 +74,7 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
     a.download = `${caseData.id}-evidence-report.json`;
     a.click();
     URL.revokeObjectURL(url);
+    setJsonStatus("idle");
   };
 
   // Real server-rendered PDF (GET /api/cases/:id/report.pdf) — a headless
@@ -102,9 +112,13 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
         </p>
         <div className="flex flex-col items-end gap-1.5">
           <div className="flex gap-2">
-            <button onClick={downloadJson} className={buttonVariants({ variant: "outline", size: "sm" })}>
-              <FileJson className="size-4" />
-              Export JSON
+            <button
+              onClick={downloadJson}
+              disabled={jsonStatus === "downloading"}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              {jsonStatus === "downloading" ? <Loader2 className="size-4 animate-spin" /> : <FileJson className="size-4" />}
+              {jsonStatus === "downloading" ? "Preparing JSON…" : "Export JSON"}
             </button>
             <button
               onClick={downloadPdf}
@@ -115,6 +129,12 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
               {pdfStatus === "rendering" ? "Rendering PDF…" : "Export PDF"}
             </button>
           </div>
+          {jsonStatus === "error" && (
+            <p role="alert" className="flex items-center gap-1.5 text-xs text-status-critical">
+              <AlertTriangle className="size-3.5 shrink-0" />
+              {jsonError}
+            </p>
+          )}
           {pdfStatus === "error" && (
             <p role="alert" className="flex items-center gap-1.5 text-xs text-status-critical">
               <AlertTriangle className="size-3.5 shrink-0" />

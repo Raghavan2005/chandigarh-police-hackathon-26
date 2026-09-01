@@ -36,6 +36,7 @@ export function RealEvidenceViewer({
   const isSensitive = sensitivityLevel !== "standard";
   const [revealed, setRevealed] = useState(!isSensitive);
   const [revealing, setRevealing] = useState(false);
+  const [revealError, setRevealError] = useState("");
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [showFaceBox, setShowFaceBox] = useState(false);
 
@@ -76,9 +77,19 @@ export function RealEvidenceViewer({
 
   async function handleReveal() {
     setRevealing(true);
-    await fetch(`/api/cases/${caseId}/evidence/${evidenceId}/reveal`, { method: "POST" }).catch(() => null);
-    setRevealed(true);
+    setRevealError("");
+    const response = await fetch(`/api/cases/${caseId}/evidence/${evidenceId}/reveal`, { method: "POST" }).catch(
+      () => null,
+    );
     setRevealing(false);
+    // Revealing without a confirmed audit entry would defeat the whole
+    // point of gating sensitive content behind a logged action — only
+    // un-blur once the server confirms the AuditLogEntry was written.
+    if (!response || !response.ok) {
+      setRevealError("Could not log this access — content stays hidden. Check your connection and try again.");
+      return;
+    }
+    setRevealed(true);
   }
 
   const isImage = mimeType.startsWith("image/");
@@ -140,6 +151,7 @@ export function RealEvidenceViewer({
               <Eye className="size-4" />
               {revealing ? "Logging access…" : "View sensitive content"}
             </button>
+            {revealError && <p className="max-w-xs text-xs text-status-critical">{revealError}</p>}
           </div>
         ) : (
           <>
