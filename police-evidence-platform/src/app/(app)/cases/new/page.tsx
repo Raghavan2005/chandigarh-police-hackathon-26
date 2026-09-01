@@ -22,6 +22,8 @@ export default function NewCasePage() {
   const [firNumber, setFirNumber] = useState("");
   const [policeStation, setPoliceStation] = useState("");
   const [district, setDistrict] = useState("Chandigarh (UT)");
+  const [investigatorRank, setInvestigatorRank] = useState("");
+  const [investigatorBadgeNo, setInvestigatorBadgeNo] = useState("");
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [sensitivityLevel, setSensitivityLevel] = useState<"standard" | "ncii" | "minor">("standard");
@@ -62,6 +64,8 @@ export default function NewCasePage() {
         summary: summary.trim() || undefined,
         evidenceKind: kind,
         sensitivityLevel,
+        investigatorRank: investigatorRank.trim() || undefined,
+        investigatorBadgeNo: investigatorBadgeNo.trim() || undefined,
       }),
     }).catch(() => null);
 
@@ -144,6 +148,34 @@ export default function NewCasePage() {
               </Label>
               <Input id="district" value={district} onChange={(e) => setDistrict(e.target.value)} required />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="investigatorRank" className="text-text-secondary">
+                  Your rank <span className="font-normal text-text-tertiary">(optional)</span>
+                </Label>
+                <Input
+                  id="investigatorRank"
+                  value={investigatorRank}
+                  onChange={(e) => setInvestigatorRank(e.target.value)}
+                  placeholder="e.g. Sub-Inspector"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="investigatorBadgeNo" className="text-text-secondary">
+                  Badge / PIS no. <span className="font-normal text-text-tertiary">(optional)</span>
+                </Label>
+                <Input
+                  id="investigatorBadgeNo"
+                  value={investigatorBadgeNo}
+                  onChange={(e) => setInvestigatorBadgeNo(e.target.value)}
+                  placeholder="e.g. PIS-04471"
+                />
+              </div>
+            </div>
+            <p className="-mt-3 text-[11px] text-text-tertiary">
+              Recorded on the Section 63 BSA certificate as your declarant particulars — leave blank if not
+              applicable and it will be shown as unrecorded on the exported report.
+            </p>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="title" className="text-text-secondary">
                 Case title
@@ -233,7 +265,10 @@ export default function NewCasePage() {
               <dt className="text-text-tertiary">File</dt>
               <dd className="truncate text-text-primary">{file?.name}</dd>
               <dt className="text-text-tertiary">Assigned to</dt>
-              <dd className="text-text-primary">{investigatorName ?? "…"} (you)</dd>
+              <dd className="text-text-primary">
+                {investigatorName ?? "…"} (you){investigatorRank ? `, ${investigatorRank}` : ""}
+                {investigatorBadgeNo ? ` — ${investigatorBadgeNo}` : ""}
+              </dd>
             </dl>
             {status === "error" && (
               <p role="alert" className="text-sm text-status-critical">
