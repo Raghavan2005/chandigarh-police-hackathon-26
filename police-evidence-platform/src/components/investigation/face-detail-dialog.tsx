@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Loader2, ScanEye, SearchCheck } from "lucide-react";
+import { AlertTriangle, ExternalLink, Loader2, ScanEye, SearchCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -241,29 +241,11 @@ export function FaceDetailDialog({
                 </button>
               </div>
               {searchResult.fullMatches.length + searchResult.partialMatches.length === 0 ? (
-                <p className="text-text-tertiary">No matches found in Google&apos;s index.</p>
+                <p className="text-text-tertiary">No matches found in the index.</p>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {[...searchResult.fullMatches, ...searchResult.partialMatches].slice(0, 8).map((url, i) => (
-                    <a
-                      key={i}
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      title={url}
-                      className="block size-12 shrink-0 overflow-hidden rounded border border-border-subtle bg-surface-sunken"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={url}
-                        alt=""
-                        referrerPolicy="no-referrer"
-                        className="size-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.visibility = "hidden";
-                        }}
-                      />
-                    </a>
+                    <FaceMatchThumbnail key={i} url={url} caseId={caseId} evidenceId={evidenceId} faceIndex={faceIndex} />
                   ))}
                 </div>
               )}
@@ -328,5 +310,63 @@ export function FaceDetailDialog({
         <DialogFooter showCloseButton />
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Same real thumbnail-loading fallback as the exhibit-level reverse-image
+ * search panel: try a direct hotlink first, fall back to our own
+ * server-side proxy (which validates content-type is actually an image
+ * and that the URL is one this face's own cached result already
+ * returned) for hosts that block direct browser hotlinking, and only show
+ * a plain link if both real attempts fail.
+ */
+function FaceMatchThumbnail({
+  url,
+  caseId,
+  evidenceId,
+  faceIndex,
+}: {
+  url: string;
+  caseId: string;
+  evidenceId: string;
+  faceIndex: number;
+}) {
+  const [stage, setStage] = useState<"direct" | "proxied" | "broken">("direct");
+  const proxyUrl = `/api/cases/${caseId}/evidence/${evidenceId}/faces/${faceIndex}/reverse-image-search/proxy?url=${encodeURIComponent(url)}`;
+
+  if (stage === "broken") {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer noopener"
+        title={url}
+        className="flex size-12 flex-col items-center justify-center gap-0.5 rounded border border-dashed border-border-subtle bg-surface-sunken text-center text-[7px] text-text-tertiary hover:border-border-strong"
+      >
+        <ExternalLink className="size-3 shrink-0" />
+        Blocked
+      </a>
+    );
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer noopener"
+      title={url}
+      className="block size-12 shrink-0 overflow-hidden rounded border border-border-subtle bg-surface-sunken hover:border-border-strong"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={stage === "direct" ? url : proxyUrl}
+        alt=""
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        className="size-full object-cover"
+        onError={() => setStage((s) => (s === "direct" ? "proxied" : "broken"))}
+      />
+    </a>
   );
 }

@@ -168,7 +168,7 @@ export function ReverseImageSearchPanel({
       )}
 
       {!hasAnyMatch && (
-        <p className="text-text-tertiary">No exact or visually-similar matches found in Google&apos;s index.</p>
+        <p className="text-text-tertiary">No exact or visually-similar matches found in the index.</p>
       )}
 
       {result && result.fullMatches.length > 0 && (
