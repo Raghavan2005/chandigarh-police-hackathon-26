@@ -7,7 +7,7 @@ import { AlertTriangle, Clock3, FileDigit, GitCompareArrows, Loader2, ScanSearch
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
-import { RealEvidenceViewer } from "@/components/investigation/real-evidence-viewer";
+import { RealEvidenceViewer, type CachedTranscript } from "@/components/investigation/real-evidence-viewer";
 import { RealFusionSignals } from "@/components/investigation/real-fusion-signals";
 import { RealPipelinePanel } from "@/components/investigation/real-pipeline-panel";
 import { OverrideDialog } from "@/components/investigation/override-dialog";
@@ -158,6 +158,7 @@ export function EvidenceCard({
             faceCropCount={parseFaceCropCount(evidence.detectionResult?.faceCropPathsJson)}
             faceAnnotations={parseFaceAnnotations(evidence.faceAnnotations)}
             frameScores={parseFrameScores(evidence.detectionResult?.frameScoresJson)}
+            cachedTranscript={parseTranscript(evidence.transcriptResult)}
           />
           {showFaceMatchSlot && (
             <ReverseImageSearchPanel
@@ -517,6 +518,22 @@ function parseImageDescriptionResult(
       description: row.description,
       possibleIdentities: JSON.parse(row.possibleIdentitiesJson),
       ranAt: row.ranAt.toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseTranscript(row: Evidence["transcriptResult"]): CachedTranscript | null {
+  if (!row) return null;
+  try {
+    return {
+      language: row.language,
+      segments: JSON.parse(row.segmentsJson),
+      truncated: row.truncated,
+      hasSpeech: row.hasSpeech,
+      speechRatio: row.speechRatio,
+      translations: row.translations.map((t) => ({ targetLang: t.targetLang, segments: JSON.parse(t.segmentsJson) })),
     };
   } catch {
     return null;

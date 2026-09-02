@@ -2,12 +2,32 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Camera, Eye, EyeOff, Loader2, ScanFace } from "lucide-react";
+import {
+  AlertTriangle,
+  Camera,
+  Captions,
+  Eye,
+  EyeOff,
+  Languages,
+  Loader2,
+  Mic,
+  ScanFace,
+  ShieldAlert,
+  ShieldCheck,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { AudioAnalyser } from "@/components/investigation/audio-analyser";
 import { FaceDetailDialog, type FaceAnnotationData } from "@/components/investigation/face-detail-dialog";
-import { MediaPlayer, MediaProvider, type MediaPlayerInstance, type VideoMimeType, type AudioMimeType } from "@vidstack/react";
+import {
+  MediaPlayer,
+  MediaProvider,
+  useActiveTextCues,
+  useActiveTextTrack,
+  type MediaPlayerInstance,
+  type VideoMimeType,
+  type AudioMimeType,
+} from "@vidstack/react";
 import { defaultLayoutIcons, DefaultVideoLayout, DefaultAudioLayout } from "@vidstack/react/player/layouts/default";
 import "@vidstack/react/player/styles/default/theme.css";
 import "@vidstack/react/player/styles/default/layouts/video.css";
@@ -23,6 +43,93 @@ function formatTimestamp(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+export interface TranscriptSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface CachedTranscript {
+  language: string;
+  segments: TranscriptSegment[];
+  truncated: boolean;
+  // Null until an investigator explicitly runs "Validate speech" — a real
+  // Silero VAD check, independent of Whisper's own output (see
+  // speech_validator.py). Never auto-populated: a non-empty transcript
+  // alone doesn't prove the clip actually contains speech, since Whisper's
+  // best-known failure mode is hallucinating plausible text over silence/
+  // music/noise.
+  hasSpeech: boolean | null;
+  speechRatio: number | null;
+  translations: { targetLang: string; segments: TranscriptSegment[] }[];
+}
+
+// Mirrors translator.py's SUPPORTED_LANGUAGES allowlist — kept as a small
+// UI-side duplicate rather than fetched from the ml-service at render time,
+// same tradeoff as the mock's hardcoded playback-rate options: this list
+// changes rarely enough that a static duplicate is simpler than adding a
+// new "list supported languages" round trip.
+const TRANSLATION_LANGUAGES: { code: string; label: string }[] = [
+  { code: "en", label: "English" },
+  { code: "hi", label: "Hindi" },
+  { code: "pa", label: "Punjabi" },
+  { code: "ur", label: "Urdu" },
+  { code: "bn", label: "Bengali" },
+  { code: "ta", label: "Tamil" },
+  { code: "te", label: "Telugu" },
+  { code: "mr", label: "Marathi" },
+  { code: "gu", label: "Gujarati" },
+  { code: "ar", label: "Arabic" },
+  { code: "fr", label: "French" },
+  { code: "es", label: "Spanish" },
+];
+
+function languageLabel(code: string): string {
+  return TRANSLATION_LANGUAGES.find((l) => l.code === code)?.label ?? code.toUpperCase();
+}
+
+/** Builds a WebVTT string from Whisper's {start,end,text} segments (seconds)
+ * — Vidstack's TextTrack `content` accepts a real VTT string directly, so
+ * this is the only format conversion needed to hand a transcript to the
+ * player's own native caption renderer. */
+function segmentsToVtt(segments: TranscriptSegment[]): string {
+  const toVttTime = (seconds: number) => {
+    const s = Math.max(0, seconds);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${sec.toFixed(3).padStart(6, "0")}`;
+  };
+  const cues = segments
+    .map((seg, i) => `${i + 1}\n${toVttTime(seg.start)} --> ${toVttTime(seg.end)}\n${seg.text}`)
+    .join("\n\n");
+  return `WEBVTT\n\n${cues}`;
+}
+
+/**
+ * Renders no DOM of its own — a bridge that must live inside <MediaPlayer>
+ * (Vidstack's active-track/active-cue hooks read React context that only
+ * exists there) purely to lift the currently-showing caption line out to
+ * the parent's own state. Needed instead of Vidstack's own <Captions>
+ * overlay component because that one is CSS-absolute-positioned above the
+ * audio control bar (`bottom: calc(100% + offset)`), which gets clipped by
+ * this viewer's `overflow-hidden` container — this renders the caption
+ * text in normal document flow instead, wherever the parent puts it
+ * (specifically: above the waveform visualizer, at direct request), with
+ * zero positioning/clipping risk. Stays in sync with whichever track the
+ * user actually has selected from the player's own native CC menu, not a
+ * separately-tracked selection.
+ */
+function ActiveCaptionBridge({ onChange }: { onChange: (text: string) => void }) {
+  const track = useActiveTextTrack("captions");
+  const cues = useActiveTextCues(track);
+  const text = cues.map((c) => c.text).join(" ");
+  useEffect(() => {
+    onChange(text);
+  }, [text, onChange]);
+  return null;
 }
 
 type OverlayMode = "none" | "heatmap" | "negative" | "edge";
@@ -65,6 +172,7 @@ export function RealEvidenceViewer({
   faceCropCount,
   faceAnnotations,
   frameScores,
+  cachedTranscript,
 }: {
   caseId: string;
   evidenceId: string;
@@ -75,6 +183,7 @@ export function RealEvidenceViewer({
   faceCropCount: number;
   faceAnnotations: Map<number, FaceAnnotationData>;
   frameScores: FrameScore[] | null;
+  cachedTranscript: CachedTranscript | null;
 }) {
   const router = useRouter();
   const isSensitive = sensitivityLevel !== "standard";
@@ -95,6 +204,27 @@ export function RealEvidenceViewer({
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [extractStatus, setExtractStatus] = useState<"idle" | "extracting" | "error">("idle");
   const [extractError, setExtractError] = useState("");
+  const [transcript, setTranscript] = useState<CachedTranscript | null>(cachedTranscript);
+  const [transcriptStatus, setTranscriptStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [transcriptError, setTranscriptError] = useState("");
+  const [translateTarget, setTranslateTarget] = useState("hi");
+  const [translatingLang, setTranslatingLang] = useState<string | null>(null);
+  const [translateError, setTranslateError] = useState("");
+  const [validatingSpeech, setValidatingSpeech] = useState(false);
+  const [validateSpeechError, setValidateSpeechError] = useState("");
+  // Which languages already have a live TextTrack attached to the player —
+  // a ref, not state, since it's write-once-per-language bookkeeping that
+  // shouldn't itself trigger a re-render. Vidstack allows only one
+  // TextTrack per element instance; re-adding the same language on a
+  // second render (e.g. after an unrelated state update) would otherwise
+  // silently duplicate entries in the player's own caption menu.
+  const addedCaptionTracksRef = useRef<Set<string>>(new Set());
+  // Current caption line for the audio player's caption-text box above the
+  // waveform — lifted out of Vidstack's own reactive state via
+  // ActiveCaptionBridge. Video doesn't need this: Vidstack's <Captions>
+  // overlay already renders directly inside the video frame via
+  // DefaultVideoLayout.
+  const [activeCaptionText, setActiveCaptionText] = useState("");
 
   const containerRef = useRef<HTMLDivElement>(null);
   // Seeking/reading currentTime goes through this (Vidstack's own real
@@ -146,6 +276,36 @@ export function RealEvidenceViewer({
       video.removeEventListener("seeked", handleSeeked);
     };
   }, [mediaEl]);
+
+  // Pushes the transcript (and any translations already fetched) into
+  // Vidstack's own TextTrackList as real "captions" tracks — its default
+  // layout already renders a CC button + track-picker menu once any track
+  // exists, so this is the entire caption UI; no custom overlay component.
+  // Runs whenever `transcript` changes AND whenever `mediaEl` newly becomes
+  // available (Vidstack attaches its provider asynchronously — see the
+  // comment on `mediaEl`'s declaration above — so a transcript that arrived
+  // before the provider was ready needs a second pass once it is).
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || !transcript) return;
+    const addTrack = (lang: string, label: string, segments: TranscriptSegment[], isDefault: boolean) => {
+      if (addedCaptionTracksRef.current.has(lang) || segments.length === 0) return;
+      addedCaptionTracksRef.current.add(lang);
+      player.textTracks.add({
+        kind: "captions",
+        label,
+        language: lang,
+        type: "vtt",
+        content: segmentsToVtt(segments),
+        default: isDefault,
+      });
+    };
+    addTrack(transcript.language, `${languageLabel(transcript.language)} (original)`, transcript.segments, true);
+    for (const t of transcript.translations) {
+      addTrack(t.targetLang, `${languageLabel(t.targetLang)} (translated)`, t.segments, false);
+    }
+  }, [transcript, mediaEl]);
+
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
   const CONTAINER_HEIGHT = 280; // matches the fixed h-[280px] on the media element below
@@ -214,6 +374,61 @@ export function RealEvidenceViewer({
     }
     setExtractStatus("idle");
     router.refresh();
+  }
+
+  async function handleGenerateCaptions() {
+    setTranscriptStatus("loading");
+    setTranscriptError("");
+    const response = await fetch(`/api/cases/${caseId}/evidence/${evidenceId}/transcript`, {
+      method: "POST",
+    }).catch(() => null);
+    if (!response || !response.ok) {
+      const body = await response?.json().catch(() => null);
+      setTranscriptStatus("error");
+      setTranscriptError(body?.error ?? "Could not generate captions — check the ML service is running and try again.");
+      return;
+    }
+    const data: CachedTranscript = await response.json();
+    setTranscript(data);
+    setTranscriptStatus("idle");
+  }
+
+  async function handleTranslate() {
+    setTranslatingLang(translateTarget);
+    setTranslateError("");
+    const response = await fetch(`/api/cases/${caseId}/evidence/${evidenceId}/transcript/translate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetLang: translateTarget }),
+    }).catch(() => null);
+    setTranslatingLang(null);
+    if (!response || !response.ok) {
+      const body = await response?.json().catch(() => null);
+      setTranslateError(body?.error ?? "Translation failed — check the ML service is running and try again.");
+      return;
+    }
+    const data: { targetLang: string; segments: TranscriptSegment[] } = await response.json();
+    setTranscript((prev) => {
+      if (!prev) return prev;
+      const withoutTarget = prev.translations.filter((t) => t.targetLang !== data.targetLang);
+      return { ...prev, translations: [...withoutTarget, { targetLang: data.targetLang, segments: data.segments }] };
+    });
+  }
+
+  async function handleValidateSpeech() {
+    setValidatingSpeech(true);
+    setValidateSpeechError("");
+    const response = await fetch(`/api/cases/${caseId}/evidence/${evidenceId}/transcript/validate-speech`, {
+      method: "POST",
+    }).catch(() => null);
+    setValidatingSpeech(false);
+    if (!response || !response.ok) {
+      const body = await response?.json().catch(() => null);
+      setValidateSpeechError(body?.error ?? "Speech validation failed — check the ML service is running and try again.");
+      return;
+    }
+    const data: { hasSpeech: boolean; speechRatio: number } = await response.json();
+    setTranscript((prev) => (prev ? { ...prev, hasSpeech: data.hasSpeech, speechRatio: data.speechRatio } : prev));
   }
 
   const isImage = mimeType.startsWith("image/");
@@ -367,6 +582,7 @@ export function RealEvidenceViewer({
               >
                 <MediaProvider />
                 <DefaultAudioLayout icons={defaultLayoutIcons} />
+                <ActiveCaptionBridge onChange={setActiveCaptionText} />
               </MediaPlayer>
             )}
             {showHeatmap && (isImage || isVideo) && (
@@ -475,6 +691,111 @@ export function RealEvidenceViewer({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {revealed && (isVideo || isAudio) && (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="flex items-center gap-1 font-mono text-text-tertiary">
+            <Captions className="size-3.5" />
+            Captions
+          </span>
+          {!transcript ? (
+            <button
+              type="button"
+              onClick={handleGenerateCaptions}
+              disabled={transcriptStatus === "loading"}
+              className={buttonVariants({ variant: "outline", size: "xs" })}
+            >
+              {transcriptStatus === "loading" ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Captions className="size-3.5" />
+              )}
+              {transcriptStatus === "loading" ? "Transcribing…" : "Generate captions"}
+            </button>
+          ) : (
+            <>
+              <span className="text-text-tertiary">
+                {languageLabel(transcript.language)} auto-detected
+                {transcript.truncated ? " (long file — captions cover the first 10 min only)" : ""}
+              </span>
+              <Languages className="size-3.5 text-text-tertiary" />
+              <select
+                value={translateTarget}
+                onChange={(e) => setTranslateTarget(e.target.value)}
+                className="rounded-md border border-border-subtle bg-surface px-1.5 py-1 text-text-primary"
+              >
+                {TRANSLATION_LANGUAGES.filter((l) => l.code !== transcript.language).map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleTranslate}
+                disabled={translatingLang !== null}
+                className={buttonVariants({ variant: "outline", size: "xs" })}
+              >
+                {translatingLang ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                {translatingLang
+                  ? `Translating to ${languageLabel(translatingLang)}…`
+                  : transcript.translations.some((t) => t.targetLang === translateTarget)
+                    ? "Re-translate"
+                    : "Translate captions"}
+              </button>
+              <span className="text-text-tertiary">
+                (switch tracks from the player&apos;s own CC menu)
+              </span>
+              {transcript.hasSpeech === null ? (
+                <button
+                  type="button"
+                  onClick={handleValidateSpeech}
+                  disabled={validatingSpeech}
+                  className={buttonVariants({ variant: "outline", size: "xs" })}
+                >
+                  {validatingSpeech ? <Loader2 className="size-3.5 animate-spin" /> : <Mic className="size-3.5" />}
+                  {validatingSpeech ? "Checking for speech…" : "Validate speech"}
+                </button>
+              ) : transcript.hasSpeech ? (
+                <span className="flex items-center gap-1 text-status-safe">
+                  <ShieldCheck className="size-3.5 shrink-0" />
+                  Speech confirmed ({Math.round((transcript.speechRatio ?? 0) * 100)}% of clip)
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-status-critical">
+                  <ShieldAlert className="size-3.5 shrink-0" />
+                  No clear speech detected ({Math.round((transcript.speechRatio ?? 0) * 100)}% of clip) — captions
+                  may be a hallucination, verify by ear
+                </span>
+              )}
+            </>
+          )}
+          {transcriptStatus === "error" && (
+            <span role="alert" className="flex items-center gap-1 text-status-critical">
+              <AlertTriangle className="size-3.5 shrink-0" />
+              {transcriptError}
+            </span>
+          )}
+          {translateError && (
+            <span role="alert" className="flex items-center gap-1 text-status-critical">
+              <AlertTriangle className="size-3.5 shrink-0" />
+              {translateError}
+            </span>
+          )}
+          {validateSpeechError && (
+            <span role="alert" className="flex items-center gap-1 text-status-critical">
+              <AlertTriangle className="size-3.5 shrink-0" />
+              {validateSpeechError}
+            </span>
+          )}
+        </div>
+      )}
+
+      {revealed && isAudio && activeCaptionText && (
+        <div className="rounded-md border border-border-subtle bg-surface-sunken px-3 py-2 text-center text-sm text-text-primary">
+          {activeCaptionText}
         </div>
       )}
 

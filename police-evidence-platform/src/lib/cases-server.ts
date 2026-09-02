@@ -62,6 +62,7 @@ export async function getRealCase(caseId: string) {
           forensicExpert: true,
           reverseImageSearchResult: true,
           imageDescriptionResult: true,
+          transcriptResult: { include: { translations: true } },
           faceAnnotations: true,
           overrides: { orderBy: { timestamp: "desc" }, include: { overriddenBy: { select: { name: true } } } },
           uploadedBy: { select: { name: true } },

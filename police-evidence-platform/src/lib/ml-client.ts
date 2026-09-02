@@ -24,8 +24,30 @@ export interface AudioDetectionResponse {
   probability: number;
 }
 
+export interface TranscriptSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface TranscriptionResponse {
+  language: string;
+  segments: TranscriptSegment[];
+  truncated: boolean;
+}
+
+export interface TranslationResponse {
+  segments: TranscriptSegment[];
+}
+
+export interface SpeechValidationResponse {
+  hasSpeech: boolean;
+  speechRatio: number;
+  totalSeconds: number;
+}
+
 async function callDetect<T>(
-  endpoint: "/detect/image" | "/detect/video-frame" | "/detect/audio",
+  endpoint: "/detect/image" | "/detect/video-frame" | "/detect/audio" | "/transcribe" | "/validate-speech",
   buffer: Buffer,
   mimeType: string,
   filename: string,
@@ -56,6 +78,40 @@ export function detectVideoFrame(buffer: Buffer): Promise<DetectionResponse> {
 
 export function detectAudio(buffer: Buffer, mimeType: string): Promise<AudioDetectionResponse> {
   return callDetect<AudioDetectionResponse>("/detect/audio", buffer, mimeType, "audio");
+}
+
+// Audio and video evidence both go through this one endpoint — ffmpeg on
+// the ml-service side decodes whichever audio stream the container has, so
+// there's no separate video code path needed here either.
+export function transcribeMedia(buffer: Buffer, mimeType: string): Promise<TranscriptionResponse> {
+  return callDetect<TranscriptionResponse>("/transcribe", buffer, mimeType, "media");
+}
+
+export async function translateSegments(
+  segments: TranscriptSegment[],
+  sourceLang: string,
+  targetLang: string,
+): Promise<TranslationResponse> {
+  const response = await fetch(`${ML_SERVICE_URL}/translate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ segments, sourceLang, targetLang }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new Error(`ML service /translate returned ${response.status}: ${detail.detail ?? "unknown error"}`);
+  }
+
+  return response.json();
+}
+
+// Independent of /transcribe — an investigator re-runs this on demand to
+// check whether a clip actually contains speech (real Silero VAD, not
+// Whisper's own judgment), guarding against Whisper hallucinating text
+// over silence/music/noise.
+export function validateSpeech(buffer: Buffer, mimeType: string): Promise<SpeechValidationResponse> {
+  return callDetect<SpeechValidationResponse>("/validate-speech", buffer, mimeType, "media");
 }
 
 export async function mlServiceHealthy(): Promise<boolean> {

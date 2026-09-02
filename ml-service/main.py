@@ -19,9 +19,22 @@ directly). Endpoints:
   - POST /detect/audio        audio -> { probability } (no heatmap — there's
                                no spatial visualization equivalent for a 1D
                                waveform classifier).
+  - POST /transcribe          audio or video -> { language, segments, truncated }
+                               real Whisper transcription with per-segment
+                               timestamps, for the live-captions feature.
+  - POST /translate           { segments, sourceLang, targetLang } ->
+                               { segments } — translates an already-
+                               transcribed caption track, on demand only.
+  - POST /validate-speech     audio or video -> { hasSpeech, speechRatio,
+                               totalSeconds } — real Silero VAD check for
+                               whether the clip actually contains speech,
+                               independent of whatever Whisper transcribed
+                               (guards against Whisper hallucinating text
+                               over silence/music/noise).
 
-See detector.py / audio_detector.py for model choice/rationale and
-README.md for how this was verified.
+See detector.py / audio_detector.py / transcriber.py / translator.py /
+speech_validator.py for model choice/rationale and README.md for how this
+was verified.
 """
 
 from __future__ import annotations
@@ -35,6 +48,9 @@ from pydantic import BaseModel
 
 from audio_detector import AudioDeepfakeDetector
 from detector import DeepfakeDetector
+from speech_validator import validate_speech
+from transcriber import Transcriber
+from translator import Translator, UnsupportedLanguage
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ml-service")
@@ -43,6 +59,8 @@ app = FastAPI(title="PS4 Detection Microservice", version="0.1.0")
 
 _detector: DeepfakeDetector | None = None
 _audio_detector: AudioDeepfakeDetector | None = None
+_transcriber: Transcriber | None = None
+_translator: Translator | None = None
 
 
 class DetectionResponse(BaseModel):
@@ -63,6 +81,34 @@ class DetectionResponse(BaseModel):
 
 class AudioDetectionResponse(BaseModel):
     probability: float
+
+
+class TranscriptSegmentModel(BaseModel):
+    start: float
+    end: float
+    text: str
+
+
+class TranscriptionResponse(BaseModel):
+    language: str
+    segments: list[TranscriptSegmentModel]
+    truncated: bool
+
+
+class TranslateRequest(BaseModel):
+    segments: list[TranscriptSegmentModel]
+    sourceLang: str
+    targetLang: str
+
+
+class TranslationResponse(BaseModel):
+    segments: list[TranscriptSegmentModel]
+
+
+class SpeechValidationResponse(BaseModel):
+    hasSpeech: bool
+    speechRatio: float
+    totalSeconds: float
 
 
 @app.on_event("startup")
@@ -90,6 +136,24 @@ def get_audio_detector() -> AudioDeepfakeDetector:
         _audio_detector = AudioDeepfakeDetector()
         logger.info("Audio model loaded.")
     return _audio_detector
+
+
+def get_transcriber() -> Transcriber:
+    global _transcriber
+    if _transcriber is None:
+        logger.info("Loading transcription model on first use (downloads weights on first run, then cached)...")
+        _transcriber = Transcriber()
+        logger.info("Transcription model loaded.")
+    return _transcriber
+
+
+def get_translator() -> Translator:
+    global _translator
+    if _translator is None:
+        logger.info("Loading translation model on first use (downloads weights on first run, then cached)...")
+        _translator = Translator()
+        logger.info("Translation model loaded.")
+    return _translator
 
 
 async def _run_detection(file: UploadFile) -> DetectionResponse:
@@ -158,10 +222,86 @@ async def detect_audio(file: UploadFile = File(...)) -> AudioDetectionResponse:
     return AudioDetectionResponse(probability=result.probability)
 
 
+@app.post("/transcribe", response_model=TranscriptionResponse)
+async def transcribe(file: UploadFile = File(...)) -> TranscriptionResponse:
+    if file.content_type is not None and not (
+        file.content_type.startswith("audio/") or file.content_type.startswith("video/")
+    ):
+        raise HTTPException(status_code=400, detail=f"Expected an audio or video file, got content-type {file.content_type!r}")
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    transcriber = get_transcriber()
+    try:
+        result = transcriber.transcribe(raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - surface as a 500 with context, don't crash the service
+        logger.exception("Transcription failed")
+        raise HTTPException(status_code=500, detail=f"Transcription failed: {exc}") from exc
+
+    return TranscriptionResponse(
+        language=result.language,
+        segments=[TranscriptSegmentModel(start=s.start, end=s.end, text=s.text) for s in result.segments],
+        truncated=result.truncated,
+    )
+
+
+@app.post("/translate", response_model=TranslationResponse)
+async def translate(body: TranslateRequest) -> TranslationResponse:
+    if not body.segments:
+        return TranslationResponse(segments=[])
+
+    translator = get_translator()
+    try:
+        result = translator.translate(
+            [(s.start, s.end, s.text) for s in body.segments],
+            body.sourceLang,
+            body.targetLang,
+        )
+    except UnsupportedLanguage as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - surface as a 500 with context, don't crash the service
+        logger.exception("Translation failed")
+        raise HTTPException(status_code=500, detail=f"Translation failed: {exc}") from exc
+
+    return TranslationResponse(
+        segments=[TranscriptSegmentModel(start=s.start, end=s.end, text=s.text) for s in result]
+    )
+
+
+@app.post("/validate-speech", response_model=SpeechValidationResponse)
+async def validate_speech_endpoint(file: UploadFile = File(...)) -> SpeechValidationResponse:
+    if file.content_type is not None and not (
+        file.content_type.startswith("audio/") or file.content_type.startswith("video/")
+    ):
+        raise HTTPException(status_code=400, detail=f"Expected an audio or video file, got content-type {file.content_type!r}")
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    try:
+        result = validate_speech(raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - surface as a 500 with context, don't crash the service
+        logger.exception("Speech validation failed")
+        raise HTTPException(status_code=500, detail=f"Speech validation failed: {exc}") from exc
+
+    return SpeechValidationResponse(
+        hasSpeech=result.has_speech, speechRatio=result.speech_ratio, totalSeconds=result.total_seconds
+    )
+
+
 @app.get("/health")
 def health() -> dict:
     return {
         "status": "ok",
         "modelLoaded": _detector is not None,
         "audioModelLoaded": _audio_detector is not None,
+        "transcriberLoaded": _transcriber is not None,
+        "translatorLoaded": _translator is not None,
     }

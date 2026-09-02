@@ -150,6 +150,7 @@ model Evidence {
   fusionVerdict    FusionVerdict?
   reverseImageSearchResult ReverseImageSearchResult?
   imageDescriptionResult   ImageDescriptionResult?
+  transcriptResult         TranscriptResult?
 
   corpusMatches       CorpusMatch[]
   matchesFrom         EvidenceMatch[] @relation("EvidenceMatchSource")
@@ -249,6 +250,48 @@ model ForensicExpert {
   name        String
   designation String
   labRef      String
+}
+
+// Real Whisper transcription (ml-service, local — see transcriber.py),
+// cached per exhibit for the same reason as ReverseImageSearchResult below:
+// a real (if local, not billed) compute-heavy call that shouldn't silently
+// re-run every time a case is reopened. Audio and video evidence only.
+model TranscriptResult {
+  id           String   @id @default(cuid())
+  evidenceId   String   @unique
+  evidence     Evidence @relation(fields: [evidenceId], references: [id])
+  language     String // ISO-639-1-ish code Whisper detected, e.g. "en", "hi"
+  segmentsJson String // JSON array of {start: number, end: number, text: string}, seconds
+  truncated    Boolean  @default(false) // true if the source file was longer than transcriber.py's MAX_SECONDS and got cut
+  ranAt        DateTime @default(now())
+
+  // Real Silero VAD check (speech_validator.py), independent of Whisper's
+  // own output — null until an investigator explicitly runs "Validate
+  // speech" (never automatic; §8 avoid unnecessary model calls). Guards
+  // against Whisper's known failure mode of hallucinating plausible text
+  // over silence/music/noise: a non-empty transcript alone doesn't prove
+  // the clip actually contains speech.
+  hasSpeech       Boolean?
+  speechRatio     Float? // 0-1, fraction of the clip VAD classified as speech
+  speechValidatedAt DateTime?
+
+  translations TranscriptTranslation[]
+}
+
+// One cached translation of a TranscriptResult into a target language —
+// separate rows per language rather than overwriting, since an
+// investigator may want more than one target language's captions
+// available on the same exhibit without re-running the model each time
+// they switch back.
+model TranscriptTranslation {
+  id                 String           @id @default(cuid())
+  transcriptResultId String
+  transcriptResult   TranscriptResult @relation(fields: [transcriptResultId], references: [id])
+  targetLang         String // ISO-639-1-ish code, e.g. "hi"
+  segmentsJson       String // Same shape as TranscriptResult.segmentsJson, translated text
+  ranAt              DateTime         @default(now())
+
+  @@unique([transcriptResultId, targetLang])
 }
 
 // Real reverse-image search results (Cloud Vision Web Detection), cached

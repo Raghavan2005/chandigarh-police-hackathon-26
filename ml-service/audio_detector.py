@@ -25,15 +25,14 @@ spliced, only whether the voice itself sounds synthetic/spoofed).
 
 from __future__ import annotations
 
-import subprocess
 from dataclasses import dataclass
 
 import cache_env  # noqa: F401 - import for its env-var side effect, must run before the transformers/huggingface_hub imports below
 
-import imageio_ffmpeg
-import numpy as np
 import torch
 from transformers import AutoFeatureExtractor, AutoModelForAudioClassification
+
+from audio_io import decode_to_waveform
 
 AUDIO_MODEL_REPO = "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification"
 TARGET_SAMPLE_RATE = 16000
@@ -69,29 +68,8 @@ class AudioDeepfakeDetector:
             raise RuntimeError(f"Expected exactly one 'fake' label in model config, got {id2label}")
         self._fake_index = fake_ids[0]
 
-    def _decode_to_waveform(self, raw_audio: bytes) -> np.ndarray:
-        """Decodes arbitrary audio bytes (mp3/wav/ogg/...) to a 16kHz mono
-        float32 waveform via a real ffmpeg binary. imageio-ffmpeg downloads
-        and caches one on first use, so this service doesn't depend on a
-        system ffmpeg install — the Python-side equivalent of the Next.js
-        side's @ffmpeg-installer/ffmpeg."""
-        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-        proc = subprocess.run(
-            [
-                ffmpeg_exe, "-v", "error", "-i", "pipe:0",
-                "-f", "f32le", "-ac", "1", "-ar", str(TARGET_SAMPLE_RATE), "pipe:1",
-            ],
-            input=raw_audio,
-            capture_output=True,
-        )
-        if proc.returncode != 0:
-            raise ValueError(f"ffmpeg could not decode this audio file: {proc.stderr.decode(errors='replace')[:500]}")
-        return np.frombuffer(proc.stdout, dtype=np.float32)
-
     def detect(self, raw_audio: bytes) -> AudioDetectionResult:
-        waveform = self._decode_to_waveform(raw_audio)
-        if waveform.size == 0:
-            raise ValueError("Decoded audio is empty.")
+        waveform = decode_to_waveform(raw_audio, TARGET_SAMPLE_RATE)
         if waveform.size > MAX_SAMPLES:
             waveform = waveform[:MAX_SAMPLES]
 
