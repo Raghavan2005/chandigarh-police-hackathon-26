@@ -115,7 +115,7 @@ export function ImageDescriptionPanel({
     <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-surface p-3 text-xs">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-medium text-text-secondary">AI image description (Vertex AI Gemini)</p>
+          <p className="font-medium text-text-secondary">Possible identity (AI)</p>
           {result?.ranAt && (
             <p className="text-[10px] text-text-tertiary">
               Results as of {formatRelativeTime(result.ranAt)} ({new Date(result.ranAt).toLocaleString()}) — not

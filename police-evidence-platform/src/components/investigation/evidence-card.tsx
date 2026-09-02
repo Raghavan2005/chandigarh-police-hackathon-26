@@ -153,7 +153,7 @@ export function EvidenceCard({
             mimeType={evidence.mimeType}
             sensitivityLevel={sensitivityLevel}
             hasHeatmap={Boolean(evidence.detectionResult?.heatmapPath)}
-            faceBox={parseFaceBox(evidence.detectionResult?.faceBoxJson)}
+            faceBoxes={parseFaceBoxes(evidence.detectionResult?.faceBoxesJson)}
             hasFaceCrop={Boolean(evidence.detectionResult?.faceCropPath)}
             frameScores={parseFrameScores(evidence.detectionResult?.frameScoresJson)}
           />
@@ -431,17 +431,20 @@ function ProvenanceRow({ label, value, warn }: { label: string; value: string | 
   );
 }
 
-function parseFaceBox(json: string | null | undefined): [number, number, number, number] | null {
-  if (!json) return null;
+function parseFaceBoxes(json: string | null | undefined): [number, number, number, number][] {
+  if (!json) return [];
   try {
     const parsed = JSON.parse(json);
-    if (Array.isArray(parsed) && parsed.length === 4 && parsed.every((n) => typeof n === "number")) {
-      return parsed as [number, number, number, number];
+    if (
+      Array.isArray(parsed) &&
+      parsed.every((box) => Array.isArray(box) && box.length === 4 && box.every((n) => typeof n === "number"))
+    ) {
+      return parsed as [number, number, number, number][];
     }
   } catch {
     // fall through
   }
-  return null;
+  return [];
 }
 
 interface FrameScore {

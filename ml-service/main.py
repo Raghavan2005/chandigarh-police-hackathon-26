@@ -5,10 +5,13 @@ Called over localhost HTTP by the Next.js backend (never from the browser
 directly). Endpoints:
   - GET  /health              liveness check
   - POST /detect/image        image -> { probability, heatmapPngBase64,
-                               faceDetected, faceBox, faceCropPngBase64 }
-                               faceBox/faceCropPngBase64 are null when no
-                               face was detected — never a fabricated
-                               position or crop.
+                               faceDetected, faceBoxes, faceCropPngBase64 }
+                               faceBoxes is every detected face (empty list
+                               if none); faceCropPngBase64 is only the
+                               single highest-probability face actually
+                               scored by the classifier, null when no face
+                               was detected — never a fabricated position
+                               or crop.
   - POST /detect/video-frame  same contract, same model; the Next.js side
                                samples frames from video and calls this once
                                per sampled frame (frame extraction happens on
@@ -46,10 +49,12 @@ class DetectionResponse(BaseModel):
     probability: float
     heatmapPngBase64: str
     faceDetected: bool
-    # Normalized [x1, y1, x2, y2] fractions (0-1) of the original image's
-    # width/height, or null when no face was detected — never a fabricated
-    # position.
-    faceBox: list[float] | None
+    # Every detected face, each normalized [x1, y1, x2, y2] fractions (0-1)
+    # of the original image's width/height, sorted by detection probability
+    # descending — empty list when no face was detected, never a
+    # fabricated position. faceBoxes[0] is always the same face as
+    # faceCropPngBase64 below.
+    faceBoxes: list[list[float]]
     faceCropPngBase64: str | None
 
 
@@ -109,7 +114,7 @@ async def _run_detection(file: UploadFile) -> DetectionResponse:
         probability=result.probability,
         heatmapPngBase64=result.heatmap_png_base64,
         faceDetected=result.face_detected,
-        faceBox=result.face_box,
+        faceBoxes=result.face_boxes,
         faceCropPngBase64=result.face_crop_png_base64,
     )
 

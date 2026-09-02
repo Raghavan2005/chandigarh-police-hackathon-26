@@ -10,9 +10,11 @@ export interface DetectionResponse {
   probability: number;
   heatmapPngBase64: string;
   faceDetected: boolean;
-  // Normalized [x1, y1, x2, y2] fractions (0-1) of the source image's
-  // width/height, or null when no face was detected -- never fabricated.
-  faceBox: [number, number, number, number] | null;
+  // Every detected face, each normalized [x1, y1, x2, y2] fractions (0-1)
+  // of the source image's width/height, sorted by detection probability
+  // descending -- empty array when no face was detected, never fabricated.
+  // faceBoxes[0] is always the same face as faceCropPngBase64.
+  faceBoxes: [number, number, number, number][];
   faceCropPngBase64: string | null;
 }
 

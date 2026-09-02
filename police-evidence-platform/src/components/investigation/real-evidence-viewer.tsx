@@ -59,7 +59,7 @@ export function RealEvidenceViewer({
   mimeType,
   sensitivityLevel,
   hasHeatmap,
-  faceBox,
+  faceBoxes,
   hasFaceCrop,
   frameScores,
 }: {
@@ -68,7 +68,7 @@ export function RealEvidenceViewer({
   mimeType: string;
   sensitivityLevel: string;
   hasHeatmap: boolean;
-  faceBox: [number, number, number, number] | null;
+  faceBoxes: [number, number, number, number][];
   hasFaceCrop: boolean;
   frameScores: FrameScore[] | null;
 }) {
@@ -228,10 +228,11 @@ export function RealEvidenceViewer({
   // letterboxing on one axis. A face box positioned with raw percentages
   // of the container would be wrong whenever that happens — this computes
   // the actual displayed content rect from the element's natural size vs
-  // the container's, so the box lands exactly where MTCNN found the face,
-  // not just "roughly in the container."
-  const boxStyle = (() => {
-    if (!showFaceBox || !faceBox || !naturalSize || !containerWidth) return null;
+  // the container's, so every box lands exactly where MTCNN found that
+  // face, not just "roughly in the container." One box per detected face,
+  // not just the one the classifier happened to score.
+  const boxStyles = (() => {
+    if (!showFaceBox || faceBoxes.length === 0 || !naturalSize || !containerWidth) return [];
     const cw = containerWidth;
     const ch = CONTAINER_HEIGHT;
     const scale = Math.min(cw / naturalSize.w, ch / naturalSize.h);
@@ -239,13 +240,12 @@ export function RealEvidenceViewer({
     const dh = naturalSize.h * scale;
     const offsetX = (cw - dw) / 2;
     const offsetY = (ch - dh) / 2;
-    const [x1, y1, x2, y2] = faceBox;
-    return {
+    return faceBoxes.map(([x1, y1, x2, y2]) => ({
       left: offsetX + x1 * dw,
       top: offsetY + y1 * dh,
       width: (x2 - x1) * dw,
       height: (y2 - y1) * dh,
-    };
+    }));
   })();
 
   return (
@@ -357,16 +357,17 @@ export function RealEvidenceViewer({
                 className="pointer-events-none absolute inset-0 h-[280px] w-full object-contain opacity-80 mix-blend-hard-light"
               />
             )}
-            {boxStyle && (
+            {boxStyles.map((style, i) => (
               <div
+                key={i}
                 className="pointer-events-none absolute rounded border-2 border-status-critical shadow-[0_0_15px_rgba(255,0,0,0.5)]"
-                style={boxStyle}
+                style={style}
               >
                 <span className="absolute -top-6 left-0 whitespace-nowrap rounded bg-status-critical px-1.5 py-0.5 font-mono text-[10px] font-medium text-white shadow-sm">
-                  Detected face
+                  {i === 0 ? "Face 1 (scored)" : `Face ${i + 1}`}
                 </span>
               </div>
-            )}
+            ))}
           </>
         )}
       </div>
@@ -510,11 +511,15 @@ export function RealEvidenceViewer({
           <button
             type="button"
             onClick={() => setShowFaceBox((v) => !v)}
-            disabled={!faceBox}
+            disabled={faceBoxes.length === 0}
             className={cn(buttonVariants({ variant: showFaceBox ? "default" : "outline", size: "sm" }), "w-fit")}
           >
             <ScanFace className="size-3.5" />
-            {faceBox ? (showFaceBox ? "Hide face detection" : "Show face detection") : "No face detected"}
+            {faceBoxes.length === 0
+              ? "No face detected"
+              : showFaceBox
+                ? `Hide face detection (${faceBoxes.length})`
+                : `Show face detection (${faceBoxes.length})`}
           </button>
         </div>
       )}
@@ -528,7 +533,9 @@ export function RealEvidenceViewer({
             className="size-16 shrink-0 rounded border border-border-subtle bg-black object-cover"
           />
           <p className="text-[11px] text-text-tertiary">
-            The actual aligned face crop the classifier scored — not the full frame.
+            The actual aligned face crop the classifier scored (Face 1 above) — not the full frame.
+            {faceBoxes.length > 1 &&
+              ` ${faceBoxes.length - 1} other face(s) were detected but not separately classified — the model only scores one face per image.`}
           </p>
         </div>
       )}

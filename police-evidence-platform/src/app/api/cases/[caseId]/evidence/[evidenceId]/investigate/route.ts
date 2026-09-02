@@ -57,7 +57,7 @@ export async function POST(
   // SQLite transaction open). ---
   let classifierScore: number;
   let heatmapPngBase64: string | null = null;
-  let faceBox: [number, number, number, number] | null = null;
+  let faceBoxes: [number, number, number, number][] = [];
   let faceCropPngBase64: string | null = null;
   // What gets perceptual-hashed — the image itself, or the representative
   // video frame. Audio has no perceptual-hash equivalent (schema comment
@@ -73,7 +73,7 @@ export async function POST(
     const result = await detectImage(fileBuffer, evidence.mimeType);
     classifierScore = result.probability;
     heatmapPngBase64 = result.heatmapPngBase64;
-    faceBox = result.faceBox;
+    faceBoxes = result.faceBoxes;
     faceCropPngBase64 = result.faceCropPngBase64;
     hashSourceBuffer = fileBuffer;
   } else if (isVideo) {
@@ -96,9 +96,9 @@ export async function POST(
     const worst = frameResults[worstIndex];
     classifierScore = worst.probability;
     heatmapPngBase64 = worst.heatmapPngBase64;
-    // Face box/crop are relative to that same worst-scoring frame — the one
-    // still image actually shown for the heatmap, not the whole video.
-    faceBox = worst.faceBox;
+    // Face boxes/crop are relative to that same worst-scoring frame — the
+    // one still image actually shown for the heatmap, not the whole video.
+    faceBoxes = worst.faceBoxes;
     faceCropPngBase64 = worst.faceCropPngBase64;
     hashSourceBuffer = frames[worstIndex].buffer;
     frameScores = frameResults.map((r, i) => ({
@@ -126,7 +126,7 @@ export async function POST(
 
   const heatmapPath = heatmapPngBase64 ? writeHeatmap(evidence.id, heatmapPngBase64) : null;
   const faceCropPath = faceCropPngBase64 ? writeFaceCrop(evidence.id, faceCropPngBase64) : null;
-  const faceBoxJson = faceBox ? JSON.stringify(faceBox) : null;
+  const faceBoxesJson = JSON.stringify(faceBoxes);
   const frameScoresJson = frameScores ? JSON.stringify(frameScores) : null;
 
   const modelName = isAudio ? "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification" : "not-lain/deepfake";
@@ -139,7 +139,7 @@ export async function POST(
         evidenceId: evidence.id,
         manipulationProbability: classifierScore,
         heatmapPath,
-        faceBoxJson,
+        faceBoxesJson,
         faceCropPath,
         frameScoresJson,
         modelName,
@@ -148,7 +148,7 @@ export async function POST(
       update: {
         manipulationProbability: classifierScore,
         heatmapPath,
-        faceBoxJson,
+        faceBoxesJson,
         faceCropPath,
         frameScoresJson,
         modelName,

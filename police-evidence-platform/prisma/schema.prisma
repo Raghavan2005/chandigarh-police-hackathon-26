@@ -210,10 +210,12 @@ model DetectionResult {
   evidence               Evidence @relation(fields: [evidenceId], references: [id])
   manipulationProbability Float
   heatmapPath            String?
-  // Real MTCNN detection box, normalized [x1,y1,x2,y2] JSON array (0-1
-  // fractions of the source image's width/height) -- null when no face was
-  // detected, never a fabricated position.
-  faceBoxJson            String?
+  // Every real MTCNN detection box, JSON array of [x1,y1,x2,y2] (0-1
+  // fractions of the source image's width/height), sorted by detection
+  // probability descending -- "[]" when no face was detected, never a
+  // fabricated position. faceBoxesJson[0] is always the same face as
+  // faceCropPath -- the model only ever classifies one face per image.
+  faceBoxesJson          String   @default("[]")
   faceCropPath           String?
   // Real per-sampled-frame breakdown for video evidence, JSON array of
   // {timestampSeconds, probability, faceDetected}, ordered by timestamp —
