@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Loader2, UploadCloud } from "lucide-react";
 
@@ -36,14 +36,31 @@ async function sha256Hex(file: File): Promise<string> {
 
 export function UploadDropzone({
   onComplete,
+  externalFile,
 }: {
   onComplete?: (file: File) => void;
+  /** Set from outside (e.g. a tablet capture picked up elsewhere) — shown
+   * the same way a manually-dropped file would be, so there's one visual
+   * source of truth instead of a second "received" indicator bolted on
+   * next to the dropzone. */
+  externalFile?: File | null;
 }) {
   const [state, setState] = useState<UploadState>("idle");
   const [dragOver, setDragOver] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [hash, setHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const previewUrl = useMemo(() => {
+    if (!file || !file.type.startsWith("image/")) return null;
+    return URL.createObjectURL(file);
+  }, [file]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const handleFile = useCallback(
     async (selected: File | undefined | null) => {
@@ -64,6 +81,17 @@ export function UploadDropzone({
     },
     [state, onComplete],
   );
+
+  useEffect(() => {
+    if (!externalFile) return;
+    // Deferred a tick — handleFile's setState calls must not run
+    // synchronously inside the effect body itself.
+    const id = setTimeout(() => void handleFile(externalFile), 0);
+    return () => clearTimeout(id);
+    // Only re-run when a genuinely new external file arrives — handleFile's
+    // own idle-state guard covers the rest.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalFile]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -106,11 +134,21 @@ export function UploadDropzone({
 
       {file && (
         <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface p-3">
-          <div>
-            <p className="text-sm text-text-primary">{file.name}</p>
-            <p className="text-[11px] text-text-tertiary">
-              {file.type || "unknown type"} · {formatBytes(file.size)}
-            </p>
+          <div className="flex items-center gap-3">
+            {previewUrl && (
+              // eslint-disable-next-line @next/next/no-img-element -- blob: object URL, not a static/remote asset next/image can optimize
+              <img
+                src={previewUrl}
+                alt=""
+                className="size-12 shrink-0 rounded-md border border-border-subtle object-cover"
+              />
+            )}
+            <div>
+              <p className="text-sm text-text-primary">{file.name}</p>
+              <p className="text-[11px] text-text-tertiary">
+                {file.type || "unknown type"} · {formatBytes(file.size)}
+              </p>
+            </div>
           </div>
           <div className="text-right">
             {state === "hashing" ? (

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { StepperHeader } from "@/components/upload/stepper-header";
 import { EvidenceTypeTiles } from "@/components/upload/evidence-type-tiles";
 import { UploadDropzone } from "@/components/upload/upload-dropzone";
+import { TabletCaptureHint } from "@/components/upload/tablet-capture-hint";
 import { buttonVariants } from "@/components/ui/button";
 import type { EvidenceKind } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -354,8 +355,14 @@ export default function NewCasePage() {
             </div>
             <div>
               <p className="mb-2 text-sm font-medium text-text-secondary">Upload file</p>
-              <UploadDropzone onComplete={setFile} />
+              <UploadDropzone onComplete={setFile} externalFile={file} />
             </div>
+            <TabletCaptureHint
+              onCaptured={(captured) => {
+                setKind((k) => k ?? "image");
+                setFile(captured);
+              }}
+            />
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="deviceIdentifier" className="text-text-secondary">

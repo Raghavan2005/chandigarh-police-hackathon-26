@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Dev-mode only: without this, Next blocks HMR/static-chunk requests
+  // that arrive from any host other than the one it thinks it's serving
+  // (localhost) — which is every request from the tablet capture flow,
+  // since that's the whole point of accessing this dev server over LAN.
+  // Safe here because this only ever runs on a controlled event-venue
+  // network, not the public internet.
+  allowedDevOrigins: ["10.41.164.40"],
   // Ships a native binary — Turbopack otherwise tries to parse the
   // executable itself as JS source and fails. Use native require instead
   // of bundling, per Next's own serverExternalPackages docs.

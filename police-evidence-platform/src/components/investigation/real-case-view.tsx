@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { AddEvidenceDialog } from "@/components/investigation/add-evidence-dialog";
 import { EvidenceTabs } from "@/components/investigation/evidence-tabs";
 import { ForwardingDialog } from "@/components/investigation/forwarding-dialog";
+import { CaptureLinkDialog } from "@/components/investigation/capture-link-dialog";
+import { CaseLiveRefresh } from "@/components/investigation/case-live-refresh";
 import type { getRealCase } from "@/lib/cases-server";
 
 type RealCase = NonNullable<Awaited<ReturnType<typeof getRealCase>>>;
@@ -24,6 +26,7 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-5 p-6">
+      <CaseLiveRefresh />
       <div>
         <Link
           href="/cases"
@@ -61,6 +64,7 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
               <FileDown className="size-4" />
               Report
             </Link>
+            <CaptureLinkDialog caseId={caseData.id} />
             <ForwardingDialog
               caseId={caseData.id}
               existing={{

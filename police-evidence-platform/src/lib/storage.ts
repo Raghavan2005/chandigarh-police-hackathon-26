@@ -8,6 +8,7 @@ const STORAGE_DIR = path.join(process.cwd(), "storage");
 const UPLOADS_DIR = path.join(STORAGE_DIR, "uploads");
 const HEATMAPS_DIR = path.join(STORAGE_DIR, "heatmaps");
 const FACE_CROPS_DIR = path.join(STORAGE_DIR, "face-crops");
+const PENDING_CAPTURES_DIR = path.join(STORAGE_DIR, "pending-captures");
 
 const EXTENSION_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -46,6 +47,22 @@ export function writeEvidenceFile(sha256: string, mimeType: string, buffer: Buff
     writeFileSync(fullPath, buffer);
   }
   return path.join("uploads", filename);
+}
+
+/**
+ * Same content-addressed pattern as writeEvidenceFile, separate directory —
+ * a PendingCapture isn't evidence yet (no case exists to attach it to), so
+ * it lives outside storage/uploads/ until a New Case submit turns it into
+ * a real Evidence row via the normal evidence route.
+ */
+export function writePendingCaptureFile(sha256: string, mimeType: string, buffer: Buffer): string {
+  mkdirSync(PENDING_CAPTURES_DIR, { recursive: true });
+  const filename = `${sha256}.${extensionForMime(mimeType)}`;
+  const fullPath = path.join(PENDING_CAPTURES_DIR, filename);
+  if (!existsSync(fullPath)) {
+    writeFileSync(fullPath, buffer);
+  }
+  return path.join("pending-captures", filename);
 }
 
 /** Resolves an Evidence.filePath (relative to storage/) back to an absolute

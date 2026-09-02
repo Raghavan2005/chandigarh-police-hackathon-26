@@ -4,12 +4,13 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { appendCheckpoint, writeAuditEntryInTx } from "@/lib/audit";
 import { resolveEvidencePath, writeFaceCrops, writeHeatmap } from "@/lib/storage";
-import { detectAudio, detectImage, detectVideoFrame } from "@/lib/ml-client";
+import { detectAudio, detectVideoFrame } from "@/lib/ml-client";
 import { sampleVideoFrames } from "@/lib/frame-extract";
 import { computePerceptualHash } from "@/lib/perceptual-hash";
 import { findMatches } from "@/lib/matching";
 import { fuseEvidence } from "@/lib/fusion";
 import { checkProvenance } from "@/lib/provenance";
+import { runImageInvestigation } from "@/lib/investigate-image";
 
 /**
  * The single "Investigate" action (PS4_ANALYSIS_PIPELINE.md §2/§4,
@@ -49,6 +50,21 @@ export async function POST(
     );
   }
 
+  if (isImage) {
+    const result = await runImageInvestigation({ evidenceId, caseId, actorId: session.userId });
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
+    return NextResponse.json({
+      verdict: result.verdict,
+      confidence: result.confidence,
+      explanation: result.explanation,
+      coverageCount: result.coverageCount,
+      corpusMatches: result.corpusMatches,
+      crossCaseMatches: result.crossCaseMatches,
+    });
+  }
+
   const absolutePath = resolveEvidencePath(evidence.filePath);
   const fileBuffer = await readFile(absolutePath);
 
@@ -59,9 +75,9 @@ export async function POST(
   let heatmapPngBase64: string | null = null;
   let faceBoxes: [number, number, number, number][] = [];
   let faceCropsPngBase64: string[] = [];
-  // What gets perceptual-hashed — the image itself, or the representative
-  // video frame. Audio has no perceptual-hash equivalent (schema comment
-  // on Evidence.phash: "null for audio/document") — stays null.
+  // What gets perceptual-hashed — the representative video frame. Audio has
+  // no perceptual-hash equivalent (schema comment on Evidence.phash: "null
+  // for audio/document") — stays null.
   let hashSourceBuffer: Buffer | null = null;
   // Real per-sampled-frame breakdown, video only — previously computed by
   // scoring every sampled frame to find the worst one, then discarded.
@@ -69,14 +85,7 @@ export async function POST(
   // frame timeline instead of one static worst frame with no time context.
   let frameScores: { timestampSeconds: number; probability: number; faceDetected: boolean }[] | null = null;
 
-  if (isImage) {
-    const result = await detectImage(fileBuffer, evidence.mimeType);
-    classifierScore = result.probability;
-    heatmapPngBase64 = result.heatmapPngBase64;
-    faceBoxes = result.faceBoxes;
-    faceCropsPngBase64 = result.faceCropsPngBase64;
-    hashSourceBuffer = fileBuffer;
-  } else if (isVideo) {
+  if (isVideo) {
     const durationSeconds = evidence.metadataResult?.duration ? parseFloat(evidence.metadataResult.duration) : 0;
     const frames = await sampleVideoFrames(absolutePath, durationSeconds);
     if (frames.length === 0) {

@@ -30,6 +30,7 @@ model User {
   auditEntries       AuditLogEntry[]   @relation("AuditActor")
   overridesGiven     VerdictOverride[] @relation("OverriddenBy")
   custodyTransfersRecorded CustodyTransfer[] @relation("CustodyTransferRecordedBy")
+  captureLinksCreated CaptureLink[]    @relation("CaptureLinkCreatedBy")
 }
 
 // --- Case ----------------------------------------------------------------
@@ -88,9 +89,51 @@ model Case {
   evidence          Evidence[]
   auditEntries      AuditLogEntry[]
   propagationEdges  PropagationEdge[]
+  captureLinks      CaptureLink[]
 
   @@index([investigatorId])
   @@index([firNumber])
+}
+
+// A photo captured from the fixed, public /capture page (no token, no case
+// yet — used from the "New case" wizard, before a case exists to scope
+// anything to). Deliberately unauthenticated on the write side: anyone who
+// can reach this server on the demo LAN can POST one — acceptable only for
+// a controlled-network hackathon demo, same trade-off as CaptureLink below,
+// just without even a token. Read side (latest/consume) stays
+// authenticated so only a logged-in investigator's new-case tab picks it
+// up. `consumedAt` is set once a wizard has pulled it into its form, so it
+// isn't offered to a second tab or reappear on reload.
+model PendingCapture {
+  id         String    @id @default(cuid())
+  sha256     String    @unique
+  filePath   String
+  mimeType   String
+  createdAt  DateTime  @default(now())
+  consumedAt DateTime?
+
+  @@index([consumedAt])
+}
+
+// Short-lived, case-scoped, single-purpose token for the no-login "tablet
+// quick capture" demo flow — not a general share/guest link. Authorizes
+// exactly one thing: upload one photo into `caseId` and auto-run detection
+// on it. No read access to existing case data. Unguessability (32 random
+// bytes) + a several-hour expiry is the entire security model — acceptable
+// for a controlled-network hackathon demo, not production-grade.
+model CaptureLink {
+  id              String    @id @default(cuid())
+  token           String    @unique
+  caseId          String
+  case            Case      @relation(fields: [caseId], references: [id])
+  createdByUserId String
+  createdBy       User      @relation("CaptureLinkCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime  @default(now())
+  expiresAt       DateTime
+  usedAt          DateTime? // last successful capture — informational, not single-use (a demo may capture more than one photo)
+
+  @@index([caseId])
+  @@index([expiresAt])
 }
 
 // --- Evidence & analysis results -----------------------------------------

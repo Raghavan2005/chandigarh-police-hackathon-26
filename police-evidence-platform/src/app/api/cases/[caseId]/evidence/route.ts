@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/session";
-import { appendCheckpoint, writeAuditEntryInTx } from "@/lib/audit";
-import { resolveEvidencePath, sha256Hex, writeEvidenceFile } from "@/lib/storage";
-import { extractMetadata } from "@/lib/metadata";
+import { ingestEvidence } from "@/lib/evidence-ingest";
 
 /**
  * Real upload: server-side SHA-256 computed on the actual stored bytes, not
  * the client-side cosmetic hash the original prototype showed (per
  * PS4_MVP_BUILD_PLAN.md §1 item — "must become a real server-side hash...
- * it cannot stay decorative in the MVP").
+ * it cannot stay decorative in the MVP"). Hashing/dedupe/audit/metadata
+ * logic lives in ingestEvidence (src/lib/evidence-ingest.ts), shared with
+ * the tablet capture route (api/capture/[token]) — this handler is just the
+ * authenticated formdata-parsing wrapper around it.
  */
 export async function POST(
   request: NextRequest,
@@ -37,92 +38,23 @@ export async function POST(
   const casePropertyNumber = formData?.get("casePropertyNumber");
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const sha256 = sha256Hex(buffer);
 
-  const existing = await db.evidence.findUnique({
-    where: { caseId_sha256: { caseId, sha256 } },
+  const result = await ingestEvidence({
+    caseId,
+    buffer,
+    mimeType: file.type || "application/octet-stream",
+    uploadedById: session.userId,
+    deviceIdentifier: typeof deviceIdentifier === "string" ? deviceIdentifier.trim() : undefined,
+    casePropertyNumber: typeof casePropertyNumber === "string" ? casePropertyNumber.trim() : undefined,
+    auditDevice: request.headers.get("user-agent") ?? undefined,
   });
-  if (existing) {
-    return NextResponse.json(
-      {
-        error: "This exact file is already on this case's evidence record.",
-        evidence: existing,
-      },
-      { status: 409 },
-    );
+
+  if (!result.ok) {
+    if (result.status === 409) {
+      return NextResponse.json({ error: result.error, evidence: result.evidence }, { status: 409 });
+    }
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  const mimeType = file.type || "application/octet-stream";
-  // Written to disk before the DB transaction: if the transaction fails, an
-  // orphaned file on disk is harmless (content-addressed by hash, no DB row
-  // points to it); the reverse — a DB row with no corresponding file — would
-  // be a real chain-of-custody problem, so that ordering isn't arbitrary.
-  const filePath = writeEvidenceFile(sha256, mimeType, buffer);
-
-  const { evidence, auditEntry } = await db.$transaction(async (tx) => {
-    const evidence = await tx.evidence.create({
-      data: {
-        caseId,
-        sha256,
-        filePath,
-        mimeType,
-        uploadedById: session.userId,
-        deviceIdentifier: typeof deviceIdentifier === "string" && deviceIdentifier ? deviceIdentifier : undefined,
-        casePropertyNumber:
-          typeof casePropertyNumber === "string" && casePropertyNumber ? casePropertyNumber : undefined,
-      },
-    });
-    // Same transaction as the evidence row — per the plan, there is no
-    // such thing as evidence entering the system without its UPLOADED
-    // entry committing in the same act.
-    const auditEntry = await writeAuditEntryInTx(
-      {
-        caseId,
-        evidenceHash: sha256,
-        actorId: session.userId,
-        action: "UPLOADED",
-        device: request.headers.get("user-agent") ?? undefined,
-      },
-      tx,
-    );
-    return { evidence, auditEntry };
-  });
-
-  appendCheckpoint(auditEntry);
-
-  // Stage 1 (PS4_ANALYSIS_PIPELINE.md) — real metadata/EXIF extraction, run
-  // after the upload transaction commits (ffprobe/exifr are external I/O,
-  // not something to hold a SQLite transaction open for). A failure here
-  // must not fail the upload itself — the evidence is already safely
-  // recorded; a missing metadata row is a visible, honest gap, not a lost
-  // upload. See extractMetadata's own per-file-type fallback behavior for
-  // why this never throws.
-  const extracted = await extractMetadata(resolveEvidencePath(evidence.filePath), mimeType, buffer);
-  const { metadataAuditEntry } = await db.$transaction(async (tx) => {
-    await tx.metadataResult.create({
-      data: {
-        evidenceId: evidence.id,
-        container: extracted.container,
-        resolution: extracted.resolution,
-        duration: extracted.duration,
-        codec: extracted.codec,
-        encoderSignature: extracted.encoderSignature,
-        exifJson: extracted.exifJson,
-      },
-    });
-    const metadataAuditEntry = await writeAuditEntryInTx(
-      {
-        caseId,
-        evidenceHash: sha256,
-        actorId: session.userId,
-        action: "ANALYZED",
-        device: "pramana-metadata-extractor",
-      },
-      tx,
-    );
-    return { metadataAuditEntry };
-  });
-  appendCheckpoint(metadataAuditEntry);
-
-  return NextResponse.json(evidence, { status: 201 });
+  return NextResponse.json(result.evidence, { status: 201 });
 }
