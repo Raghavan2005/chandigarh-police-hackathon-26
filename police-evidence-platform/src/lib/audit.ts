@@ -63,7 +63,14 @@ function ensureCheckpointFile() {
   }
 }
 
-export type AuditAction = "UPLOADED" | "ANALYZED" | "VIEWED" | "OVERRIDDEN" | "EXPORTED" | "ASSIGNED";
+export type AuditAction =
+  | "UPLOADED"
+  | "ANALYZED"
+  | "VIEWED"
+  | "OVERRIDDEN"
+  | "EXPORTED"
+  | "ASSIGNED"
+  | "CUSTODY_TRANSFERRED";
 
 interface WriteAuditEntryInput {
   caseId: string;

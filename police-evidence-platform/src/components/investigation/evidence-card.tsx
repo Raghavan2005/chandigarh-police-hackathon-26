@@ -12,6 +12,8 @@ import { RealFusionSignals } from "@/components/investigation/real-fusion-signal
 import { RealPipelinePanel } from "@/components/investigation/real-pipeline-panel";
 import { OverrideDialog } from "@/components/investigation/override-dialog";
 import { ForensicExpertDialog } from "@/components/investigation/forensic-expert-dialog";
+import { DeclarantDialog } from "@/components/investigation/declarant-dialog";
+import { CustodyTransferDialog } from "@/components/investigation/custody-transfer-dialog";
 import type { EvidenceKind, Verdict } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
 
@@ -223,6 +225,12 @@ export function EvidenceCard({
                     warn
                   />
                 )}
+                {evidence.deviceIdentifier && (
+                  <ProvenanceRow label="Device identifier" value={evidence.deviceIdentifier} />
+                )}
+                {evidence.casePropertyNumber && (
+                  <ProvenanceRow label="Case property no." value={evidence.casePropertyNumber} />
+                )}
               </dl>
             ) : (
               <p className="flex items-center gap-1.5 text-xs text-text-tertiary">
@@ -265,7 +273,22 @@ export function EvidenceCard({
                 currentVerdict={evidence.fusionVerdict.verdict as Verdict}
               />
             )}
-            <ForensicExpertDialog caseId={caseId} evidenceId={evidence.id} existing={evidence.forensicExpert} />
+            <ForensicExpertDialog
+              caseId={caseId}
+              evidenceId={evidence.id}
+              existing={evidence.forensicExpert}
+              existingCourtDirectionRef={evidence.courtDirectionRef}
+            />
+            <DeclarantDialog
+              caseId={caseId}
+              evidenceId={evidence.id}
+              existing={{
+                declarantName: evidence.declarantName,
+                declarantRole: evidence.declarantRole,
+                declarantOrg: evidence.declarantOrg,
+              }}
+            />
+            <CustodyTransferDialog caseId={caseId} evidenceId={evidence.id} />
           </div>
         </div>
       </div>
@@ -293,6 +316,41 @@ export function EvidenceCard({
               {" "}({new Date(o.timestamp).toLocaleString()}): {o.reason}
             </p>
           ))}
+        </div>
+      )}
+
+      {evidence.declarantName && (
+        <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
+          <p className="text-[11px] font-medium text-text-secondary">Section 63 BSA Part A — declarant</p>
+          <p className="text-[11px] text-text-tertiary">
+            {evidence.declarantName}
+            {evidence.declarantRole ? `, ${evidence.declarantRole}` : ""}
+            {evidence.declarantOrg ? ` (${evidence.declarantOrg})` : ""}
+          </p>
+        </div>
+      )}
+
+      {evidence.custodyTransfers.length > 0 && (
+        <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
+          <p className="text-[11px] font-medium text-text-secondary">Physical chain of custody</p>
+          {evidence.custodyTransfers.map((t) => (
+            <p key={t.id} className="text-[11px] text-text-tertiary">
+              {t.fromPerson} → {t.toPerson} ({t.purpose}){t.location ? ` — ${t.location}` : ""} — logged by{" "}
+              {t.recordedBy.name} ({new Date(t.occurredAt).toLocaleString()})
+              {t.witness1Name && `; witness: ${t.witness1Name}`}
+              {t.witness2Name && `, ${t.witness2Name}`}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {!evidence.forensicExpert && evidence.courtDirectionRef && (
+        <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
+          <p className="text-[11px] font-medium text-text-secondary">Section 63 BSA Part B — forwarding in progress</p>
+          <p className="text-[11px] text-text-tertiary">
+            Court has directed independent expert examination (ref: {evidence.courtDirectionRef}); expert findings
+            not yet received.
+          </p>
         </div>
       )}
 

@@ -29,6 +29,7 @@ model User {
   evidenceUploaded   Evidence[]        @relation("EvidenceUploadedBy")
   auditEntries       AuditLogEntry[]   @relation("AuditActor")
   overridesGiven     VerdictOverride[] @relation("OverriddenBy")
+  custodyTransfersRecorded CustodyTransfer[] @relation("CustodyTransferRecordedBy")
 }
 
 // --- Case ----------------------------------------------------------------
@@ -50,6 +51,39 @@ model Case {
   investigator         User    @relation("CaseInvestigator", fields: [investigatorId], references: [id])
   investigatorRank     String?
   investigatorBadgeNo  String?
+  investigatorMobile   String?
+
+  // Real-world case-dossier particulars an actual IO report cannot be
+  // filed without — added per a direct officer-style review of the
+  // Section 63 BSA report export finding these genuinely missing, not
+  // speculative. All optional: a case can be created and investigated
+  // before some of these are known (e.g. accused is often unidentified at
+  // intake), and the report is required to say so honestly rather than
+  // block creation on fields that may not exist yet.
+  offenceSections   String? // e.g. "IPC 66E, IT Act 67A" — the report cannot honestly omit this
+  firDate           DateTime? // FIR registration date, distinct from firNumber
+  complainantName   String?
+  complainantContact String?
+  accusedDetails    String? // free text — "unidentified" is a real, valid value here
+  courtJurisdiction String? // e.g. "Court of the CJM, Chandigarh" — which court this is meant to be produced before
+  gdEntryNumber     String? // General Diary / Roznamcha entry cross-reference
+
+  // Real departmental dispatch number, assigned by the office's own DAK/
+  // outward register once this report is actually sent out — distinct
+  // from the system-generated provisional reference the report shows
+  // until this is filled in (see RealReportPreview's header). Never
+  // fabricated by the platform itself.
+  dispatchNumber    String?
+
+  // Forwarding/countersigning superior officer — real reports to a court
+  // are forwarded through a chain of command, not signed only by the
+  // preparing IO. Free-text fields (not a User relation) because the
+  // forwarding officer is very often not a Pramana platform user.
+  forwardingOfficerName     String?
+  forwardingOfficerRank     String?
+  forwardingOfficerBadgeNo  String?
+  forwardingRemarks         String?
+  forwardedAt               DateTime?
 
   evidence          Evidence[]
   auditEntries      AuditLogEntry[]
@@ -80,6 +114,25 @@ model Evidence {
   uploadedById     String
   uploadedBy       User     @relation("EvidenceUploadedBy", fields: [uploadedById], references: [id])
   deviceIdentifier String? // IMEI/MAC/serial — only when evidence comes from a specific seized device, not a generic upload
+  casePropertyNumber String? // Malkhana / case-property register number — only meaningful alongside deviceIdentifier (a physically seized exhibit), never fabricated for a digital upload
+
+  // Section 63/65B Part A declarant — the person who "was regularly using
+  // the device in the ordinary course of the stated activity," which is
+  // very often NOT the investigating officer (e.g. the complainant who
+  // submitted a screenshot, or a platform's authorized signatory). Falls
+  // back to the case's investigator in the report when unset, matching
+  // the previous (narrower, legally imprecise) behavior — but now
+  // overridable per exhibit instead of always assuming the IO.
+  declarantName    String?
+  declarantRole    String? // e.g. "Complainant", "Platform representative", "Investigating Officer (device in own custody)"
+  declarantOrg     String?
+
+  // Court order reference directing independent expert examination —
+  // distinct from ForensicExpert (below), which only exists once the
+  // expert's actual findings are in hand. This lets Part B honestly show
+  // a middle "forwarding in progress" state instead of only "recorded" or
+  // "not applicable".
+  courtDirectionRef String?
 
   metadataResult   MetadataResult?
   detectionResult  DetectionResult?
@@ -91,11 +144,40 @@ model Evidence {
   matchesFrom         EvidenceMatch[] @relation("EvidenceMatchSource")
   matchesTo           EvidenceMatch[] @relation("EvidenceMatchTarget")
   overrides           VerdictOverride[]
+  custodyTransfers    CustodyTransfer[]
 
   @@unique([caseId, sha256])
   @@index([caseId])
   @@index([sha256])
   @@index([phash])
+}
+
+// Real physical chain-of-custody entries — seizure / handover / storage
+// transfer, per exhibit. Deliberately separate from AuditLogEntry: that
+// table is a system access log (who logged in and clicked what), which is
+// not the same thing a court means by "chain of custody" for a physical
+// exhibit (received from / handed to / independent witnesses). Only
+// meaningful once an exhibit has left pure digital-upload territory, but
+// not hard-restricted to that — an IO may want to log a transfer even for
+// a digital file's storage medium.
+model CustodyTransfer {
+  id             String   @id @default(cuid())
+  evidenceId     String
+  evidence       Evidence @relation(fields: [evidenceId], references: [id])
+  fromPerson     String
+  toPerson       String
+  purpose        String
+  location       String?
+  occurredAt     DateTime @default(now())
+  witness1Name    String?
+  witness1Address String?
+  witness2Name    String?
+  witness2Address String?
+  recordedById   String
+  recordedBy     User     @relation("CustodyTransferRecordedBy", fields: [recordedById], references: [id])
+  recordedAt     DateTime @default(now())
+
+  @@index([evidenceId])
 }
 
 model MetadataResult {
@@ -254,7 +336,7 @@ model AuditLogEntry {
   evidenceHash  String?
   actorId       String?
   actor         User?    @relation("AuditActor", fields: [actorId], references: [id])
-  action        String // "UPLOADED" | "ANALYZED" | "VIEWED" | "OVERRIDDEN" | "EXPORTED" | "ASSIGNED"
+  action        String // "UPLOADED" | "ANALYZED" | "VIEWED" | "OVERRIDDEN" | "EXPORTED" | "ASSIGNED" | "CUSTODY_TRANSFERRED"
   timestamp     DateTime @default(now())
   device        String?
   entryHash     String   @unique

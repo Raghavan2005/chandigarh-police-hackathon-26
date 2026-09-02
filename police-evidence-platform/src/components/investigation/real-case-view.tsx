@@ -4,6 +4,7 @@ import { ArrowLeft, FileDown, GitBranch, ShieldAlert } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { EvidenceCard } from "@/components/investigation/evidence-card";
+import { ForwardingDialog } from "@/components/investigation/forwarding-dialog";
 import type { getRealCase } from "@/lib/cases-server";
 
 type RealCase = NonNullable<Awaited<ReturnType<typeof getRealCase>>>;
@@ -59,6 +60,15 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
               <FileDown className="size-4" />
               Report
             </Link>
+            <ForwardingDialog
+              caseId={caseData.id}
+              existing={{
+                forwardingOfficerName: caseData.forwardingOfficerName,
+                forwardingOfficerRank: caseData.forwardingOfficerRank,
+                forwardingOfficerBadgeNo: caseData.forwardingOfficerBadgeNo,
+                forwardingRemarks: caseData.forwardingRemarks,
+              }}
+            />
           </div>
         </div>
       </div>
@@ -67,13 +77,25 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Case particulars</p>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm sm:grid-cols-4">
           <Row label="FIR number" value={caseData.firNumber} />
+          {caseData.firDate && <Row label="FIR date" value={new Date(caseData.firDate).toLocaleDateString()} />}
           <Row label="Police station" value={caseData.policeStation} />
           <Row label="District/UT" value={caseData.district} />
+          {caseData.offenceSections && <Row label="Sections of law" value={caseData.offenceSections} />}
+          {caseData.courtJurisdiction && <Row label="Court jurisdiction" value={caseData.courtJurisdiction} />}
+          {caseData.complainantName && <Row label="Complainant" value={caseData.complainantName} />}
+          {caseData.accusedDetails && <Row label="Accused" value={caseData.accusedDetails} />}
+          {caseData.gdEntryNumber && <Row label="GD entry no." value={caseData.gdEntryNumber} />}
           <Row label="Status" value={caseData.status} capitalize />
           <Row label="Investigator" value={caseData.investigator.name} />
           {caseData.investigatorRank && <Row label="Rank" value={caseData.investigatorRank} />}
           {caseData.investigatorBadgeNo && <Row label="Badge/PIS No." value={caseData.investigatorBadgeNo} mono />}
           <Row label="Opened" value={new Date(caseData.openedAt).toLocaleString()} />
+          {caseData.forwardingOfficerName && (
+            <Row
+              label="Forwarded to"
+              value={`${caseData.forwardingOfficerName}, ${caseData.forwardingOfficerRank}`}
+            />
+          )}
         </dl>
       </div>
 

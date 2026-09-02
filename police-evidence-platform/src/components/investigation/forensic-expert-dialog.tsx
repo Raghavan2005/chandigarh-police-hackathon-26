@@ -30,28 +30,42 @@ interface ForensicExpert {
  * shows "Part B — not applicable" rather than fabricating expert content
  * for every case — this dialog is what makes that section reachable for
  * real, not permanently dead.
+ *
+ * Also records `courtDirectionRef` on its own — a real middle state
+ * between "not applicable" and "expert findings recorded": a court has
+ * directed examination but the expert's report hasn't come back yet.
+ * Fill that in alone first; add the full expert details once they arrive.
  */
 export function ForensicExpertDialog({
   caseId,
   evidenceId,
   existing,
+  existingCourtDirectionRef,
 }: {
   caseId: string;
   evidenceId: string;
   existing: ForensicExpert | null;
+  existingCourtDirectionRef?: string | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(existing?.name ?? "");
   const [designation, setDesignation] = useState(existing?.designation ?? "");
   const [labRef, setLabRef] = useState(existing?.labRef ?? "");
+  const [courtDirectionRef, setCourtDirectionRef] = useState(existingCourtDirectionRef ?? "");
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
   async function handleSubmit() {
-    if (!name.trim() || !designation.trim() || !labRef.trim()) {
+    const hasExpertDetails = name.trim() || designation.trim() || labRef.trim();
+    if (hasExpertDetails && (!name.trim() || !designation.trim() || !labRef.trim())) {
       setStatus("error");
-      setErrorMessage("Expert name, designation, and laboratory reference are all required.");
+      setErrorMessage("If recording expert details, name, designation, and laboratory reference are all required.");
+      return;
+    }
+    if (!hasExpertDetails && !courtDirectionRef.trim()) {
+      setStatus("error");
+      setErrorMessage("Provide either a court direction reference or full expert details.");
       return;
     }
     setStatus("submitting");
@@ -60,7 +74,12 @@ export function ForensicExpertDialog({
     const response = await fetch(`/api/cases/${caseId}/evidence/${evidenceId}/forensic-expert`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), designation: designation.trim(), labRef: labRef.trim() }),
+      body: JSON.stringify({
+        name: name.trim() || undefined,
+        designation: designation.trim() || undefined,
+        labRef: labRef.trim() || undefined,
+        courtDirectionRef: courtDirectionRef.trim() || undefined,
+      }),
     }).catch(() => null);
 
     if (!response || !response.ok) {
@@ -81,21 +100,33 @@ export function ForensicExpertDialog({
         className={cn(buttonVariants({ variant: "outline", size: "xs" }), "text-text-tertiary hover:text-text-primary")}
       >
         <Microscope className="size-3.5" />
-        {existing ? "Edit Part B expert" : "Record Part B expert"}
+        {existing ? "Edit Part B expert" : existingCourtDirectionRef ? "Edit Part B (awaiting expert)" : "Record Part B expert"}
       </DialogTrigger>
       <DialogContent className="border-border-subtle bg-surface-raised text-text-primary">
         <DialogHeader>
           <DialogTitle>Section 63 BSA — Part B: forensic expert</DialogTitle>
           <DialogDescription className="text-text-tertiary">
             Only fill this in when a court has actually directed independent expert verification of this
-            exhibit — this replaces the report&apos;s &quot;not applicable&quot; text with the named expert&apos;s
-            details. Leave it unset for every other case.
+            exhibit. Fill in just the court direction reference first if the expert&apos;s report hasn&apos;t
+            arrived yet — that shows an honest &quot;forwarding in progress&quot; state instead of either
+            fabricating findings or leaving the report saying &quot;not applicable&quot;.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3 py-1">
           <div className="flex flex-col gap-1.5">
+            <Label htmlFor="expert-direction-ref" className="text-text-secondary">
+              Court direction reference <span className="font-normal text-text-tertiary">(optional)</span>
+            </Label>
+            <Input
+              id="expert-direction-ref"
+              value={courtDirectionRef}
+              onChange={(e) => setCourtDirectionRef(e.target.value)}
+              placeholder="e.g. Order dated 12.09.2026, CJM Chandigarh, Crl. MA No. 231/2026"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="expert-name" className="text-text-secondary">
-              Expert full name
+              Expert full name <span className="font-normal text-text-tertiary">(once findings arrive)</span>
             </Label>
             <Input id="expert-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Dr. A. Mehta" />
           </div>

@@ -34,6 +34,29 @@ function signalLabel(key: string): string {
   return key;
 }
 
+type ExhibitEvidence = RealCase["evidence"][number];
+
+/**
+ * Real exhibit picture for the printed report — the actual uploaded image
+ * for image evidence, or the real sampled-frame Grad-CAM heatmap for
+ * video (the same derivative already shown in the live case view), never
+ * a generic file-type icon standing in for "the evidence." Audio/document
+ * evidence has no honest visual to show, so this returns null for those
+ * rather than a fabricated placeholder image.
+ */
+function exhibitThumbnail(caseId: string, ev: ExhibitEvidence): { url: string; caption: string } | null {
+  if (ev.mimeType.startsWith("image/")) {
+    return { url: `/api/cases/${caseId}/evidence/${ev.id}/file`, caption: "As uploaded" };
+  }
+  if (ev.mimeType.startsWith("video/") && ev.detectionResult?.heatmapPath) {
+    return {
+      url: `/api/cases/${caseId}/evidence/${ev.id}/heatmap`,
+      caption: "Sampled frame analyzed (Grad-CAM heatmap overlay)",
+    };
+  }
+  return null;
+}
+
 /**
  * Report for a real, Phase-1/2-created case — built from actual DB data,
  * now implementing the full bilingual Section 63 BSA (Bharatiya Sakshya
@@ -44,7 +67,17 @@ function signalLabel(key: string): string {
  * footer. Every field either comes from real DB data or is a fixed
  * declaration/template string — nothing here is a fabricated finding.
  */
-export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; auditLog: AuditEntries }) {
+export function RealReportPreview({
+  caseData,
+  auditLog,
+  integrityHash,
+  qrDataUrl,
+}: {
+  caseData: RealCase;
+  auditLog: AuditEntries;
+  integrityHash: string;
+  qrDataUrl: string;
+}) {
   const generatedAt = new Date();
   const [pdfStatus, setPdfStatus] = useState<"idle" | "rendering" | "error">("idle");
   const [pdfError, setPdfError] = useState("");
@@ -112,10 +145,20 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
   const nextSection = () => sectionCounter++;
   const particularsSection = nextSection();
   const summarySection = caseData.summary ? nextSection() : null;
+  const executiveSummarySection = nextSection();
   const exhibitsSection = nextSection();
   const custodySection = nextSection();
   const certificateSection = nextSection();
   const signOffSection = nextSection();
+
+  // Executive summary — a report with several exhibits at different
+  // verdicts previously had no top-line count anywhere; a reader had to
+  // open every exhibit block individually to know the overall picture.
+  const verdictCounts: Record<string, number> = {};
+  for (const ev of caseData.evidence) {
+    const key = ev.fusionVerdict?.verdict ?? "PENDING";
+    verdictCounts[key] = (verdictCounts[key] ?? 0) + 1;
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -177,7 +220,21 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
           </div>
           <div className="mt-3 flex items-start justify-between text-xs text-neutral-600">
             <p>
-              <Bi en="No." hi="क्रमांक" />: <span className="font-mono">PRAMANA/{caseData.id}/{generatedAt.getFullYear()}</span>
+              {caseData.dispatchNumber ? (
+                <>
+                  <Bi en="Dispatch No." hi="प्रेषण क्रमांक" />: <span className="font-mono">{caseData.dispatchNumber}</span>
+                </>
+              ) : (
+                <>
+                  <Bi en="System reference (provisional)" hi="सिस्टम संदर्भ (अनंतिम)" />:{" "}
+                  <span className="font-mono">
+                    PRAMANA/{caseData.id}/{generatedAt.getFullYear()}
+                  </span>
+                  <span className="ml-1 text-[10px] text-neutral-400">
+                    — not yet assigned an office dispatch/DAK number
+                  </span>
+                </>
+              )}
             </p>
             <p>
               <Bi en="Dated" hi="दिनांक" />: {generatedAt.toISOString().slice(0, 10)}
@@ -193,22 +250,57 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
             </p>
             <p className="mt-2 text-xs leading-relaxed text-neutral-700">
               <Bi
-                en={`This report has been prepared by ${caseData.investigator.name}${caseData.investigatorRank ? `, ${caseData.investigatorRank}` : ""}${caseData.investigatorBadgeNo ? ` (Badge/PIS No. ${caseData.investigatorBadgeNo})` : ""}, presently posted at ${caseData.policeStation}, ${caseData.district}, in connection with FIR No. ${caseData.firNumber}, regarding the matter titled "${caseData.title}".`}
+                en={`This report has been prepared by ${caseData.investigator.name}${caseData.investigatorRank ? `, ${caseData.investigatorRank}` : ""}${caseData.investigatorBadgeNo ? ` (Badge/PIS No. ${caseData.investigatorBadgeNo})` : ""}, presently posted at ${caseData.policeStation}, ${caseData.district}, in connection with FIR No. ${caseData.firNumber}${caseData.offenceSections ? ` under ${caseData.offenceSections}` : ""}, regarding the matter titled "${caseData.title}".`}
                 hi={`यह रिपोर्ट ${caseData.investigator.name}${caseData.investigatorRank ? `, ${caseData.investigatorRank}` : ""} द्वारा तैयार की गई है, जो वर्तमान में ${caseData.policeStation}, ${caseData.district} में पदस्थ हैं, प्राथमिकी संख्या ${caseData.firNumber} के संबंध में।`}
               />
             </p>
             <dl className="mt-3 grid grid-cols-2 gap-y-1.5 text-xs text-neutral-600">
               <dt><Bi en="FIR No." hi="प्राथमिकी संख्या" /></dt>
               <dd className="text-neutral-900">{caseData.firNumber}</dd>
+              {caseData.firDate && (
+                <>
+                  <dt><Bi en="FIR date" hi="प्राथमिकी दिनांक" /></dt>
+                  <dd className="text-neutral-900">{new Date(caseData.firDate).toLocaleDateString()}</dd>
+                </>
+              )}
               <dt><Bi en="Police Station" hi="थाना" /></dt>
               <dd className="text-neutral-900">{caseData.policeStation}</dd>
               <dt><Bi en="District/UT" hi="जिला" /></dt>
               <dd className="text-neutral-900">{caseData.district}</dd>
+              {caseData.offenceSections && (
+                <>
+                  <dt><Bi en="Sections of law" hi="विधि की धाराएँ" /></dt>
+                  <dd className="text-neutral-900">{caseData.offenceSections}</dd>
+                </>
+              )}
+              {caseData.courtJurisdiction && (
+                <>
+                  <dt><Bi en="Court jurisdiction" hi="न्यायालय क्षेत्राधिकार" /></dt>
+                  <dd className="text-neutral-900">{caseData.courtJurisdiction}</dd>
+                </>
+              )}
+              {caseData.gdEntryNumber && (
+                <>
+                  <dt><Bi en="GD/Roznamcha entry no." hi="जीडी/रोज़नामचा प्रविष्टि संख्या" /></dt>
+                  <dd className="text-neutral-900">{caseData.gdEntryNumber}</dd>
+                </>
+              )}
+              <dt><Bi en="Complainant" hi="परिवादी" /></dt>
+              <dd className="text-neutral-900">
+                {caseData.complainantName ?? "not recorded"}
+                {caseData.complainantContact ? ` (${caseData.complainantContact})` : ""}
+              </dd>
+              <dt><Bi en="Accused" hi="अभियुक्त" /></dt>
+              <dd className="text-neutral-900">{caseData.accusedDetails ?? "not recorded"}</dd>
               <dt><Bi en="Investigating Officer" hi="अन्वेषण अधिकारी" /></dt>
               <dd className="text-neutral-900">
                 {caseData.investigator.name}
                 {caseData.investigatorRank ? `, ${caseData.investigatorRank}` : ""}
                 {caseData.investigatorBadgeNo ? ` (${caseData.investigatorBadgeNo})` : ""}
+              </dd>
+              <dt><Bi en="IO contact" hi="अन्वेषण अधिकारी संपर्क" /></dt>
+              <dd className="text-neutral-900">
+                {caseData.investigatorMobile ?? "not recorded"}
               </dd>
               <dt><Bi en="Evidence type" hi="साक्ष्य प्रकार" /></dt>
               <dd className="capitalize text-neutral-900">{caseData.evidenceKind}</dd>
@@ -219,13 +311,32 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
             </dl>
           </div>
 
-          {/* 3. Case summary — narrative, English only per §4 scope decision */}
+          {/* Brief facts of the case — narrative, English only per §4 scope decision */}
           {caseData.summary && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{summarySection}. Case summary</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                {summarySection}. <Bi en="Brief facts of the case" hi="मामले के संक्षिप्त तथ्य" />
+              </p>
               <p className="mt-1 text-xs leading-relaxed text-neutral-600">{caseData.summary}</p>
             </div>
           )}
+
+          {/* Executive summary — a top-line verdict count across all
+              exhibits, so a reader doesn't have to open every exhibit
+              block individually to know the overall picture. */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+              {executiveSummarySection}. <Bi en="Executive summary" hi="कार्यकारी सारांश" />
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-neutral-600">
+              {caseData.evidence.length} exhibit{caseData.evidence.length === 1 ? "" : "s"} on this case
+              {Object.keys(verdictCounts).length > 0 && ": "}
+              {Object.entries(verdictCounts)
+                .map(([verdict, count]) => `${count} ${verdict === "PENDING" ? "awaiting analysis" : verdict.replace("_", "-").toLowerCase()}`)
+                .join(", ")}
+              .
+            </p>
+          </div>
 
           {/* 4. Exhibit particulars + 5. Technical findings, per evidence item */}
           <div>
@@ -236,7 +347,10 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
               {caseData.evidence.length === 0 && (
                 <p className="text-xs text-neutral-500">No evidence on this case.</p>
               )}
-              {caseData.evidence.map((ev, i) => (
+              {caseData.evidence.map((ev, i) => {
+                const thumbnail = exhibitThumbnail(caseData.id, ev);
+                const isSensitive = caseData.sensitivityLevel !== "standard";
+                return (
                 <div key={ev.id} className="rounded border border-neutral-200 p-3 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-neutral-900">
@@ -250,10 +364,33 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
                       <span className="text-neutral-400">Analysis pending</span>
                     )}
                   </div>
+                  {isSensitive ? (
+                    <div className="mt-2 flex h-20 w-32 items-center justify-center rounded border border-dashed border-amber-300 bg-amber-50 text-center text-[9px] leading-snug text-amber-700">
+                      Image redacted in this export
+                      <br />
+                      ({caseData.sensitivityLevel === "ncii" ? "NCII" : "minor"} sensitivity — view via audited
+                      reveal in-platform)
+                    </div>
+                  ) : (
+                    thumbnail && (
+                      // eslint-disable-next-line @next/next/no-img-element -- authenticated, session-gated API route, not an optimizable static/remote asset
+                      <img
+                        src={thumbnail.url}
+                        alt={`Exhibit ${i + 1} thumbnail`}
+                        className="mt-2 h-24 w-auto max-w-[180px] rounded border border-neutral-300 object-contain"
+                      />
+                    )
+                  )}
+                  {thumbnail && !isSensitive && (
+                    <p className="mt-0.5 text-[10px] text-neutral-400">{thumbnail.caption}</p>
+                  )}
                   <p className="mt-1 break-all font-mono text-[10px] text-neutral-500">SHA-256: {ev.sha256}</p>
                   <p className="mt-0.5 text-neutral-500">
                     Device identifier: {ev.deviceIdentifier ?? "not applicable (digital upload, not a seized device)"}
                   </p>
+                  {ev.casePropertyNumber && (
+                    <p className="mt-0.5 text-neutral-500">Case property no.: {ev.casePropertyNumber}</p>
+                  )}
                   {ev.metadataResult && (
                     <p className="mt-1 text-neutral-600">
                       {[ev.metadataResult.container, ev.metadataResult.resolution, ev.metadataResult.duration, ev.metadataResult.codec]
@@ -315,16 +452,66 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          {/* 6. Chain of custody */}
+          {/* 6. Chain of custody — physical transfers (a real seizure/
+              handover/witness record) shown first and separately from the
+              system access log below, since a court's idea of "chain of
+              custody" for a seized exhibit is not "who logged in." */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
               {custodySection}. <Bi en="Chain of custody" hi="अभिरक्षा श्रृंखला" />
             </p>
-            <table className="mt-1.5 w-full border-collapse text-xs text-neutral-600">
+
+            {caseData.evidence.some((ev) => ev.custodyTransfers.length > 0) ? (
+              <div className="mt-1.5 flex flex-col gap-3">
+                {caseData.evidence.map(
+                  (ev, i) =>
+                    ev.custodyTransfers.length > 0 && (
+                      <div key={ev.id}>
+                        <p className="text-[10px] font-medium uppercase text-neutral-500">Exhibit {i + 1} — physical transfers</p>
+                        <table className="mt-1 w-full border-collapse text-xs text-neutral-600">
+                          <thead>
+                            <tr className="border-b border-neutral-200 text-left text-[10px] uppercase text-neutral-400">
+                              <th className="py-1 font-medium">From</th>
+                              <th className="py-1 font-medium">To</th>
+                              <th className="py-1 font-medium">Purpose</th>
+                              <th className="py-1 font-medium">Witnesses</th>
+                              <th className="py-1 text-right font-medium">When</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ev.custodyTransfers.map((t) => (
+                              <tr key={t.id} className="border-b border-dashed border-neutral-100">
+                                <td className="py-1.5">{t.fromPerson}</td>
+                                <td className="py-1.5">{t.toPerson}</td>
+                                <td className="py-1.5">{t.purpose}{t.location ? ` (${t.location})` : ""}</td>
+                                <td className="py-1.5">
+                                  {[t.witness1Name, t.witness2Name].filter(Boolean).join("; ") || "none recorded"}
+                                </td>
+                                <td className="py-1.5 text-right font-mono text-[10px] text-neutral-400">
+                                  {new Date(t.occurredAt).toLocaleString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ),
+                )}
+              </div>
+            ) : (
+              <p className="mt-1.5 text-[10px] text-neutral-400">
+                No physical custody transfers recorded — every exhibit on this case is a direct digital upload,
+                not a seized device requiring seizure/handover records.
+              </p>
+            )}
+
+            <p className="mb-1 mt-3 text-[10px] font-medium uppercase text-neutral-500">System audit trail</p>
+            <table className="w-full border-collapse text-xs text-neutral-600">
               <thead>
                 <tr className="border-b border-neutral-200 text-left text-[10px] uppercase text-neutral-400">
                   <th className="py-1 font-medium"><Bi en="Timestamp" hi="समय" /></th>
@@ -363,7 +550,15 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
               />
             </p>
             <div className="mt-3 flex flex-col gap-4">
-              {caseData.evidence.map((ev, i) => (
+              {caseData.evidence.map((ev, i) => {
+                // The declarant should be whoever actually operated/possessed
+                // the device that produced this record — not automatically
+                // the IO. Falls back to the IO only when no per-exhibit
+                // declarant has been recorded (see DeclarantDialog).
+                const declarantName = ev.declarantName ?? caseData.investigator.name;
+                const declarantRole = ev.declarantRole ?? "Investigating Officer";
+                const declarantPosting = ev.declarantOrg ?? `${caseData.policeStation}, ${caseData.district}`;
+                return (
                 <div key={ev.id} className="rounded border border-neutral-300 p-3 text-xs">
                   <p className="font-medium text-neutral-900">
                     Exhibit {i + 1} — {ev.mimeType} (SHA-256: <span className="font-mono">{ev.sha256.slice(0, 16)}…</span>)
@@ -375,19 +570,18 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
                     </p>
                     <p className="mt-1.5 text-[10px] italic leading-snug text-neutral-600">
                       <Bi
-                        en={`I, ${caseData.investigator.name}${caseData.investigatorRank ? `, ${caseData.investigatorRank}` : ""}${caseData.investigatorBadgeNo ? ` (Badge/PIS No. ${caseData.investigatorBadgeNo})` : ""}, presently posted at ${caseData.policeStation}, ${caseData.district}, do hereby solemnly affirm and state as under:—`}
-                        hi={`मैं, ${caseData.investigator.name}${caseData.investigatorRank ? `, ${caseData.investigatorRank}` : ""}, वर्तमान में ${caseData.policeStation}, ${caseData.district} में पदस्थ, एतद्द्वारा गंभीरतापूर्वक घोषणा करता/करती हूँ:—`}
+                        en={`I, ${declarantName}, ${declarantRole}, ${declarantPosting}, do hereby solemnly affirm and state as under:—`}
+                        hi={`मैं, ${declarantName}, ${declarantRole}, ${declarantPosting}, एतद्द्वारा गंभीरतापूर्वक घोषणा करता/करती हूँ:—`}
                       />
                     </p>
                     <dl className="mt-1.5 grid grid-cols-2 gap-y-1 text-neutral-600">
                       <dt><Bi en="Declarant" hi="घोषणाकर्ता" /></dt>
                       <dd className="text-neutral-900">
-                        {caseData.investigator.name}
-                        {caseData.investigatorRank ? `, ${caseData.investigatorRank}` : " — rank not recorded at case intake"}
-                        {caseData.investigatorBadgeNo ? ` (${caseData.investigatorBadgeNo})` : ""}
+                        {declarantName}, {declarantRole}
+                        {!ev.declarantName && !caseData.investigatorRank && " — rank not recorded at case intake"}
                       </dd>
-                      <dt><Bi en="Posting" hi="पदस्थापना" /></dt>
-                      <dd className="text-neutral-900">{caseData.policeStation}, {caseData.district}</dd>
+                      <dt><Bi en="Posting / organisation" hi="पदस्थापना / संगठन" /></dt>
+                      <dd className="text-neutral-900">{declarantPosting}</dd>
                       <dt><Bi en="Source device type" hi="स्रोत उपकरण प्रकार" /></dt>
                       <dd className="text-neutral-900">
                         {ev.deviceIdentifier ? "Seized device (identifier below)" : "Digital upload via Pramana platform"}
@@ -398,17 +592,48 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
                           <dd className="font-mono text-neutral-900">{ev.deviceIdentifier}</dd>
                         </>
                       )}
+                      {ev.casePropertyNumber && (
+                        <>
+                          <dt><Bi en="Case property no." hi="केस संपत्ति संख्या" /></dt>
+                          <dd className="text-neutral-900">{ev.casePropertyNumber}</dd>
+                        </>
+                      )}
                       <dt><Bi en="Record hash (SHA-256)" hi="अभिलेख हैश" /></dt>
                       <dd className="break-all font-mono text-[10px] text-neutral-900">{ev.sha256}</dd>
                       <dt><Bi en="Computed at intake" hi="अंतर्ग्रहण के समय" /></dt>
                       <dd className="text-neutral-900">{new Date(ev.uploadedAt).toLocaleString()}</dd>
                     </dl>
-                    <p className="mt-2 text-[10px] leading-snug text-neutral-500">
-                      <Bi
-                        en="I declare that the above-described computer/communication device was regularly used to store or process the said record in the ordinary course of the stated activity, and that the device was operating properly at the material time."
-                        hi="मैं घोषणा करता/करती हूँ कि उपरोक्त वर्णित कंप्यूटर/संचार उपकरण उक्त अभिलेख के भंडारण या संसाधन हेतु संबंधित गतिविधि के सामान्य क्रम में नियमित रूप से उपयोग किया गया, तथा उक्त उपकरण सुसंगत समय पर उचित रूप से कार्यरत था।"
-                      />
-                    </p>
+                    {/* The Schedule to Section 63/65B's four conditions,
+                        enumerated separately rather than merged into one
+                        sentence — courts scrutinize each one individually,
+                        and a certificate that doesn't lay them out this way
+                        is materially weaker. */}
+                    <ol className="mt-2 list-[lower-alpha] space-y-1 pl-4 text-[10px] leading-snug text-neutral-500">
+                      <li>
+                        <Bi
+                          en="The above-described computer/communication device produced the electronic record during a period over which it was regularly used to store or process information for the purposes of the stated activity."
+                          hi="उपरोक्त वर्णित कंप्यूटर/संचार उपकरण ने उस अवधि के दौरान इलेक्ट्रॉनिक अभिलेख तैयार किया जिसमें इसका उपयोग नियमित रूप से किया जा रहा था।"
+                        />
+                      </li>
+                      <li>
+                        <Bi
+                          en="During that period, information of the kind contained in the record was regularly fed into the device in the ordinary course of the said activity."
+                          hi="उक्त अवधि के दौरान, अभिलेख में निहित प्रकार की जानकारी उक्त गतिविधि के सामान्य क्रम में नियमित रूप से उपकरण में फीड की गई।"
+                        />
+                      </li>
+                      <li>
+                        <Bi
+                          en="Throughout the material part of that period, the device was operating properly, or if not, that no such non-operation affected the record or the accuracy of its contents."
+                          hi="उक्त अवधि के सुसंगत भाग के दौरान, उपकरण उचित रूप से कार्यरत था, अथवा यदि नहीं, तो इससे अभिलेख या उसकी विषय-वस्तु की सटीकता प्रभावित नहीं हुई।"
+                        />
+                      </li>
+                      <li>
+                        <Bi
+                          en="The information contained in the record reproduces or is derived from information fed into the device in the ordinary course of the said activity."
+                          hi="अभिलेख में निहित जानकारी उक्त गतिविधि के सामान्य क्रम में उपकरण में फीड की गई जानकारी को पुनरुत्पादित करती है अथवा उससे व्युत्पन्न है।"
+                        />
+                      </li>
+                    </ol>
                     <p className="mt-2 border-t border-dashed border-neutral-200 pt-2 text-[10px] leading-snug text-neutral-500">
                       <span className="font-semibold uppercase text-neutral-700">
                         <Bi en="Verification" hi="सत्यापन" />:
@@ -420,7 +645,7 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
                     </p>
                     <div className="mt-3 grid grid-cols-3 gap-3 border-t border-dashed border-neutral-200 pt-2 text-[10px] text-neutral-500">
                       <div><Bi en="Signature" hi="हस्ताक्षर" />: ______________</div>
-                      <div><Bi en="Name" hi="नाम" />: {caseData.investigator.name}</div>
+                      <div><Bi en="Name" hi="नाम" />: {declarantName}</div>
                       <div><Bi en="Date" hi="दिनांक" />: ______________</div>
                     </div>
                   </div>
@@ -435,7 +660,20 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
                         <dd className="text-neutral-900">{ev.forensicExpert.name}, {ev.forensicExpert.designation}</dd>
                         <dt><Bi en="Laboratory reference" hi="प्रयोगशाला संदर्भ" /></dt>
                         <dd className="text-neutral-900">{ev.forensicExpert.labRef}</dd>
+                        {ev.courtDirectionRef && (
+                          <>
+                            <dt><Bi en="Court direction ref." hi="न्यायालय निर्देश संदर्भ" /></dt>
+                            <dd className="text-neutral-900">{ev.courtDirectionRef}</dd>
+                          </>
+                        )}
                       </dl>
+                    ) : ev.courtDirectionRef ? (
+                      <p className="mt-1 text-neutral-500">
+                        <Bi
+                          en={`Part B — forwarding in progress. Court has directed independent expert verification (ref: ${ev.courtDirectionRef}); expert findings not yet received.`}
+                          hi={`भाग ब — अग्रेषण प्रक्रियाधीन। न्यायालय ने स्वतंत्र विशेषज्ञ सत्यापन का निर्देश दिया है (संदर्भ: ${ev.courtDirectionRef}); विशेषज्ञ के निष्कर्ष अभी प्राप्त नहीं हुए हैं।`}
+                        />
+                      </p>
                     ) : (
                       <p className="mt-1 text-neutral-500">
                         <Bi
@@ -446,7 +684,8 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -474,6 +713,41 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
                 <Bi en="Seal" hi="मुहर" />
               </div>
             </div>
+          </div>
+
+          {/* Forwarding / countersigning officer — a report signed only by
+              the preparing IO has no record of being forwarded through a
+              chain of command, unlike every real report sent to a court.
+              Honestly shows "not yet forwarded" rather than a fabricated
+              second signature when this hasn't happened yet. */}
+          <div className="rounded border border-neutral-300 p-3 text-xs">
+            <p className="font-semibold text-neutral-800">
+              <Bi en="Forwarding officer's countersignature" hi="अग्रेषण अधिकारी का प्रति-हस्ताक्षर" />
+            </p>
+            {caseData.forwardingOfficerName ? (
+              <>
+                <p className="mt-1 text-[10px] leading-snug text-neutral-500">
+                  <Bi
+                    en={`Forwarded by ${caseData.forwardingOfficerName}, ${caseData.forwardingOfficerRank}${caseData.forwardingOfficerBadgeNo ? ` (${caseData.forwardingOfficerBadgeNo})` : ""} on ${caseData.forwardedAt ? new Date(caseData.forwardedAt).toLocaleDateString() : "—"}.${caseData.forwardingRemarks ? ` Remarks: ${caseData.forwardingRemarks}` : ""}`}
+                    hi={`${caseData.forwardingOfficerName}, ${caseData.forwardingOfficerRank} द्वारा अग्रेषित।`}
+                  />
+                </p>
+                <div className="mt-3 grid grid-cols-3 gap-3 border-t border-dashed border-neutral-200 pt-2 text-[10px] text-neutral-500">
+                  <div><Bi en="Signature" hi="हस्ताक्षर" />: ______________</div>
+                  <div>
+                    <Bi en="Name" hi="नाम" />: {caseData.forwardingOfficerName}, {caseData.forwardingOfficerRank}
+                  </div>
+                  <div><Bi en="Date" hi="दिनांक" />: ______________</div>
+                </div>
+              </>
+            ) : (
+              <p className="mt-1 text-[10px] text-neutral-500">
+                <Bi
+                  en="Not yet forwarded through a superior officer — this report has been signed only by the preparing investigating officer above."
+                  hi="अभी तक किसी वरिष्ठ अधिकारी के माध्यम से अग्रेषित नहीं किया गया — यह रिपोर्ट केवल उपरोक्त तैयार करने वाले अन्वेषण अधिकारी द्वारा हस्ताक्षरित है।"
+                />
+              </p>
+            )}
           </div>
 
           {/* 9. Legal-status footer — mandatory, bilingual */}
@@ -518,11 +792,25 @@ export function RealReportPreview({ caseData, auditLog }: { caseData: RealCase; 
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t-2 border-neutral-800 px-8 py-4 text-xs text-neutral-500">
-          <span>Signed off by {caseData.investigator.name}</span>
-          <span className="flex items-center gap-1">
-            <Download className="size-3" /> Pramana v0.1 — build in progress
-          </span>
+        <div className="flex items-center gap-4 border-t-2 border-neutral-800 px-8 py-4 text-[10px] text-neutral-500">
+          {/* eslint-disable-next-line @next/next/no-img-element -- server-generated data: URI, not an optimizable remote/static asset */}
+          <img
+            src={qrDataUrl}
+            alt="Report verification QR — encodes case ID and integrity hash"
+            className="size-14 shrink-0 border border-neutral-200"
+          />
+          <div className="flex flex-1 flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <span>Signed off by {caseData.investigator.name}</span>
+              <span className="flex items-center gap-1">
+                <Download className="size-3" /> Chandigarh Police — Pramana Forensic Evidence Platform
+              </span>
+            </div>
+            <p className="break-all font-mono text-neutral-400">
+              Report integrity hash (SHA-256, over case/exhibit/audit-chain content — recompute via report.json to
+              verify this copy matches the platform&apos;s current record): {integrityHash}
+            </p>
+          </div>
         </div>
       </div>
     </div>

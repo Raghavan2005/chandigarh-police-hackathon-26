@@ -70,6 +70,7 @@ export async function getRealCase(caseId: string) {
           // else in this app.
           matchesFrom: true,
           corpusMatches: { include: { corpusItem: true } },
+          custodyTransfers: { orderBy: { occurredAt: "asc" }, include: { recordedBy: { select: { name: true } } } },
         },
       },
     },

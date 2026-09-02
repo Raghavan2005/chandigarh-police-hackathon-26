@@ -15,6 +15,18 @@ const createCaseSchema = z.object({
   sensitivityLevel: z.enum(["standard", "ncii", "minor"]).default("standard"),
   investigatorRank: z.string().optional(),
   investigatorBadgeNo: z.string().optional(),
+  investigatorMobile: z.string().optional(),
+  // Real case-dossier particulars a court-facing report cannot be filed
+  // without (PS4_BUILD_STATUS.md's officer review) — all optional, since a
+  // case is often opened before some of these are known.
+  offenceSections: z.string().optional(),
+  firDate: z.coerce.date().optional(),
+  complainantName: z.string().optional(),
+  complainantContact: z.string().optional(),
+  accusedDetails: z.string().optional(),
+  courtJurisdiction: z.string().optional(),
+  gdEntryNumber: z.string().optional(),
+  dispatchNumber: z.string().optional(),
 });
 
 export async function GET() {
@@ -56,6 +68,15 @@ export async function POST(request: NextRequest) {
         investigatorId: session.userId,
         investigatorRank: data.investigatorRank,
         investigatorBadgeNo: data.investigatorBadgeNo,
+        investigatorMobile: data.investigatorMobile,
+        offenceSections: data.offenceSections,
+        firDate: data.firDate,
+        complainantName: data.complainantName,
+        complainantContact: data.complainantContact,
+        accusedDetails: data.accusedDetails,
+        courtJurisdiction: data.courtJurisdiction,
+        gdEntryNumber: data.gdEntryNumber,
+        dispatchNumber: data.dispatchNumber,
       },
     });
     // Same transaction as the case row itself — a case can never exist

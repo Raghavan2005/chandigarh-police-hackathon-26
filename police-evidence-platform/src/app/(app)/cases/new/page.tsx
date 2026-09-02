@@ -20,16 +20,27 @@ export default function NewCasePage() {
   const [step, setStep] = useState(0);
 
   const [firNumber, setFirNumber] = useState("");
+  const [firDate, setFirDate] = useState("");
   const [policeStation, setPoliceStation] = useState("");
   const [district, setDistrict] = useState("Chandigarh (UT)");
   const [investigatorRank, setInvestigatorRank] = useState("");
   const [investigatorBadgeNo, setInvestigatorBadgeNo] = useState("");
+  const [investigatorMobile, setInvestigatorMobile] = useState("");
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [sensitivityLevel, setSensitivityLevel] = useState<"standard" | "ncii" | "minor">("standard");
+  const [offenceSections, setOffenceSections] = useState("");
+  const [complainantName, setComplainantName] = useState("");
+  const [complainantContact, setComplainantContact] = useState("");
+  const [accusedDetails, setAccusedDetails] = useState("");
+  const [courtJurisdiction, setCourtJurisdiction] = useState("");
+  const [gdEntryNumber, setGdEntryNumber] = useState("");
+  const [dispatchNumber, setDispatchNumber] = useState("");
 
   const [kind, setKind] = useState<EvidenceKind | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [deviceIdentifier, setDeviceIdentifier] = useState("");
+  const [casePropertyNumber, setCasePropertyNumber] = useState("");
 
   const [investigatorName, setInvestigatorName] = useState<string | null>(null);
 
@@ -66,6 +77,15 @@ export default function NewCasePage() {
         sensitivityLevel,
         investigatorRank: investigatorRank.trim() || undefined,
         investigatorBadgeNo: investigatorBadgeNo.trim() || undefined,
+        investigatorMobile: investigatorMobile.trim() || undefined,
+        offenceSections: offenceSections.trim() || undefined,
+        firDate: firDate || undefined,
+        complainantName: complainantName.trim() || undefined,
+        complainantContact: complainantContact.trim() || undefined,
+        accusedDetails: accusedDetails.trim() || undefined,
+        courtJurisdiction: courtJurisdiction.trim() || undefined,
+        gdEntryNumber: gdEntryNumber.trim() || undefined,
+        dispatchNumber: dispatchNumber.trim() || undefined,
       }),
     }).catch(() => null);
 
@@ -80,6 +100,8 @@ export default function NewCasePage() {
 
     const formData = new FormData();
     formData.append("file", file);
+    if (deviceIdentifier.trim()) formData.append("deviceIdentifier", deviceIdentifier.trim());
+    if (casePropertyNumber.trim()) formData.append("casePropertyNumber", casePropertyNumber.trim());
 
     const evidenceResponse = await fetch(`/api/cases/${createdCase.id}/evidence`, {
       method: "POST",
@@ -130,6 +152,14 @@ export default function NewCasePage() {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
+                <Label htmlFor="firDate" className="text-text-secondary">
+                  FIR registration date <span className="font-normal text-text-tertiary">(optional)</span>
+                </Label>
+                <Input id="firDate" type="date" value={firDate} onChange={(e) => setFirDate(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
                 <Label htmlFor="policeStation" className="text-text-secondary">
                   Police station
                 </Label>
@@ -141,14 +171,89 @@ export default function NewCasePage() {
                   required
                 />
               </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="district" className="text-text-secondary">
+                  District / UT
+                </Label>
+                <Input id="district" value={district} onChange={(e) => setDistrict(e.target.value)} required />
+              </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="district" className="text-text-secondary">
-                District / UT
+              <Label htmlFor="offenceSections" className="text-text-secondary">
+                Sections of law <span className="font-normal text-text-tertiary">(optional)</span>
               </Label>
-              <Input id="district" value={district} onChange={(e) => setDistrict(e.target.value)} required />
+              <Input
+                id="offenceSections"
+                value={offenceSections}
+                onChange={(e) => setOffenceSections(e.target.value)}
+                placeholder="e.g. BNS 336, IT Act 66C/66D/66E/67A"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="courtJurisdiction" className="text-text-secondary">
+                Court jurisdiction <span className="font-normal text-text-tertiary">(optional)</span>
+              </Label>
+              <Input
+                id="courtJurisdiction"
+                value={courtJurisdiction}
+                onChange={(e) => setCourtJurisdiction(e.target.value)}
+                placeholder="e.g. Court of the CJM, Chandigarh"
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="complainantName" className="text-text-secondary">
+                  Complainant name <span className="font-normal text-text-tertiary">(optional)</span>
+                </Label>
+                <Input
+                  id="complainantName"
+                  value={complainantName}
+                  onChange={(e) => setComplainantName(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="complainantContact" className="text-text-secondary">
+                  Complainant contact <span className="font-normal text-text-tertiary">(optional)</span>
+                </Label>
+                <Input
+                  id="complainantContact"
+                  value={complainantContact}
+                  onChange={(e) => setComplainantContact(e.target.value)}
+                  placeholder="Phone / email"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="accusedDetails" className="text-text-secondary">
+                Accused particulars <span className="font-normal text-text-tertiary">(optional — &quot;unidentified&quot; is valid)</span>
+              </Label>
+              <Input
+                id="accusedDetails"
+                value={accusedDetails}
+                onChange={(e) => setAccusedDetails(e.target.value)}
+                placeholder="e.g. Unidentified; or name/alias if known"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="gdEntryNumber" className="text-text-secondary">
+                  GD / Roznamcha entry no. <span className="font-normal text-text-tertiary">(optional)</span>
+                </Label>
+                <Input id="gdEntryNumber" value={gdEntryNumber} onChange={(e) => setGdEntryNumber(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="dispatchNumber" className="text-text-secondary">
+                  Dispatch / DAK no. <span className="font-normal text-text-tertiary">(optional)</span>
+                </Label>
+                <Input
+                  id="dispatchNumber"
+                  value={dispatchNumber}
+                  onChange={(e) => setDispatchNumber(e.target.value)}
+                  placeholder="Assigned by office outward register, if any"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="investigatorRank" className="text-text-secondary">
                   Your rank <span className="font-normal text-text-tertiary">(optional)</span>
@@ -171,6 +276,17 @@ export default function NewCasePage() {
                   placeholder="e.g. PIS-04471"
                 />
               </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="investigatorMobile" className="text-text-secondary">
+                  Mobile <span className="font-normal text-text-tertiary">(optional)</span>
+                </Label>
+                <Input
+                  id="investigatorMobile"
+                  value={investigatorMobile}
+                  onChange={(e) => setInvestigatorMobile(e.target.value)}
+                  placeholder="e.g. 98xxxxxx10"
+                />
+              </div>
             </div>
             <p className="-mt-3 text-[11px] text-text-tertiary">
               Recorded on the Section 63 BSA certificate as your declarant particulars — leave blank if not
@@ -190,14 +306,14 @@ export default function NewCasePage() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="summary" className="text-text-secondary">
-                Summary <span className="font-normal text-text-tertiary">(optional)</span>
+                Brief facts of the case <span className="font-normal text-text-tertiary">(optional)</span>
               </Label>
               <textarea
                 id="summary"
                 rows={3}
                 value={summary}
                 onChange={(e) => setSummary(e.target.value)}
-                placeholder="Brief narrative of what's being investigated."
+                placeholder="Gist of the allegation / what's being investigated."
                 className="w-full resize-none rounded-lg border border-border-subtle bg-transparent px-2.5 py-2 text-sm text-text-primary outline-none placeholder:text-text-tertiary focus-visible:border-border-strong"
               />
             </div>
@@ -239,6 +355,29 @@ export default function NewCasePage() {
             <div>
               <p className="mb-2 text-sm font-medium text-text-secondary">Upload file</p>
               <UploadDropzone onComplete={setFile} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="deviceIdentifier" className="text-text-secondary">
+                  Device identifier <span className="font-normal text-text-tertiary">(only if seized, optional)</span>
+                </Label>
+                <Input
+                  id="deviceIdentifier"
+                  value={deviceIdentifier}
+                  onChange={(e) => setDeviceIdentifier(e.target.value)}
+                  placeholder="IMEI / MAC / serial"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="casePropertyNumber" className="text-text-secondary">
+                  Case property no. <span className="font-normal text-text-tertiary">(Malkhana, optional)</span>
+                </Label>
+                <Input
+                  id="casePropertyNumber"
+                  value={casePropertyNumber}
+                  onChange={(e) => setCasePropertyNumber(e.target.value)}
+                />
+              </div>
             </div>
           </div>
         )}

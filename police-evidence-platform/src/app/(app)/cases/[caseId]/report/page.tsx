@@ -3,6 +3,7 @@ import { caseById } from "@/lib/mock-data";
 import { ReportPreview } from "@/components/reports/report-preview";
 import { RealReportPreview } from "@/components/reports/real-report-preview";
 import { getRealCase, getRealCaseAuditLog } from "@/lib/cases-server";
+import { computeReportIntegrityHash, generateVerificationQrDataUrl } from "@/lib/report-hash";
 
 export default async function ReportPage(props: PageProps<"/cases/[caseId]/report">) {
   const { caseId } = await props.params;
@@ -13,13 +14,15 @@ export default async function ReportPage(props: PageProps<"/cases/[caseId]/repor
   const realCase = await getRealCase(caseId);
   if (realCase) {
     const auditLog = await getRealCaseAuditLog(caseId);
+    const integrityHash = computeReportIntegrityHash(realCase, auditLog);
+    const qrDataUrl = await generateVerificationQrDataUrl(realCase.id, integrityHash);
     return (
       <div className="mx-auto flex max-w-[1400px] flex-col gap-4 p-6 print:p-0">
         <div className="print:hidden">
           <p className="font-mono text-xs text-text-tertiary">{realCase.id}</p>
           <h1 className="text-xl font-semibold text-text-primary">Evidence report</h1>
         </div>
-        <RealReportPreview caseData={realCase} auditLog={auditLog} />
+        <RealReportPreview caseData={realCase} auditLog={auditLog} integrityHash={integrityHash} qrDataUrl={qrDataUrl} />
       </div>
     );
   }

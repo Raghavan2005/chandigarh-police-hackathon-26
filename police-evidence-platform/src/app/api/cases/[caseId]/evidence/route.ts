@@ -34,6 +34,7 @@ export async function POST(
   }
 
   const deviceIdentifier = formData?.get("deviceIdentifier");
+  const casePropertyNumber = formData?.get("casePropertyNumber");
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const sha256 = sha256Hex(buffer);
@@ -66,7 +67,9 @@ export async function POST(
         filePath,
         mimeType,
         uploadedById: session.userId,
-        deviceIdentifier: typeof deviceIdentifier === "string" ? deviceIdentifier : undefined,
+        deviceIdentifier: typeof deviceIdentifier === "string" && deviceIdentifier ? deviceIdentifier : undefined,
+        casePropertyNumber:
+          typeof casePropertyNumber === "string" && casePropertyNumber ? casePropertyNumber : undefined,
       },
     });
     // Same transaction as the evidence row — per the plan, there is no
