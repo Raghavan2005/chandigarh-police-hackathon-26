@@ -24,3 +24,25 @@ To set up on a new machine:
 Without this, reverse-image search honestly reports itself unavailable
 (`501`) instead of failing — every other feature in this build works fully
 offline without it.
+
+## `gcp-gemini-service-account.json`
+
+A GCP service-account key for `pramana-gemini-describe@tiq-world.iam.gserviceaccount.com`
+(`roles/aiplatform.user` on `tiq-world` — Vertex AI does check resource-level
+IAM, unlike Vision API above), used only by `src/lib/image-description.ts`
+(Vertex AI Gemini — real AI image description / possible-identity leads).
+Separate credential from the Vision one, on purpose: different API, so it
+can be independently revoked/rotated without breaking reverse-image search.
+
+To set up on a new machine:
+
+1. Get the JSON key file from whoever created the service account.
+2. Place it here as `gcp-gemini-service-account.json`.
+3. Set in `police-evidence-platform/.env`:
+   ```
+   GEMINI_APPLICATION_CREDENTIALS="./secrets/gcp-gemini-service-account.json"
+   GEMINI_GCP_PROJECT_ID="tiq-world"
+   ```
+
+Without this, the image-description feature honestly reports itself
+unavailable (`501`) instead of failing.

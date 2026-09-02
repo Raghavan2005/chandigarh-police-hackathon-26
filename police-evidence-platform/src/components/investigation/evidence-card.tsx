@@ -15,9 +15,11 @@ import { ForensicExpertDialog } from "@/components/investigation/forensic-expert
 import { DeclarantDialog } from "@/components/investigation/declarant-dialog";
 import { CustodyTransferDialog } from "@/components/investigation/custody-transfer-dialog";
 import { ReverseImageSearchPanel } from "@/components/investigation/reverse-image-search-panel";
+import { ImageDescriptionPanel } from "@/components/investigation/image-description-panel";
 import type { EvidenceKind, Verdict } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
 import type { CachedReverseImageSearchResult } from "@/lib/reverse-image-search";
+import type { CachedImageDescriptionResult } from "@/lib/image-description";
 
 type RealCase = NonNullable<Awaited<ReturnType<typeof getRealCase>>>;
 type Evidence = RealCase["evidence"][number];
@@ -160,6 +162,13 @@ export function EvidenceCard({
               caseId={caseId}
               evidenceId={evidence.id}
               cached={parseReverseImageSearchResult(evidence.reverseImageSearchResult)}
+            />
+          )}
+          {showFaceMatchSlot && (
+            <ImageDescriptionPanel
+              caseId={caseId}
+              evidenceId={evidence.id}
+              cached={parseImageDescriptionResult(evidence.imageDescriptionResult)}
             />
           )}
           {meta && meta.container === "PDF" && meta.exifJson && <DocumentDetails exifJson={meta.exifJson} />}
@@ -453,6 +462,21 @@ function parseReverseImageSearchResult(
       webEntities: JSON.parse(row.webEntitiesJson),
       bestGuessLabels: JSON.parse(row.bestGuessLabelsJson),
       labels: JSON.parse(row.labelsJson),
+      ranAt: row.ranAt.toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseImageDescriptionResult(
+  row: Evidence["imageDescriptionResult"],
+): CachedImageDescriptionResult | null {
+  if (!row) return null;
+  try {
+    return {
+      description: row.description,
+      possibleIdentities: JSON.parse(row.possibleIdentitiesJson),
       ranAt: row.ranAt.toISOString(),
     };
   } catch {

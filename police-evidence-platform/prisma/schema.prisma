@@ -149,6 +149,7 @@ model Evidence {
   forensicExpert   ForensicExpert?
   fusionVerdict    FusionVerdict?
   reverseImageSearchResult ReverseImageSearchResult?
+  imageDescriptionResult   ImageDescriptionResult?
 
   corpusMatches       CorpusMatch[]
   matchesFrom         EvidenceMatch[] @relation("EvidenceMatchSource")
@@ -265,6 +266,22 @@ model ReverseImageSearchResult {
   bestGuessLabelsJson  String   @default("[]")
   labelsJson           String   @default("[]")
   ranAt                DateTime @default(now())
+}
+
+// Real Vertex AI Gemini image description — separate cache/table from
+// ReverseImageSearchResult above since it's a different API/credential
+// with different reliability characteristics (a language model's
+// best-effort visual judgment, not Vision API's web-index matching), and
+// is the only capability able to name a recognizable person at all.
+// Cached like the Vision result: a real, billed external call, so re-run
+// on demand rather than on every page load.
+model ImageDescriptionResult {
+  id                     String   @id @default(cuid())
+  evidenceId             String   @unique
+  evidence               Evidence @relation(fields: [evidenceId], references: [id])
+  description            String
+  possibleIdentitiesJson String
+  ranAt                  DateTime @default(now())
 }
 
 // --- Cross-case & seeded-corpus matching ---------------------------------
