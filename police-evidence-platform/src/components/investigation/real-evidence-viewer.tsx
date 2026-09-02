@@ -7,10 +7,11 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { AudioAnalyser } from "@/components/investigation/audio-analyser";
 import { FaceDetailDialog, type FaceAnnotationData } from "@/components/investigation/face-detail-dialog";
-import { MediaPlayer, MediaProvider, type MediaPlayerInstance, type VideoMimeType } from "@vidstack/react";
-import { defaultLayoutIcons, DefaultVideoLayout } from "@vidstack/react/player/layouts/default";
+import { MediaPlayer, MediaProvider, type MediaPlayerInstance, type VideoMimeType, type AudioMimeType } from "@vidstack/react";
+import { defaultLayoutIcons, DefaultVideoLayout, DefaultAudioLayout } from "@vidstack/react/player/layouts/default";
 import "@vidstack/react/player/styles/default/theme.css";
 import "@vidstack/react/player/styles/default/layouts/video.css";
+import "@vidstack/react/player/styles/default/layouts/audio.css";
 
 interface FrameScore {
   timestampSeconds: number;
@@ -349,9 +350,24 @@ export function RealEvidenceViewer({
               </MediaPlayer>
             )}
             {isAudio && (
-              <div className="flex h-20 items-center justify-center bg-black">
-                <audio src={fileUrl} controls className="w-[92%]" ref={(el) => setMediaEl(el)} />
-              </div>
+              // Same Vidstack player as the video branch above, not a bare
+              // native <audio> — real scrubbing, volume/speed menu, and
+              // keyboard shortcuts instead of the browser's minimal default
+              // controls. Still exposes the underlying native <audio>
+              // element via onProviderChange for the real Web Audio
+              // analyser below, same pattern as the video branch.
+              <MediaPlayer
+                ref={playerRef}
+                src={{ src: fileUrl, type: mimeType as AudioMimeType }}
+                className="w-full bg-black"
+                onProviderChange={() => {
+                  const el = playerRef.current?.el?.querySelector("audio") as HTMLAudioElement | null;
+                  if (el) setMediaEl(el);
+                }}
+              >
+                <MediaProvider />
+                <DefaultAudioLayout icons={defaultLayoutIcons} />
+              </MediaPlayer>
             )}
             {showHeatmap && (isImage || isVideo) && (
               // eslint-disable-next-line @next/next/no-img-element
