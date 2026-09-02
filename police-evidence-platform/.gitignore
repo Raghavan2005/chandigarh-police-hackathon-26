@@ -34,6 +34,12 @@ yarn-error.log*
 .env*
 !.env.example
 
+# real GCP service-account credentials (Vision API reverse-image search) —
+# never committed, local-only, referenced via GOOGLE_APPLICATION_CREDENTIALS.
+# The setup README itself is safe/committed — same pattern as storage/ below.
+/secrets/*
+!/secrets/README.md
+
 # runtime data — DB file, uploads, generated reports, audit checkpoint log
 # (per PS4_MVP_BUILD_PLAN.md §2: none of this belongs in source control)
 /storage/*.db

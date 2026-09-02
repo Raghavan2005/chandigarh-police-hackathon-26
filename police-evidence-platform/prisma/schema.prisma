@@ -148,6 +148,7 @@ model Evidence {
   provenanceResult ProvenanceResult?
   forensicExpert   ForensicExpert?
   fusionVerdict    FusionVerdict?
+  reverseImageSearchResult ReverseImageSearchResult?
 
   corpusMatches       CorpusMatch[]
   matchesFrom         EvidenceMatch[] @relation("EvidenceMatchSource")
@@ -243,6 +244,26 @@ model ForensicExpert {
   name        String
   designation String
   labRef      String
+}
+
+// Real reverse-image search results (Cloud Vision Web Detection), cached
+// per exhibit — direct user request: re-running a real, billed external
+// lookup every single time a case is reopened is wasteful and slow, not
+// something an investigator would want. Explicitly timestamped (`ranAt`)
+// and always re-runnable from the UI, so a stored result is presented
+// honestly as "as of this time," never implied to be freshly re-fetched
+// on every page load the way it would be dishonest to imply for a
+// classifier score computed once and never re-checked.
+model ReverseImageSearchResult {
+  id                   String   @id @default(cuid())
+  evidenceId           String   @unique
+  evidence             Evidence @relation(fields: [evidenceId], references: [id])
+  fullMatchesJson      String
+  partialMatchesJson   String
+  pagesWithMatchesJson String
+  webEntitiesJson      String
+  bestGuessLabelsJson  String   @default("[]")
+  ranAt                DateTime @default(now())
 }
 
 // --- Cross-case & seeded-corpus matching ---------------------------------

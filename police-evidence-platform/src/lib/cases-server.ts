@@ -60,6 +60,7 @@ export async function getRealCase(caseId: string) {
           provenanceResult: true,
           fusionVerdict: true,
           forensicExpert: true,
+          reverseImageSearchResult: true,
           overrides: { orderBy: { timestamp: "desc" }, include: { overriddenBy: { select: { name: true } } } },
           uploadedBy: { select: { name: true } },
           // Cross-case search results (§2/§4) — matchesFrom is this

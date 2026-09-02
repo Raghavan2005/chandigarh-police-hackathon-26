@@ -14,8 +14,10 @@ import { OverrideDialog } from "@/components/investigation/override-dialog";
 import { ForensicExpertDialog } from "@/components/investigation/forensic-expert-dialog";
 import { DeclarantDialog } from "@/components/investigation/declarant-dialog";
 import { CustodyTransferDialog } from "@/components/investigation/custody-transfer-dialog";
+import { ReverseImageSearchPanel } from "@/components/investigation/reverse-image-search-panel";
 import type { EvidenceKind, Verdict } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
+import type { CachedReverseImageSearchResult } from "@/lib/reverse-image-search";
 
 type RealCase = NonNullable<Awaited<ReturnType<typeof getRealCase>>>;
 type Evidence = RealCase["evidence"][number];
@@ -154,10 +156,11 @@ export function EvidenceCard({
             frameScores={parseFrameScores(evidence.detectionResult?.frameScoresJson)}
           />
           {showFaceMatchSlot && (
-            <p className="rounded-md border border-dashed border-border-subtle px-3 py-2 text-[11px] text-text-tertiary">
-              Face match / reverse-image (OSINT) search — not available in this build (no live search API wired
-              in). Cross-case &amp; corpus hash matching below is real; this slot is a roadmap item.
-            </p>
+            <ReverseImageSearchPanel
+              caseId={caseId}
+              evidenceId={evidence.id}
+              cached={parseReverseImageSearchResult(evidence.reverseImageSearchResult)}
+            />
           )}
           {meta && meta.container === "PDF" && meta.exifJson && <DocumentDetails exifJson={meta.exifJson} />}
         </div>
@@ -436,6 +439,24 @@ interface FrameScore {
   timestampSeconds: number;
   probability: number;
   faceDetected: boolean;
+}
+
+function parseReverseImageSearchResult(
+  row: Evidence["reverseImageSearchResult"],
+): CachedReverseImageSearchResult | null {
+  if (!row) return null;
+  try {
+    return {
+      fullMatches: JSON.parse(row.fullMatchesJson),
+      partialMatches: JSON.parse(row.partialMatchesJson),
+      pagesWithMatches: JSON.parse(row.pagesWithMatchesJson),
+      webEntities: JSON.parse(row.webEntitiesJson),
+      bestGuessLabels: JSON.parse(row.bestGuessLabelsJson),
+      ranAt: row.ranAt.toISOString(),
+    };
+  } catch {
+    return null;
+  }
 }
 
 function parseFrameScores(json: string | null | undefined): FrameScore[] | null {
