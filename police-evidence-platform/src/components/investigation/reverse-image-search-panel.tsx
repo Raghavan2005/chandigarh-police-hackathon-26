@@ -164,11 +164,6 @@ export function ReverseImageSearchPanel({
               </span>
             ))}
           </div>
-          <p className="mt-1 text-[10px] text-text-tertiary">
-            Direct content classification (Cloud Vision label detection) — describes what&apos;s actually in this
-            file&apos;s pixels (objects, scenes, generic categories), independent of whether it&apos;s indexed
-            anywhere else on the web. Not identity recognition — it won&apos;t name a specific person.
-          </p>
         </div>
       )}
 
