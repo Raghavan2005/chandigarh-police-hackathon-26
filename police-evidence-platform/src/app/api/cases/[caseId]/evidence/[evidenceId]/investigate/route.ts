@@ -63,6 +63,11 @@ export async function POST(
   // video frame. Audio has no perceptual-hash equivalent (schema comment
   // on Evidence.phash: "null for audio/document") — stays null.
   let hashSourceBuffer: Buffer | null = null;
+  // Real per-sampled-frame breakdown, video only — previously computed by
+  // scoring every sampled frame to find the worst one, then discarded.
+  // Now kept and stored so the investigator UI can show a real frame-by-
+  // frame timeline instead of one static worst frame with no time context.
+  let frameScores: { timestampSeconds: number; probability: number; faceDetected: boolean }[] | null = null;
 
   if (isImage) {
     const result = await detectImage(fileBuffer, evidence.mimeType);
@@ -80,18 +85,27 @@ export async function POST(
         { status: 422 },
       );
     }
-    const frameResults = await Promise.all(frames.map((frame) => detectVideoFrame(frame)));
+    const frameResults = await Promise.all(frames.map((frame) => detectVideoFrame(frame.buffer)));
     // Worst-frame signal, per PS4_ANALYSIS_PIPELINE.md §6 — "flags which
     // frames," not an average that dilutes a brief manipulated segment
     // across an otherwise-clean clip.
-    const worst = frameResults.reduce((max, r) => (r.probability > max.probability ? r : max));
+    const worstIndex = frameResults.reduce(
+      (maxIdx, r, i) => (r.probability > frameResults[maxIdx].probability ? i : maxIdx),
+      0,
+    );
+    const worst = frameResults[worstIndex];
     classifierScore = worst.probability;
     heatmapPngBase64 = worst.heatmapPngBase64;
     // Face box/crop are relative to that same worst-scoring frame — the one
     // still image actually shown for the heatmap, not the whole video.
     faceBox = worst.faceBox;
     faceCropPngBase64 = worst.faceCropPngBase64;
-    hashSourceBuffer = frames[frameResults.indexOf(worst)];
+    hashSourceBuffer = frames[worstIndex].buffer;
+    frameScores = frameResults.map((r, i) => ({
+      timestampSeconds: frames[i].timestampSeconds,
+      probability: r.probability,
+      faceDetected: r.faceDetected,
+    }));
   } else {
     // Audio: a 1D waveform classifier has no spatial heatmap/perceptual-hash
     // equivalent — those stay null/absent rather than fabricating a
@@ -113,6 +127,7 @@ export async function POST(
   const heatmapPath = heatmapPngBase64 ? writeHeatmap(evidence.id, heatmapPngBase64) : null;
   const faceCropPath = faceCropPngBase64 ? writeFaceCrop(evidence.id, faceCropPngBase64) : null;
   const faceBoxJson = faceBox ? JSON.stringify(faceBox) : null;
+  const frameScoresJson = frameScores ? JSON.stringify(frameScores) : null;
 
   const modelName = isAudio ? "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification" : "not-lain/deepfake";
   const modelVersion = isAudio ? "wav2vec2-large-xlsr-53" : "InceptionResnetV1-vggface2";
@@ -126,10 +141,19 @@ export async function POST(
         heatmapPath,
         faceBoxJson,
         faceCropPath,
+        frameScoresJson,
         modelName,
         modelVersion,
       },
-      update: { manipulationProbability: classifierScore, heatmapPath, faceBoxJson, faceCropPath, modelName, modelVersion },
+      update: {
+        manipulationProbability: classifierScore,
+        heatmapPath,
+        faceBoxJson,
+        faceCropPath,
+        frameScoresJson,
+        modelName,
+        modelVersion,
+      },
     });
 
     await tx.provenanceResult.upsert({

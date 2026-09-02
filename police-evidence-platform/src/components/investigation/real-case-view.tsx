@@ -3,7 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, FileDown, GitBranch, ShieldAlert } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { EvidenceCard } from "@/components/investigation/evidence-card";
+import { AddEvidenceDialog } from "@/components/investigation/add-evidence-dialog";
+import { EvidenceTabs } from "@/components/investigation/evidence-tabs";
 import { ForwardingDialog } from "@/components/investigation/forwarding-dialog";
 import type { getRealCase } from "@/lib/cases-server";
 
@@ -100,24 +101,18 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
       </div>
 
       <div>
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
-          Evidence ({caseData.evidence.length})
-        </p>
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+            Evidence ({caseData.evidence.length})
+          </p>
+          <AddEvidenceDialog caseId={caseData.id} />
+        </div>
         {caseData.evidence.length === 0 ? (
           <div className="rounded-lg border border-border-subtle bg-surface p-8 text-center">
             <p className="text-sm text-text-tertiary">No evidence uploaded on this case yet.</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-5">
-            {caseData.evidence.map((ev) => (
-              <EvidenceCard
-                key={ev.id}
-                caseId={caseData.id}
-                sensitivityLevel={caseData.sensitivityLevel}
-                evidence={ev}
-              />
-            ))}
-          </div>
+          <EvidenceTabs caseId={caseData.id} sensitivityLevel={caseData.sensitivityLevel} evidence={caseData.evidence} />
         )}
       </div>
     </div>

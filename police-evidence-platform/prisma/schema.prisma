@@ -134,6 +134,15 @@ model Evidence {
   // "not applicable".
   courtDirectionRef String?
 
+  // Real provenance for a frame extracted from a video exhibit and saved
+  // as its own image exhibit (see the extract-frame route) — a self
+  // relation, not a free-text note, so the report/UI can always resolve
+  // the actual source exhibit rather than trusting an unverifiable string.
+  derivedFromEvidenceId      String?
+  derivedFrom                Evidence?  @relation("EvidenceDerivedFrom", fields: [derivedFromEvidenceId], references: [id])
+  derivatives                Evidence[] @relation("EvidenceDerivedFrom")
+  derivedAtTimestampSeconds  Float?
+
   metadataResult   MetadataResult?
   detectionResult  DetectionResult?
   provenanceResult ProvenanceResult?
@@ -150,6 +159,7 @@ model Evidence {
   @@index([caseId])
   @@index([sha256])
   @@index([phash])
+  @@index([derivedFromEvidenceId])
 }
 
 // Real physical chain-of-custody entries — seizure / handover / storage
@@ -203,6 +213,12 @@ model DetectionResult {
   // detected, never a fabricated position.
   faceBoxJson            String?
   faceCropPath           String?
+  // Real per-sampled-frame breakdown for video evidence, JSON array of
+  // {timestampSeconds, probability, faceDetected}, ordered by timestamp —
+  // every sampled frame was already scored by /investigate to find the
+  // worst one; this is what was previously computed then discarded. Null
+  // for image/audio evidence, which only ever has a single detection pass.
+  frameScoresJson        String?
   modelName              String
   modelVersion           String
   ranAt                  DateTime @default(now())

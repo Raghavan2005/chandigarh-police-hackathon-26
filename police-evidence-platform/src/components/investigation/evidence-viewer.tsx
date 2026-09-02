@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Label } from "@/components/ui/label";
 import { AudioLines, ScanFace } from "lucide-react";
-import { AudioWaveform } from "@/components/investigation/audio-waveform";
+import { AudioAnalyser } from "@/components/investigation/audio-analyser";
 import type { CaseSummary } from "@/lib/types";
 
 export function EvidenceViewer({
@@ -19,6 +19,12 @@ export function EvidenceViewer({
   const frameRef = useRef<HTMLDivElement>(null);
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const relayVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  // AudioAnalyser takes the element itself (state), not a ref — reading
+  // mediaRef.current inline during render is always null here, since ref
+  // attachment happens after the commit that creates this same JSX; a
+  // post-mount effect is what actually hands it a real element.
+  const [mediaEl, setMediaEl] = useState<HTMLVideoElement | HTMLAudioElement | null>(null);
+  useEffect(() => setMediaEl(mediaRef.current), []);
 
   const kind = caseData.evidenceKind;
   const showVisuals = kind === "video" || kind === "image";
@@ -158,7 +164,7 @@ export function EvidenceViewer({
             <AudioLines className="size-4" />
             Audio Analyser
           </p>
-          <AudioWaveform mediaRef={mediaRef} />
+          <AudioAnalyser mediaEl={mediaEl} />
         </div>
       )}
 

@@ -51,10 +51,14 @@ export function EvidenceCard({
   caseId,
   sensitivityLevel,
   evidence,
+  exhibitNumber,
+  derivedFromLabel,
 }: {
   caseId: string;
   sensitivityLevel: string;
   evidence: Evidence;
+  exhibitNumber: number;
+  derivedFromLabel: string | null;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<"idle" | "investigating" | "error">("idle");
@@ -124,8 +128,13 @@ export function EvidenceCard({
           <Icon className="size-4 text-text-tertiary" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm text-text-primary">{evidence.mimeType}</p>
+          <p className="truncate text-sm text-text-primary">
+            <span className="font-medium">Exhibit {exhibitNumber}</span> — {evidence.mimeType}
+          </p>
           <p className="truncate font-mono text-[11px] text-text-tertiary">SHA-256: {evidence.sha256}</p>
+          {derivedFromLabel && (
+            <p className="truncate text-[11px] text-text-tertiary">Extracted from {derivedFromLabel}</p>
+          )}
         </div>
         <span className="shrink-0 text-[11px] text-text-tertiary">
           {evidence.uploadedBy.name} · {new Date(evidence.uploadedAt).toLocaleString()}
@@ -142,6 +151,7 @@ export function EvidenceCard({
             hasHeatmap={Boolean(evidence.detectionResult?.heatmapPath)}
             faceBox={parseFaceBox(evidence.detectionResult?.faceBoxJson)}
             hasFaceCrop={Boolean(evidence.detectionResult?.faceCropPath)}
+            frameScores={parseFrameScores(evidence.detectionResult?.frameScoresJson)}
           />
           {showFaceMatchSlot && (
             <p className="rounded-md border border-dashed border-border-subtle px-3 py-2 text-[11px] text-text-tertiary">
@@ -415,6 +425,34 @@ function parseFaceBox(json: string | null | undefined): [number, number, number,
     const parsed = JSON.parse(json);
     if (Array.isArray(parsed) && parsed.length === 4 && parsed.every((n) => typeof n === "number")) {
       return parsed as [number, number, number, number];
+    }
+  } catch {
+    // fall through
+  }
+  return null;
+}
+
+interface FrameScore {
+  timestampSeconds: number;
+  probability: number;
+  faceDetected: boolean;
+}
+
+function parseFrameScores(json: string | null | undefined): FrameScore[] | null {
+  if (!json) return null;
+  try {
+    const parsed = JSON.parse(json);
+    if (
+      Array.isArray(parsed) &&
+      parsed.every(
+        (f) =>
+          f &&
+          typeof f.timestampSeconds === "number" &&
+          typeof f.probability === "number" &&
+          typeof f.faceDetected === "boolean",
+      )
+    ) {
+      return parsed as FrameScore[];
     }
   } catch {
     // fall through
