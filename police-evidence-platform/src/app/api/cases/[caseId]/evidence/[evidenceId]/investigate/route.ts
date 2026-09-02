@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { appendCheckpoint, writeAuditEntryInTx } from "@/lib/audit";
-import { resolveEvidencePath, writeFaceCrop, writeHeatmap } from "@/lib/storage";
+import { resolveEvidencePath, writeFaceCrops, writeHeatmap } from "@/lib/storage";
 import { detectAudio, detectImage, detectVideoFrame } from "@/lib/ml-client";
 import { sampleVideoFrames } from "@/lib/frame-extract";
 import { computePerceptualHash } from "@/lib/perceptual-hash";
@@ -58,7 +58,7 @@ export async function POST(
   let classifierScore: number;
   let heatmapPngBase64: string | null = null;
   let faceBoxes: [number, number, number, number][] = [];
-  let faceCropPngBase64: string | null = null;
+  let faceCropsPngBase64: string[] = [];
   // What gets perceptual-hashed — the image itself, or the representative
   // video frame. Audio has no perceptual-hash equivalent (schema comment
   // on Evidence.phash: "null for audio/document") — stays null.
@@ -74,7 +74,7 @@ export async function POST(
     classifierScore = result.probability;
     heatmapPngBase64 = result.heatmapPngBase64;
     faceBoxes = result.faceBoxes;
-    faceCropPngBase64 = result.faceCropPngBase64;
+    faceCropsPngBase64 = result.faceCropsPngBase64;
     hashSourceBuffer = fileBuffer;
   } else if (isVideo) {
     const durationSeconds = evidence.metadataResult?.duration ? parseFloat(evidence.metadataResult.duration) : 0;
@@ -96,10 +96,10 @@ export async function POST(
     const worst = frameResults[worstIndex];
     classifierScore = worst.probability;
     heatmapPngBase64 = worst.heatmapPngBase64;
-    // Face boxes/crop are relative to that same worst-scoring frame — the
+    // Face boxes/crops are relative to that same worst-scoring frame — the
     // one still image actually shown for the heatmap, not the whole video.
     faceBoxes = worst.faceBoxes;
-    faceCropPngBase64 = worst.faceCropPngBase64;
+    faceCropsPngBase64 = worst.faceCropsPngBase64;
     hashSourceBuffer = frames[worstIndex].buffer;
     frameScores = frameResults.map((r, i) => ({
       timestampSeconds: frames[i].timestampSeconds,
@@ -125,8 +125,9 @@ export async function POST(
   ]);
 
   const heatmapPath = heatmapPngBase64 ? writeHeatmap(evidence.id, heatmapPngBase64) : null;
-  const faceCropPath = faceCropPngBase64 ? writeFaceCrop(evidence.id, faceCropPngBase64) : null;
+  const faceCropPaths = writeFaceCrops(evidence.id, faceCropsPngBase64);
   const faceBoxesJson = JSON.stringify(faceBoxes);
+  const faceCropPathsJson = JSON.stringify(faceCropPaths);
   const frameScoresJson = frameScores ? JSON.stringify(frameScores) : null;
 
   const modelName = isAudio ? "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification" : "not-lain/deepfake";
@@ -140,7 +141,7 @@ export async function POST(
         manipulationProbability: classifierScore,
         heatmapPath,
         faceBoxesJson,
-        faceCropPath,
+        faceCropPathsJson,
         frameScoresJson,
         modelName,
         modelVersion,
@@ -149,7 +150,7 @@ export async function POST(
         manipulationProbability: classifierScore,
         heatmapPath,
         faceBoxesJson,
-        faceCropPath,
+        faceCropPathsJson,
         frameScoresJson,
         modelName,
         modelVersion,

@@ -66,13 +66,14 @@ class DetectionResult:
     # construction (see below), is always the same face as face_crop -- the
     # one the classifier actually scored.
     face_boxes: list[list[float]]
-    # The actual aligned face crop MTCNN produced for the single
-    # highest-probability face -- the literal input the classifier scores,
-    # before it's resized to the model's fixed input size. The model itself
-    # only ever scores one face per image (that's the architecture, not a
-    # scope decision made here); other detected faces are boxed for display
-    # but not separately classified. None when no face was detected.
-    face_crop_png_base64: str | None
+    # One crop per entry in face_boxes, same order. face_crops[0] is the
+    # actual aligned crop MTCNN produced for classification -- the literal
+    # input the model scored, before it's resized to the model's fixed
+    # input size. The rest are plain rectangular crops taken directly from
+    # the source image at their detected box -- the model itself only ever
+    # scores one face per image (that's the architecture, not a scope
+    # decision made here), so those are for display only, never scored.
+    face_crops_png_base64: list[str]
 
 
 class DeepfakeDetector:
@@ -104,15 +105,15 @@ class DeepfakeDetector:
 
     def _prepare_input(
         self, image: Image.Image
-    ) -> tuple[torch.Tensor, np.ndarray, bool, list[list[float]], np.ndarray | None]:
+    ) -> tuple[torch.Tensor, np.ndarray, bool, list[list[float]], list[np.ndarray]]:
         """Returns (input_tensor[1,3,H,W] in 0-1 range, display_image uint8 HWC,
         face_detected, face_boxes -- every detected face, normalized
         [x1,y1,x2,y2], sorted by detection probability descending -- and
-        face_crop uint8 HWC (the single highest-probability face, or None)."""
+        face_crops -- one uint8 HWC crop per face_boxes entry, same order)."""
         face_tensor = self.mtcnn(image)
         face_detected = face_tensor is not None
         face_boxes: list[list[float]] = []
-        face_crop_uint8: np.ndarray | None = None
+        face_crops: list[np.ndarray] = []
 
         # detect() re-runs the MTCNN cascade to get every face's pixel
         # coordinates in the original image's frame (the single-face call
@@ -120,17 +121,27 @@ class DeepfakeDetector:
         # found a face, since MTCNN's internal alignment step can fail on a
         # low-quality crop even when detect() itself finds a box.
         img_w, img_h = image.size
+        rgb_image = image.convert("RGB")
         boxes, probs = self.mtcnn.detect(image)
         if boxes is not None and len(boxes) > 0:
             # select_largest=False makes the single-face call above pick the
             # highest-probability box, not the largest -- sorting the same
-            # way here keeps face_boxes[0] the same face as face_crop.
+            # way here keeps face_boxes[0]/face_crops[0] the same face as
+            # the classifier's own aligned crop, spliced in below.
             order = np.argsort(-np.nan_to_num(probs, nan=-1.0))
             for i in order:
                 x1, y1, x2, y2 = boxes[i]
                 x1, y1 = max(0.0, float(x1)), max(0.0, float(y1))
                 x2, y2 = min(float(img_w), float(x2)), min(float(img_h), float(y2))
                 face_boxes.append([x1 / img_w, y1 / img_h, x2 / img_w, y2 / img_h])
+                # Plain rectangular crop for display -- replaced at index 0
+                # below with the actual classifier input, once we know
+                # whether MTCNN's alignment succeeded. Clamped to at least
+                # 1px so a box that rounds to zero-width/height at the
+                # image's edge still yields a valid (if tiny) crop instead
+                # of crashing PIL.
+                crop_x2, crop_y2 = max(int(x2), int(x1) + 1), max(int(y2), int(y1) + 1)
+                face_crops.append(np.array(rgb_image.crop((int(x1), int(y1), crop_x2, crop_y2))))
 
         if face_tensor is None:
             # Fallback: no face found (e.g. non-face AI-generated content, or
@@ -142,8 +153,11 @@ class DeepfakeDetector:
         else:
             # The actual aligned face crop MTCNN produced -- the literal
             # input the classifier scores, saved before it's resized to the
-            # model's fixed input size.
+            # model's fixed input size. Replaces the plain rectangular crop
+            # at index 0 (the same face, per the ordering guarantee above).
             face_crop_uint8 = face_tensor.clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy()
+            if face_crops:
+                face_crops[0] = face_crop_uint8
 
         face_tensor = face_tensor.unsqueeze(0).float()
         face_tensor = F.interpolate(
@@ -155,11 +169,11 @@ class DeepfakeDetector:
         )
 
         input_tensor = (face_tensor / 255.0).to(DEVICE)
-        return input_tensor, display, face_detected, face_boxes, face_crop_uint8
+        return input_tensor, display, face_detected, face_boxes, face_crops
 
     def detect(self, image: Image.Image) -> DetectionResult:
         image = image.convert("RGB")
-        input_tensor, display_uint8, face_detected, face_boxes, face_crop_uint8 = self._prepare_input(image)
+        input_tensor, display_uint8, face_detected, face_boxes, face_crops = self._prepare_input(image)
 
         targets = [ClassifierOutputTarget(0)]
         grayscale_cam = self.cam(input_tensor=input_tensor, targets=targets)[0, :]
@@ -178,16 +192,16 @@ class DeepfakeDetector:
         heatmap_img.save(buf, format="PNG")
         heatmap_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
 
-        face_crop_b64: str | None = None
-        if face_crop_uint8 is not None:
+        face_crops_b64: list[str] = []
+        for crop in face_crops:
             crop_buf = io.BytesIO()
-            Image.fromarray(face_crop_uint8).save(crop_buf, format="PNG")
-            face_crop_b64 = base64.b64encode(crop_buf.getvalue()).decode("ascii")
+            Image.fromarray(crop).save(crop_buf, format="PNG")
+            face_crops_b64.append(base64.b64encode(crop_buf.getvalue()).decode("ascii"))
 
         return DetectionResult(
             probability=probability,
             heatmap_png_base64=heatmap_b64,
             face_detected=face_detected,
             face_boxes=face_boxes,
-            face_crop_png_base64=face_crop_b64,
+            face_crops_png_base64=face_crops_b64,
         )

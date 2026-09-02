@@ -5,13 +5,13 @@ Called over localhost HTTP by the Next.js backend (never from the browser
 directly). Endpoints:
   - GET  /health              liveness check
   - POST /detect/image        image -> { probability, heatmapPngBase64,
-                               faceDetected, faceBoxes, faceCropPngBase64 }
-                               faceBoxes is every detected face (empty list
-                               if none); faceCropPngBase64 is only the
-                               single highest-probability face actually
-                               scored by the classifier, null when no face
-                               was detected — never a fabricated position
-                               or crop.
+                               faceDetected, faceBoxes, faceCropsPngBase64 }
+                               faceBoxes/faceCropsPngBase64 are parallel
+                               arrays, one entry per detected face (both
+                               empty if none); faceCropsPngBase64[0] is the
+                               literal input the classifier scored, the
+                               rest are plain crops for display only —
+                               never a fabricated position or crop.
   - POST /detect/video-frame  same contract, same model; the Next.js side
                                samples frames from video and calls this once
                                per sampled frame (frame extraction happens on
@@ -55,7 +55,10 @@ class DetectionResponse(BaseModel):
     # fabricated position. faceBoxes[0] is always the same face as
     # faceCropPngBase64 below.
     faceBoxes: list[list[float]]
-    faceCropPngBase64: str | None
+    # Parallel to faceBoxes -- one crop per detected face. [0] is the
+    # literal aligned crop the classifier scored; the rest are plain
+    # rectangular crops for display only.
+    faceCropsPngBase64: list[str]
 
 
 class AudioDetectionResponse(BaseModel):
@@ -115,7 +118,7 @@ async def _run_detection(file: UploadFile) -> DetectionResponse:
         heatmapPngBase64=result.heatmap_png_base64,
         faceDetected=result.face_detected,
         faceBoxes=result.face_boxes,
-        faceCropPngBase64=result.face_crop_png_base64,
+        faceCropsPngBase64=result.face_crops_png_base64,
     )
 
 

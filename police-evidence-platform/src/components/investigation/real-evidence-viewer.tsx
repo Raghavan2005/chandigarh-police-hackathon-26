@@ -60,7 +60,7 @@ export function RealEvidenceViewer({
   sensitivityLevel,
   hasHeatmap,
   faceBoxes,
-  hasFaceCrop,
+  faceCropCount,
   frameScores,
 }: {
   caseId: string;
@@ -69,7 +69,7 @@ export function RealEvidenceViewer({
   sensitivityLevel: string;
   hasHeatmap: boolean;
   faceBoxes: [number, number, number, number][];
-  hasFaceCrop: boolean;
+  faceCropCount: number;
   frameScores: FrameScore[] | null;
 }) {
   const router = useRouter();
@@ -524,18 +524,25 @@ export function RealEvidenceViewer({
         </div>
       )}
 
-      {revealed && hasFaceCrop && (
-        <div className="flex items-center gap-2 rounded-md border border-border-subtle bg-surface p-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={faceCropUrl}
-            alt="Detected face crop — the actual image fed to the classifier"
-            className="size-16 shrink-0 rounded border border-border-subtle bg-black object-cover"
-          />
+      {revealed && faceCropCount > 0 && (
+        <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-surface p-2">
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: faceCropCount }, (_, i) => (
+              <div key={i} className="flex flex-col items-center gap-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`${faceCropUrl}?index=${i}`}
+                  alt={i === 0 ? "Face 1 — the actual image fed to the classifier" : `Face ${i + 1}`}
+                  className="size-16 shrink-0 rounded border border-border-subtle bg-black object-cover"
+                />
+                <span className="text-[9px] text-text-tertiary">{i === 0 ? "Face 1 (scored)" : `Face ${i + 1}`}</span>
+              </div>
+            ))}
+          </div>
           <p className="text-[11px] text-text-tertiary">
-            The actual aligned face crop the classifier scored (Face 1 above) — not the full frame.
-            {faceBoxes.length > 1 &&
-              ` ${faceBoxes.length - 1} other face(s) were detected but not separately classified — the model only scores one face per image.`}
+            Face 1 is the actual aligned crop the classifier scored.
+            {faceCropCount > 1 &&
+              ` The other ${faceCropCount - 1} face(s) were detected but not separately classified — the model only scores one face per image.`}
           </p>
         </div>
       )}

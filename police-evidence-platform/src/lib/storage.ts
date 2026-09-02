@@ -65,13 +65,16 @@ export function writeHeatmap(evidenceId: string, heatmapPngBase64: string): stri
   return path.join("heatmaps", filename);
 }
 
-/** Decodes and writes the real aligned face crop MTCNN produced (the literal
- * input the classifier scores) to storage/face-crops/ — same keyed-by-
- * evidence-ID pattern as writeHeatmap, since it's likewise a derived
- * artifact tied to one detection run. */
-export function writeFaceCrop(evidenceId: string, faceCropPngBase64: string): string {
+/** Decodes and writes every real detected face crop (index 0 is MTCNN's
+ * actual aligned classifier input, the rest are plain display-only crops)
+ * to storage/face-crops/ — same keyed-by-evidence-ID pattern as
+ * writeHeatmap, since these are likewise derived artifacts tied to one
+ * detection run. Returns the paths in the same order as the input array. */
+export function writeFaceCrops(evidenceId: string, faceCropsPngBase64: string[]): string[] {
   mkdirSync(FACE_CROPS_DIR, { recursive: true });
-  const filename = `${evidenceId}.png`;
-  writeFileSync(path.join(FACE_CROPS_DIR, filename), Buffer.from(faceCropPngBase64, "base64"));
-  return path.join("face-crops", filename);
+  return faceCropsPngBase64.map((base64, i) => {
+    const filename = `${evidenceId}-${i}.png`;
+    writeFileSync(path.join(FACE_CROPS_DIR, filename), Buffer.from(base64, "base64"));
+    return path.join("face-crops", filename);
+  });
 }

@@ -213,10 +213,11 @@ model DetectionResult {
   // Every real MTCNN detection box, JSON array of [x1,y1,x2,y2] (0-1
   // fractions of the source image's width/height), sorted by detection
   // probability descending -- "[]" when no face was detected, never a
-  // fabricated position. faceBoxesJson[0] is always the same face as
-  // faceCropPath -- the model only ever classifies one face per image.
+  // fabricated position. faceCropPathsJson[0] is always the same face as
+  // faceBoxesJson[0] -- the model only ever classifies one face per image,
+  // the rest are plain display-only crops, never separately classified.
   faceBoxesJson          String   @default("[]")
-  faceCropPath           String?
+  faceCropPathsJson      String   @default("[]")
   // Real per-sampled-frame breakdown for video evidence, JSON array of
   // {timestampSeconds, probability, faceDetected}, ordered by timestamp —
   // every sampled frame was already scored by /investigate to find the

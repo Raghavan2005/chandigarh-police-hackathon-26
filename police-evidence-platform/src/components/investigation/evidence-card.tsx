@@ -154,7 +154,7 @@ export function EvidenceCard({
             sensitivityLevel={sensitivityLevel}
             hasHeatmap={Boolean(evidence.detectionResult?.heatmapPath)}
             faceBoxes={parseFaceBoxes(evidence.detectionResult?.faceBoxesJson)}
-            hasFaceCrop={Boolean(evidence.detectionResult?.faceCropPath)}
+            faceCropCount={parseFaceCropCount(evidence.detectionResult?.faceCropPathsJson)}
             frameScores={parseFrameScores(evidence.detectionResult?.frameScoresJson)}
           />
           {showFaceMatchSlot && (
@@ -445,6 +445,16 @@ function parseFaceBoxes(json: string | null | undefined): [number, number, numbe
     // fall through
   }
   return [];
+}
+
+function parseFaceCropCount(json: string | null | undefined): number {
+  if (!json) return 0;
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed.length : 0;
+  } catch {
+    return 0;
+  }
 }
 
 interface FrameScore {

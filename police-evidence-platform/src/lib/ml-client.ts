@@ -13,9 +13,11 @@ export interface DetectionResponse {
   // Every detected face, each normalized [x1, y1, x2, y2] fractions (0-1)
   // of the source image's width/height, sorted by detection probability
   // descending -- empty array when no face was detected, never fabricated.
-  // faceBoxes[0] is always the same face as faceCropPngBase64.
   faceBoxes: [number, number, number, number][];
-  faceCropPngBase64: string | null;
+  // Parallel to faceBoxes -- one crop per detected face. [0] is the literal
+  // aligned crop the classifier scored; the rest are plain rectangular
+  // crops for display only, never separately classified.
+  faceCropsPngBase64: string[];
 }
 
 export interface AudioDetectionResponse {
