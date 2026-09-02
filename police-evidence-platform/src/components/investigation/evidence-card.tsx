@@ -20,6 +20,7 @@ import type { EvidenceKind, Verdict } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
 import type { CachedReverseImageSearchResult } from "@/lib/reverse-image-search";
 import type { CachedImageDescriptionResult } from "@/lib/image-description";
+import type { FaceAnnotationData } from "@/components/investigation/face-detail-dialog";
 
 type RealCase = NonNullable<Awaited<ReturnType<typeof getRealCase>>>;
 type Evidence = RealCase["evidence"][number];
@@ -155,6 +156,7 @@ export function EvidenceCard({
             hasHeatmap={Boolean(evidence.detectionResult?.heatmapPath)}
             faceBoxes={parseFaceBoxes(evidence.detectionResult?.faceBoxesJson)}
             faceCropCount={parseFaceCropCount(evidence.detectionResult?.faceCropPathsJson)}
+            faceAnnotations={parseFaceAnnotations(evidence.faceAnnotations)}
             frameScores={parseFrameScores(evidence.detectionResult?.frameScoresJson)}
           />
           {showFaceMatchSlot && (
@@ -455,6 +457,30 @@ function parseFaceCropCount(json: string | null | undefined): number {
   } catch {
     return 0;
   }
+}
+
+function parseFaceAnnotations(rows: Evidence["faceAnnotations"]): Map<number, FaceAnnotationData> {
+  const map = new Map<number, FaceAnnotationData>();
+  for (const row of rows) {
+    let reverseSearch: CachedReverseImageSearchResult | null = null;
+    if (row.reverseSearchJson && row.reverseSearchRanAt) {
+      try {
+        reverseSearch = { ...JSON.parse(row.reverseSearchJson), ranAt: row.reverseSearchRanAt.toISOString() };
+      } catch {
+        reverseSearch = null;
+      }
+    }
+    let description: CachedImageDescriptionResult | null = null;
+    if (row.descriptionJson && row.descriptionRanAt) {
+      try {
+        description = { ...JSON.parse(row.descriptionJson), ranAt: row.descriptionRanAt.toISOString() };
+      } catch {
+        description = null;
+      }
+    }
+    map.set(row.faceIndex, { label: row.label, reverseSearch, description });
+  }
+  return map;
 }
 
 interface FrameScore {

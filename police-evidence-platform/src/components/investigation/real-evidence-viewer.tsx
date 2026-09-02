@@ -6,6 +6,7 @@ import { AlertTriangle, Camera, Eye, EyeOff, Loader2, ScanFace } from "lucide-re
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { AudioAnalyser } from "@/components/investigation/audio-analyser";
+import { FaceDetailDialog, type FaceAnnotationData } from "@/components/investigation/face-detail-dialog";
 import { MediaPlayer, MediaProvider, type MediaPlayerInstance, type VideoMimeType } from "@vidstack/react";
 import { defaultLayoutIcons, DefaultVideoLayout } from "@vidstack/react/player/layouts/default";
 import "@vidstack/react/player/styles/default/theme.css";
@@ -61,6 +62,7 @@ export function RealEvidenceViewer({
   hasHeatmap,
   faceBoxes,
   faceCropCount,
+  faceAnnotations,
   frameScores,
 }: {
   caseId: string;
@@ -70,6 +72,7 @@ export function RealEvidenceViewer({
   hasHeatmap: boolean;
   faceBoxes: [number, number, number, number][];
   faceCropCount: number;
+  faceAnnotations: Map<number, FaceAnnotationData>;
   frameScores: FrameScore[] | null;
 }) {
   const router = useRouter();
@@ -87,6 +90,7 @@ export function RealEvidenceViewer({
   const [overlayMode, setOverlayMode] = useState<OverlayMode>("none");
   const showHeatmap = overlayMode === "heatmap";
   const [showFaceBox, setShowFaceBox] = useState(false);
+  const [selectedFaceIndex, setSelectedFaceIndex] = useState<number | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [extractStatus, setExtractStatus] = useState<"idle" | "extracting" | "error">("idle");
   const [extractError, setExtractError] = useState("");
@@ -527,24 +531,51 @@ export function RealEvidenceViewer({
       {revealed && faceCropCount > 0 && (
         <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-surface p-2">
           <div className="flex flex-wrap gap-2">
-            {Array.from({ length: faceCropCount }, (_, i) => (
-              <div key={i} className="flex flex-col items-center gap-1">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`${faceCropUrl}?index=${i}`}
-                  alt={i === 0 ? "Face 1 — the actual image fed to the classifier" : `Face ${i + 1}`}
-                  className="size-16 shrink-0 rounded border border-border-subtle bg-black object-cover"
-                />
-                <span className="text-[9px] text-text-tertiary">{i === 0 ? "Face 1 (scored)" : `Face ${i + 1}`}</span>
-              </div>
-            ))}
+            {Array.from({ length: faceCropCount }, (_, i) => {
+              const label = faceAnnotations.get(i)?.label;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setSelectedFaceIndex(i)}
+                  className="flex flex-col items-center gap-1 rounded-md p-0.5 transition-colors hover:bg-surface-sunken"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`${faceCropUrl}?index=${i}`}
+                    alt={i === 0 ? "Face 1 — the actual image fed to the classifier" : `Face ${i + 1}`}
+                    className="size-16 shrink-0 rounded border border-border-subtle bg-black object-cover"
+                  />
+                  <span className="max-w-16 truncate text-[9px] text-text-tertiary">
+                    {label || (i === 0 ? "Face 1 (scored)" : `Face ${i + 1}`)}
+                  </span>
+                </button>
+              );
+            })}
           </div>
           <p className="text-[11px] text-text-tertiary">
-            Face 1 is the actual aligned crop the classifier scored.
+            Face 1 is the actual aligned crop the classifier scored. Click any face to label it or run a per-face
+            search.
             {faceCropCount > 1 &&
               ` The other ${faceCropCount - 1} face(s) were detected but not separately classified — the model only scores one face per image.`}
           </p>
         </div>
+      )}
+
+      {selectedFaceIndex !== null && (
+        <FaceDetailDialog
+          caseId={caseId}
+          evidenceId={evidenceId}
+          faceIndex={selectedFaceIndex}
+          isScored={selectedFaceIndex === 0}
+          open={selectedFaceIndex !== null}
+          onOpenChange={(next) => {
+            if (!next) setSelectedFaceIndex(null);
+          }}
+          annotation={
+            faceAnnotations.get(selectedFaceIndex) ?? { label: null, reverseSearch: null, description: null }
+          }
+        />
       )}
     </div>
   );

@@ -156,6 +156,7 @@ model Evidence {
   matchesTo           EvidenceMatch[] @relation("EvidenceMatchTarget")
   overrides           VerdictOverride[]
   custodyTransfers    CustodyTransfer[]
+  faceAnnotations     FaceAnnotation[]
 
   @@unique([caseId, sha256])
   @@index([caseId])
@@ -285,6 +286,29 @@ model ImageDescriptionResult {
   description            String
   possibleIdentitiesJson String
   ranAt                  DateTime @default(now())
+}
+
+// Per-face annotation — a manual label plus cached reverse-image-search /
+// AI-description results scoped to one individual detected face crop
+// (DetectionResult.faceBoxesJson[faceIndex]), not the whole exhibit.
+// Deliberately keyed by (evidenceId, faceIndex) rather than a stable
+// per-face ID: MTCNN doesn't track face identity across runs, so a
+// re-investigate that changes which faces are found (or their probability
+// ordering) can shift which face a given index refers to — an accepted,
+// documented limitation, not silently glossed over.
+model FaceAnnotation {
+  id                 String    @id @default(cuid())
+  evidenceId         String
+  evidence           Evidence  @relation(fields: [evidenceId], references: [id])
+  faceIndex          Int
+  label              String?
+  reverseSearchJson  String?
+  reverseSearchRanAt DateTime?
+  descriptionJson    String?
+  descriptionRanAt   DateTime?
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([evidenceId, faceIndex])
 }
 
 // --- Cross-case & seeded-corpus matching ---------------------------------
