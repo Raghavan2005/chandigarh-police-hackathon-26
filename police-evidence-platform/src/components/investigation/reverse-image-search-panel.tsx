@@ -150,11 +150,41 @@ export function ReverseImageSearchPanel({
         </p>
       )}
 
+      {result && result.labels.length > 0 && (
+        <div className="rounded-md border border-border-subtle bg-surface-sunken px-2.5 py-1.5">
+          <p className="mb-1 text-[11px] font-medium text-text-tertiary">What the model sees in this image</p>
+          <div className="flex flex-wrap gap-1">
+            {result.labels.map((l, i) => (
+              <span
+                key={i}
+                className="rounded-full border border-border-subtle bg-surface px-2 py-0.5 text-[10px] text-text-secondary"
+                title={`${Math.round(l.score * 100)}% confidence`}
+              >
+                {l.description} <span className="text-text-tertiary">{Math.round(l.score * 100)}%</span>
+              </span>
+            ))}
+          </div>
+          <p className="mt-1 text-[10px] text-text-tertiary">
+            Direct content classification (Cloud Vision label detection) — describes what&apos;s actually in this
+            file&apos;s pixels (objects, scenes, generic categories), independent of whether it&apos;s indexed
+            anywhere else on the web. Not identity recognition — it won&apos;t name a specific person.
+          </p>
+        </div>
+      )}
+
       {result && result.bestGuessLabels.length > 0 && (
-        <p className="rounded-md border border-border-subtle bg-surface-sunken px-2.5 py-1.5">
-          <span className="text-text-tertiary">Google&apos;s best guess for this image: </span>
-          <span className="font-medium text-text-primary">{result.bestGuessLabels.join(", ")}</span>
-        </p>
+        <div className="rounded-md border border-border-subtle bg-surface-sunken px-2.5 py-1.5">
+          <p>
+            <span className="text-text-tertiary">Google&apos;s best guess for this image: </span>
+            <span className="font-medium text-text-primary">{result.bestGuessLabels.join(", ")}</span>
+          </p>
+          <p className="mt-1 text-[10px] text-text-tertiary">
+            Not identity/face recognition — Vision API doesn&apos;t offer that. This is inferred from text on other
+            pages featuring visually similar images, so it can be generic or off-topic (as above) when this
+            specific file isn&apos;t widely indexed elsewhere, which is common for evidence that hasn&apos;t
+            circulated publicly. Treat it as a lead to check against the matches below, not a finding on its own.
+          </p>
+        </div>
       )}
 
       {!hasAnyMatch && (

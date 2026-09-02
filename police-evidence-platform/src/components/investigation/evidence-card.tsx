@@ -452,6 +452,7 @@ function parseReverseImageSearchResult(
       pagesWithMatches: JSON.parse(row.pagesWithMatchesJson),
       webEntities: JSON.parse(row.webEntitiesJson),
       bestGuessLabels: JSON.parse(row.bestGuessLabelsJson),
+      labels: JSON.parse(row.labelsJson),
       ranAt: row.ranAt.toISOString(),
     };
   } catch {

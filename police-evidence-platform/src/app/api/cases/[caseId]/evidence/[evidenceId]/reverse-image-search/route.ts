@@ -97,6 +97,7 @@ export async function POST(
       pagesWithMatchesJson: JSON.stringify(result.pagesWithMatches),
       webEntitiesJson: JSON.stringify(result.webEntities),
       bestGuessLabelsJson: JSON.stringify(result.bestGuessLabels),
+      labelsJson: JSON.stringify(result.labels),
     },
     update: {
       fullMatchesJson: JSON.stringify(result.fullMatches),
@@ -104,6 +105,7 @@ export async function POST(
       pagesWithMatchesJson: JSON.stringify(result.pagesWithMatches),
       webEntitiesJson: JSON.stringify(result.webEntities),
       bestGuessLabelsJson: JSON.stringify(result.bestGuessLabels),
+      labelsJson: JSON.stringify(result.labels),
       ranAt: new Date(),
     },
   });

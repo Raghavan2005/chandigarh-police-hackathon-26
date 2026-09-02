@@ -11,6 +11,12 @@ export interface ReverseImageSearchResult {
    * from (`WebDetection.bestGuessLabels`), not something we're
    * inferring/labeling ourselves. */
   bestGuessLabels: string[];
+  /** Real content classification — what the model actually sees in the
+   * pixels ("Person", "Vehicle", "Turban", ...), from Vision API's
+   * LABEL_DETECTION. Mechanistically different from `bestGuessLabels`
+   * above: this doesn't depend on the image being indexed anywhere else
+   * on the web, it's a direct classification of this file's own content. */
+  labels: { description: string; score: number }[];
 }
 
 /** What the API route actually returns and what the cached DB row
@@ -36,7 +42,10 @@ export interface CachedReverseImageSearchResult extends ReverseImageSearchResult
  */
 export async function runReverseImageSearch(imageBuffer: Buffer): Promise<ReverseImageSearchResult> {
   const client = new ImageAnnotatorClient();
-  const [result] = await client.webDetection({ image: { content: imageBuffer } });
+  const [result] = await client.annotateImage({
+    image: { content: imageBuffer },
+    features: [{ type: "WEB_DETECTION" }, { type: "LABEL_DETECTION", maxResults: 10 }],
+  });
   const web = result.webDetection;
 
   return {
@@ -51,6 +60,10 @@ export async function runReverseImageSearch(imageBuffer: Buffer): Promise<Revers
       .map((e) => ({ description: e.description as string, score: e.score as number }))
       .sort((a, b) => b.score - a.score),
     bestGuessLabels: (web?.bestGuessLabels ?? []).map((l) => l.label).filter((l): l is string => Boolean(l)),
+    labels: (result.labelAnnotations ?? [])
+      .filter((l) => l.description && typeof l.score === "number")
+      .map((l) => ({ description: l.description as string, score: l.score as number }))
+      .sort((a, b) => b.score - a.score),
   };
 }
 

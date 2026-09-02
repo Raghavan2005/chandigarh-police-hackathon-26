@@ -263,6 +263,7 @@ model ReverseImageSearchResult {
   pagesWithMatchesJson String
   webEntitiesJson      String
   bestGuessLabelsJson  String   @default("[]")
+  labelsJson           String   @default("[]")
   ranAt                DateTime @default(now())
 }
 
