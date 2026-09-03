@@ -31,6 +31,13 @@ model User {
   overridesGiven     VerdictOverride[] @relation("OverriddenBy")
   custodyTransfersRecorded CustodyTransfer[] @relation("CustodyTransferRecordedBy")
   captureLinksCreated CaptureLink[]    @relation("CaptureLinkCreatedBy")
+  investigationsCreated   Investigation[]     @relation("InvestigationCreatedBy")
+  investigationLinksMade  InvestigationCase[] @relation("InvestigationCaseLinkedBy")
+  investigationLinksRemoved InvestigationCase[] @relation("InvestigationCaseUnlinkedBy")
+  investigationActorsAdded   InvestigationActor[] @relation("InvestigationActorAddedBy")
+  investigationActorsRemoved InvestigationActor[] @relation("InvestigationActorRemovedBy")
+  alertsTargeted     Alert[] @relation("AlertTargetUser")
+  alertsAcknowledged Alert[] @relation("AlertAcknowledgedBy")
 }
 
 // --- Case ----------------------------------------------------------------
@@ -90,6 +97,8 @@ model Case {
   auditEntries      AuditLogEntry[]
   propagationEdges  PropagationEdge[]
   captureLinks      CaptureLink[]
+  investigationLinks InvestigationCase[]
+  alerts            Alert[]
 
   @@index([investigatorId])
   @@index([firNumber])
@@ -159,6 +168,13 @@ model Evidence {
   deviceIdentifier String? // IMEI/MAC/serial — only when evidence comes from a specific seized device, not a generic upload
   casePropertyNumber String? // Malkhana / case-property register number — only meaningful alongside deviceIdentifier (a physically seized exhibit), never fabricated for a digital upload
 
+  // Evidence Vault (Docs/Plan for the feature) Phase C — retention/legal-hold
+  // flags, surfaced there as "expiring soon" / "on hold" filters. Flags
+  // only: no disposal/deletion workflow exists yet, so retentionUntil
+  // passing never deletes anything by itself.
+  retentionUntil DateTime?
+  legalHold      Boolean   @default(false)
+
   // Section 63/65B Part A declarant — the person who "was regularly using
   // the device in the ordinary course of the stated activity," which is
   // very often NOT the investigating officer (e.g. the complainant who
@@ -201,6 +217,7 @@ model Evidence {
   overrides           VerdictOverride[]
   custodyTransfers    CustodyTransfer[]
   faceAnnotations     FaceAnnotation[]
+  alerts              Alert[]
 
   @@unique([caseId, sha256])
   @@index([caseId])
@@ -512,4 +529,116 @@ model AuditLogEntry {
 
   @@index([caseId])
   @@index([timestamp])
+}
+
+// --- Investigations (Docs/Plan for the feature) --------------------------
+// A layer above Case: groups multiple cases believed connected to the same
+// real-world actor/campaign (e.g. the same account behind two separate
+// FIRs — see Docs/incidents' cross-case @-handle link between the Dwivedi
+// and Modi-Netanyahu dossiers, which today has no representation in the
+// system at all). Every link is investigator-asserted with a required
+// justification, never computed — same anti-overclaiming rule the Fusion
+// verdict and declarant fields already follow. Distinct from
+// EvidenceMatch/CorpusMatch, which link cases that share an actual file;
+// an Investigation links cases that share an actor, often with no shared
+// file at all.
+model Investigation {
+  id          String   @id // display ID, e.g. "INV-2026-00001" — mirrors Case's CHD-{year}-{seq} convention
+  title       String
+  summary     String?
+  status      String   @default("open") // "open" | "closed"
+  createdById String
+  createdBy   User     @relation("InvestigationCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  cases  InvestigationCase[]
+  actors InvestigationActor[]
+}
+
+// Join table, not a plain many-to-many: linking (and unlinking) a case is
+// itself an assertion that needs a recorded basis, not just a fact. Rows
+// are never deleted on unlink — matching this app's append-only-history
+// pattern elsewhere (evidence is never deleted, the audit log is
+// append-only) — unlinkedAt/unlinkedById/unlinkReason record that a link
+// existed and was later removed, and why, instead of erasing it.
+model InvestigationCase {
+  id              String    @id @default(cuid())
+  investigationId String
+  investigation   Investigation @relation(fields: [investigationId], references: [id])
+  caseId          String
+  case            Case      @relation(fields: [caseId], references: [id])
+  justification   String // required — the recorded reasonable-suspicion basis for this link
+  linkedById      String
+  linkedBy        User      @relation("InvestigationCaseLinkedBy", fields: [linkedById], references: [id])
+  linkedAt        DateTime  @default(now())
+  unlinkedById    String?
+  unlinkedBy      User?     @relation("InvestigationCaseUnlinkedBy", fields: [unlinkedById], references: [id])
+  unlinkedAt      DateTime?
+  unlinkReason    String?
+
+  // Deliberately no @@unique([investigationId, caseId]): a case can be
+  // linked, unlinked, and later re-linked (e.g. new evidence revives a
+  // connection previously deemed too weak) — each such event is its own
+  // row, not one slot overwritten in place. The application layer checks
+  // for an existing *active* (unlinkedAt: null) link before creating a new
+  // one instead.
+  @@index([investigationId])
+  @@index([caseId])
+}
+
+// Phase B (Docs/Plan for the feature) — a suspected handle/account believed
+// relevant to an investigation. Explicitly a working lead, never a verified
+// identity match: `note` records why it's suspected, same as-stated-basis
+// rule the Fusion verdict and case-linking justification already follow.
+// Lower-stakes than linking a case (no FIR/legal consequence), so any
+// authenticated investigator can add/remove one, not admin-only like
+// case-linking. Not tied to AuditLogEntry — that table requires a caseId
+// and an actor note isn't about any one specific linked case; addedBy/At
+// and removedBy/At/Reason already give this its own full accountability
+// trail without forcing an arbitrary case attribution.
+model InvestigationActor {
+  id              String    @id @default(cuid())
+  investigationId String
+  investigation   Investigation @relation(fields: [investigationId], references: [id])
+  platform        String // e.g. "telegram" | "x" | "facebook" | "whatsapp" | "news" | "public-record" — free text, matching CorpusItem.sourcePlatform's own precedent, not DB-enforced
+  handle          String
+  note            String?
+  addedById       String
+  addedBy         User      @relation("InvestigationActorAddedBy", fields: [addedById], references: [id])
+  addedAt         DateTime  @default(now())
+  removedById     String?
+  removedBy       User?     @relation("InvestigationActorRemovedBy", fields: [removedById], references: [id])
+  removedAt       DateTime?
+  removeReason    String?
+
+  @@index([investigationId])
+}
+
+// Alerts — surfaces four event types without requiring anyone to already
+// know to look: a new case assigned, a MANIPULATED/AI_GENERATED verdict,
+// a cross-case hash match, and (the highest-operational-risk one, per the
+// jury-panel-style review of this feature) the tamper-evident audit log
+// failing its own integrity check. targetUserId null means platform-wide
+// (only used for AUDIT_INTEGRITY_FAILURE, admin-only per the /audit page's
+// own gate). Acknowledged, never deleted — same append-only pattern as
+// everything else accountability-adjacent in this app.
+model Alert {
+  id               String    @id @default(cuid())
+  type             String // "CASE_ASSIGNED" | "MANIPULATED_VERDICT" | "CROSS_CASE_MATCH" | "AUDIT_INTEGRITY_FAILURE"
+  severity         String // "critical" | "warning" | "info"
+  message          String
+  caseId           String?
+  case             Case?     @relation(fields: [caseId], references: [id])
+  evidenceId       String?
+  evidence         Evidence? @relation(fields: [evidenceId], references: [id])
+  targetUserId     String? // null = every admin (platform-wide alert)
+  targetUser       User?     @relation("AlertTargetUser", fields: [targetUserId], references: [id])
+  createdAt        DateTime  @default(now())
+  acknowledgedById String?
+  acknowledgedBy   User?     @relation("AlertAcknowledgedBy", fields: [acknowledgedById], references: [id])
+  acknowledgedAt   DateTime?
+
+  @@index([targetUserId])
+  @@index([caseId])
+  @@index([createdAt])
 }

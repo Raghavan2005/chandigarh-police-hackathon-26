@@ -7,6 +7,7 @@ import { Bell, Command, LogOut, Search, UserRound } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -58,7 +59,9 @@ export function Topbar({ session }: { session: { name: string; role: string } })
             </span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-40">
-            <DropdownMenuLabel>{session.name}</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{session.name}</DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               disabled={signingOut}

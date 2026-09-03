@@ -27,8 +27,18 @@ const NAV = [
     icon: FolderKanban,
     isActive: (p: string) => p === "/cases" || p === "/cases/new",
   },
-  { href: "/cases", label: "Evidence Vault", icon: ShieldCheck, disabled: true },
-  { href: "/", label: "Investigations", icon: ShieldAlert, disabled: true },
+  {
+    href: "/vault",
+    label: "Evidence Vault",
+    icon: ShieldCheck,
+    isActive: (p: string) => p === "/vault" || p.startsWith("/vault/"),
+  },
+  {
+    href: "/investigations",
+    label: "Investigations",
+    icon: ShieldAlert,
+    isActive: (p: string) => p === "/investigations" || p.startsWith("/investigations/"),
+  },
   { href: "/", label: "Alerts", icon: Bell, disabled: true },
   {
     href: "/audit",
