@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Bell, Command, LogOut, Search, UserRound } from "lucide-react";
@@ -14,7 +15,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function Topbar({ session }: { session: { name: string; role: string } }) {
+export function Topbar({
+  session,
+  unacknowledgedAlertCount = 0,
+}: {
+  session: { name: string; role: string };
+  unacknowledgedAlertCount?: number;
+}) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -43,10 +50,15 @@ export function Topbar({ session }: { session: { name: string; role: string } })
       </div>
 
       <div className="ml-auto flex items-center gap-3">
-        <button className="relative flex size-8 items-center justify-center rounded-md text-text-secondary hover:bg-surface-raised hover:text-text-primary">
+        <Link
+          href="/alerts"
+          className="relative flex size-8 items-center justify-center rounded-md text-text-secondary hover:bg-surface-raised hover:text-text-primary"
+        >
           <Bell className="size-4" />
-          <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-status-critical" />
-        </button>
+          {unacknowledgedAlertCount > 0 && (
+            <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-status-critical" />
+          )}
+        </Link>
 
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-surface-raised">

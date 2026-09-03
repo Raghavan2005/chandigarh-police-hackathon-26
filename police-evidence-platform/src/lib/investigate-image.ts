@@ -7,6 +7,7 @@ import { computePerceptualHash } from "@/lib/perceptual-hash";
 import { findMatches } from "@/lib/matching";
 import { fuseEvidence } from "@/lib/fusion";
 import { checkProvenance } from "@/lib/provenance";
+import { raiseVerdictAlerts } from "@/lib/alerts";
 
 interface RunImageInvestigationInput {
   evidenceId: string;
@@ -40,7 +41,7 @@ export async function runImageInvestigation(
 ): Promise<RunImageInvestigationResult> {
   const evidence = await db.evidence.findUnique({
     where: { id: input.evidenceId },
-    include: { metadataResult: true },
+    include: { metadataResult: true, case: { select: { investigatorId: true } } },
   });
   if (!evidence || evidence.caseId !== input.caseId) {
     return { ok: false, status: 404, error: "Evidence not found on this case." };
@@ -150,6 +151,18 @@ export async function runImageInvestigation(
         actorId: input.actorId,
         action: "ANALYZED",
         device: input.auditDevice ?? "pramana-investigate",
+      },
+      tx,
+    );
+
+    await raiseVerdictAlerts(
+      {
+        caseId: input.caseId,
+        evidenceId: evidence.id,
+        investigatorId: evidence.case.investigatorId,
+        verdict: fusionVerdict.verdict,
+        confidence: fusionVerdict.confidence,
+        crossCaseMatchCount: matchCounts.evidenceMatchCount,
       },
       tx,
     );

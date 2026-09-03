@@ -39,7 +39,12 @@ const NAV = [
     icon: ShieldAlert,
     isActive: (p: string) => p === "/investigations" || p.startsWith("/investigations/"),
   },
-  { href: "/", label: "Alerts", icon: Bell, disabled: true },
+  {
+    href: "/alerts",
+    label: "Alerts",
+    icon: Bell,
+    isActive: (p: string) => p === "/alerts",
+  },
   {
     href: "/audit",
     label: "Audit Log",

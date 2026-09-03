@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { getSession } from "@/lib/session";
+import { getUnacknowledgedAlertCount } from "@/lib/alerts-server";
 
 // Server-side check here is the authoritative one — middleware.ts only does
 // a cheap cookie-presence redirect for UX (it can't touch the DB from the
@@ -13,6 +14,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   if (!session) {
     redirect("/login");
   }
+
+  const unacknowledgedAlertCount = await getUnacknowledgedAlertCount(session.userId, session.role);
 
   return (
     <div className="flex h-screen w-full overflow-hidden print:block print:h-auto print:overflow-visible">
@@ -32,7 +35,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           output before. */}
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col print:block">
-        <Topbar session={{ name: session.name, role: session.role }} />
+        <Topbar session={{ name: session.name, role: session.role }} unacknowledgedAlertCount={unacknowledgedAlertCount} />
         <main className="flex-1 overflow-y-auto print:overflow-visible">{children}</main>
       </div>
     </div>

@@ -11,6 +11,7 @@ import { findMatches } from "@/lib/matching";
 import { fuseEvidence } from "@/lib/fusion";
 import { checkProvenance } from "@/lib/provenance";
 import { runImageInvestigation } from "@/lib/investigate-image";
+import { raiseVerdictAlerts } from "@/lib/alerts";
 
 /**
  * The single "Investigate" action (PS4_ANALYSIS_PIPELINE.md §2/§4,
@@ -212,6 +213,18 @@ export async function POST(
 
     const auditEntry = await writeAuditEntryInTx(
       { caseId, evidenceHash: evidence.sha256, actorId: session.userId, action: "ANALYZED", device: "pramana-investigate" },
+      tx,
+    );
+
+    await raiseVerdictAlerts(
+      {
+        caseId,
+        evidenceId: evidence.id,
+        investigatorId: evidence.case.investigatorId,
+        verdict: fusionVerdict.verdict,
+        confidence: fusionVerdict.confidence,
+        crossCaseMatchCount: matchCounts.evidenceMatchCount,
+      },
       tx,
     );
 

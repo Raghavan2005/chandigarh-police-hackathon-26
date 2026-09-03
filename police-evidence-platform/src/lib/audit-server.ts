@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { readCheckpoints } from "@/lib/audit";
+import { raiseAuditIntegrityFailureIfNew } from "@/lib/alerts";
 
 export interface ChainVerification {
   intact: boolean;
@@ -47,10 +48,19 @@ export async function getAuditLog(): Promise<{ entries: Awaited<ReturnType<typeo
     }
   }
 
+  const chainIntact = intact && checkpointMismatchIds.length === 0;
+  if (!chainIntact) {
+    // Docs/Plan for the Alerts feature — the single highest-operational-
+    // risk gap this platform had: a tamper-evident audit log that could
+    // silently fail with nobody notified. Raised here, not just displayed
+    // on this page, so it also reaches the admin-facing /alerts feed.
+    await raiseAuditIntegrityFailureIfNew();
+  }
+
   return {
     entries: [...entries].reverse(), // most-recent-first for display
     verification: {
-      intact: intact && checkpointMismatchIds.length === 0,
+      intact: chainIntact,
       totalEntries: entries.length,
       brokenAtId,
       checkpointMismatchIds,
