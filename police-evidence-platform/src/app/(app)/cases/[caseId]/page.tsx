@@ -3,6 +3,7 @@ import { caseById } from "@/lib/mock-data";
 import { CaseInvestigationView } from "@/components/investigation/case-investigation-view";
 import { RealCaseView } from "@/components/investigation/real-case-view";
 import { getRealCase } from "@/lib/cases-server";
+import { getRealCasePropagation } from "@/lib/propagation-server";
 
 export default async function CasePage(props: PageProps<"/cases/[caseId]">) {
   const { caseId } = await props.params;
@@ -14,7 +15,14 @@ export default async function CasePage(props: PageProps<"/cases/[caseId]">) {
   // they fall through to the existing mock path unchanged.
   const realCase = await getRealCase(caseId);
   if (realCase) {
-    return <RealCaseView caseData={realCase} />;
+    // Cross-case/corpus matches now render as a tab on this same page
+    // (direct user request — a separate /propagation page meant losing
+    // your place in the exhibit list every time). Fetched here rather
+    // than lazily on tab switch since this is a Server Component and the
+    // whole page is one request anyway; /cases/[id]/propagation itself
+    // still exists unchanged for direct links.
+    const propagation = await getRealCasePropagation(caseId);
+    return <RealCaseView caseData={realCase} propagation={propagation} />;
   }
 
   const caseData = caseById(caseId);

@@ -23,6 +23,7 @@ import {
   type CachedDocumentSummary,
   type CachedDocumentThreatAssessment,
 } from "@/components/investigation/document-analysis-panel";
+import { EvidenceSectionNav, type EvidenceSection } from "@/components/investigation/evidence-section-nav";
 import type { EvidenceKind, Verdict } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
 import { mergeReverseImageSearchResults, type CachedMergedReverseImageSearchResult } from "@/lib/reverse-image-search-merge";
@@ -31,7 +32,7 @@ import type { CachedImageDescriptionResult } from "@/lib/image-description";
 import type { FaceAnnotationData } from "@/components/investigation/face-detail-dialog";
 
 type RealCase = NonNullable<Awaited<ReturnType<typeof getRealCase>>>;
-type Evidence = RealCase["evidence"][number];
+export type Evidence = RealCase["evidence"][number];
 
 interface InvestigateResponse {
   verdict: string;
@@ -75,6 +76,7 @@ export function EvidenceCard({
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<"idle" | "investigating" | "error">("idle");
+  const [stage, setStage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [result, setResult] = useState<InvestigateResponse | null>(null);
 
@@ -83,6 +85,7 @@ export function EvidenceCard({
   const isVideo = evidence.mimeType.startsWith("video/");
   const isAudio = evidence.mimeType.startsWith("audio/");
   const isImage = evidence.mimeType.startsWith("image/");
+  const isSensitive = sensitivityLevel !== "standard";
   // A case's evidenceKind is one value for the whole case, but individual
   // evidence items can be a different real mimeType (e.g. a document
   // uploaded onto an "audio" case) — the icon must reflect the actual file,
@@ -96,27 +99,64 @@ export function EvidenceCard({
         ? "audio"
         : "document";
 
+  function runStep(path: string) {
+    return fetch(`/api/cases/${caseId}/evidence/${evidence.id}/${path}`, { method: "POST" }).catch(() => null);
+  }
+
+  /**
+   * "Investigate" is the one button for this exhibit — after the core
+   * detection call, it also chains every follow-on extraction step this
+   * evidence type supports (captions, splice detection, reverse-image
+   * search, AI description, video-diff against a match if one turned up),
+   * finishing with a web search over whatever real text those steps just
+   * extracted. Best-effort throughout: one step failing (ML service down,
+   * no search credentials configured) never blocks the rest — each route
+   * still records its own result/error, visible next time its own panel
+   * loads. Local/offline steps (captions, splice detection, video-diff) run
+   * regardless of sensitivity; only the steps that actually send content to
+   * an external service (reverse-image search, AI description, web search)
+   * respect the same NCII/minor gate their own routes enforce.
+   */
   async function handleInvestigate() {
     setStatus("investigating");
     setErrorMessage("");
+    setStage("Running detection…");
 
-    const response = await fetch(`/api/cases/${caseId}/evidence/${evidence.id}/investigate`, {
-      method: "POST",
-    }).catch(() => null);
+    const response = await runStep("investigate");
 
     if (!response || !response.ok) {
       const body = await response?.json().catch(() => null);
       setStatus("error");
       setErrorMessage(body?.error ?? "Investigation failed — check the ML service is running and try again.");
+      setStage("");
       return;
     }
 
     const data: InvestigateResponse = await response.json();
     setResult(data);
+
+    setStage("Extracting captions, descriptions, and splice points…");
+    const extractionSteps: Promise<unknown>[] = [];
+    if (isVideo || isAudio) extractionSteps.push(runStep("transcript"), runStep("detect-splices"));
+    if (!isSensitive && (isImage || isVideo)) extractionSteps.push(runStep("reverse-image-search"), runStep("describe-image"));
+    await Promise.allSettled(extractionSteps);
+
+    if (isVideo && data.crossCaseMatches > 0) {
+      setStage("Diffing against matched original…");
+      await runStep("video-diff");
+    }
+
+    if (!isSensitive) {
+      setStage("Searching the web…");
+      await runStep("web-search");
+    }
+
     setStatus("idle");
+    setStage("");
     // Refreshes server-rendered data (metadata/detection/provenance rows,
-    // audit trail) so the rest of the page reflects the real DB state, not
-    // just this card's local optimistic result.
+    // audit trail, and every follow-on result just fetched above) so the
+    // rest of the page reflects real DB state, not just this card's local
+    // optimistic result.
     router.refresh();
   }
 
@@ -133,6 +173,21 @@ export function EvidenceCard({
   const showFaceMatchSlot = evidence.mimeType.startsWith("image/") || evidence.mimeType.startsWith("video/");
   const meta = evidence.metadataResult;
   const provenance = evidence.provenanceResult;
+  const hasVideoDiffSlot = isVideo && evidence.matchesFrom.length > 0;
+  const isPdfDoc = Boolean(meta && meta.container === "PDF" && meta.exifJson);
+
+  // Jump targets for the sticky nav below — mirrors exactly which panels
+  // actually render further down (same conditions), so a link is never
+  // dead and a rendered panel is never missing from the list.
+  const sections: EvidenceSection[] = [
+    { id: `ev-${evidence.id}-media`, label: isVideo ? "Video" : isAudio ? "Audio" : isImage ? "Image" : "Document" },
+    ...(isVideo || isAudio ? [{ id: `ev-${evidence.id}-captions`, label: "Captions" }] : []),
+    ...(isVideo || isAudio ? [{ id: `ev-${evidence.id}-splice`, label: "Splice detection" }] : []),
+    ...(showFaceMatchSlot ? [{ id: `ev-${evidence.id}-reverse-image`, label: "Reverse image search" }] : []),
+    ...(showFaceMatchSlot ? [{ id: `ev-${evidence.id}-image-description`, label: "AI description" }] : []),
+    ...(hasVideoDiffSlot ? [{ id: `ev-${evidence.id}-video-diff`, label: "Video diff" }] : []),
+    ...(isPdfDoc ? [{ id: `ev-${evidence.id}-document`, label: "Document" }] : []),
+  ];
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-4">
@@ -156,6 +211,7 @@ export function EvidenceCard({
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr_1fr_280px]">
         <div className="flex min-w-0 flex-col gap-3">
+          <EvidenceSectionNav sections={sections} />
           <RealEvidenceViewer
             caseId={caseId}
             evidenceId={evidence.id}
@@ -171,30 +227,39 @@ export function EvidenceCard({
             cachedSpliceDetection={parseSpliceDetection(evidence.spliceDetectionResult)}
           />
           {showFaceMatchSlot && (
-            <ReverseImageSearchPanel
-              caseId={caseId}
-              evidenceId={evidence.id}
-              cached={parseReverseImageSearchResult(evidence.reverseImageSearchResults)}
-              sensitivityLevel={sensitivityLevel}
-            />
+            <div id={`ev-${evidence.id}-reverse-image`} className="scroll-mt-14">
+              <ReverseImageSearchPanel
+                key={evidence.reverseImageSearchResults.length}
+                caseId={caseId}
+                evidenceId={evidence.id}
+                cached={parseReverseImageSearchResult(evidence.reverseImageSearchResults)}
+                sensitivityLevel={sensitivityLevel}
+              />
+            </div>
           )}
           {showFaceMatchSlot && (
-            <ImageDescriptionPanel
-              caseId={caseId}
-              evidenceId={evidence.id}
-              cached={parseImageDescriptionResult(evidence.imageDescriptionResult)}
-              sensitivityLevel={sensitivityLevel}
-            />
+            <div id={`ev-${evidence.id}-image-description`} className="scroll-mt-14">
+              <ImageDescriptionPanel
+                key={evidence.imageDescriptionResult?.ranAt.toISOString() ?? "none"}
+                caseId={caseId}
+                evidenceId={evidence.id}
+                cached={parseImageDescriptionResult(evidence.imageDescriptionResult)}
+                sensitivityLevel={sensitivityLevel}
+              />
+            </div>
           )}
-          {evidence.mimeType.startsWith("video/") && evidence.matchesFrom.length > 0 && (
-            <VideoDiffPanel
-              caseId={caseId}
-              evidenceId={evidence.id}
-              cached={parseVideoDiffResult(evidence.videoDiffResult)}
-            />
+          {hasVideoDiffSlot && (
+            <div id={`ev-${evidence.id}-video-diff`} className="scroll-mt-14">
+              <VideoDiffPanel
+                key={evidence.videoDiffResult?.ranAt.toISOString() ?? "none"}
+                caseId={caseId}
+                evidenceId={evidence.id}
+                cached={parseVideoDiffResult(evidence.videoDiffResult)}
+              />
+            </div>
           )}
-          {meta && meta.container === "PDF" && meta.exifJson && (
-            <>
+          {isPdfDoc && meta?.exifJson && (
+            <div id={`ev-${evidence.id}-document`} className="scroll-mt-14 flex flex-col gap-3">
               <DocumentDetails exifJson={meta.exifJson} sha256={evidence.sha256} />
               <DocumentAnalysisPanel
                 caseId={caseId}
@@ -203,7 +268,7 @@ export function EvidenceCard({
                 cachedThreat={parseDocumentThreatAssessment(evidence.documentThreatAssessment)}
                 sensitivityLevel={sensitivityLevel}
               />
-            </>
+            </div>
           )}
         </div>
 
@@ -307,11 +372,12 @@ export function EvidenceCard({
                 {status === "investigating" ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin" />
-                    {isVideo
-                      ? "Sampling frames + running detection…"
-                      : isAudio
-                        ? "Running voice-spoofing detection…"
-                        : "Running detection…"}
+                    {stage ||
+                      (isVideo
+                        ? "Sampling frames + running detection…"
+                        : isAudio
+                          ? "Running voice-spoofing detection…"
+                          : "Running detection…")}
                   </>
                 ) : (
                   <>
@@ -631,6 +697,7 @@ function parseSpliceDetection(row: Evidence["spliceDetectionResult"]): CachedSpl
     return null;
   }
 }
+
 
 function parseVideoDiffResult(row: Evidence["videoDiffResult"]): CachedVideoDiffResult | null {
   if (!row) return null;

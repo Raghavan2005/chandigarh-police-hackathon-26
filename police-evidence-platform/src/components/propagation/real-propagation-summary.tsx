@@ -31,6 +31,14 @@ export function RealPropagationSummary({ evidence }: { evidence: EvidencePropaga
     { label: "Corpus matches", value: String(corpusSightings.length) },
   ];
 
+  // Every item always has at least its own "origin" sighting — a real
+  // match means more than just that one entry. Items with no real match
+  // are the common, honest case (per the module comment below), but
+  // listing every single one as its own empty-state card just clutters
+  // this page — the stats strip above already covers "how many have zero
+  // matches" implicitly (evidence items minus what's listed here).
+  const evidenceWithMatches = evidence.filter((ev) => ev.sightings.length > 1);
+
   return (
     <div className="flex flex-col gap-6">
       {evidence.length === 0 && <p className="text-sm text-text-tertiary">No evidence on this case yet.</p>}
@@ -46,7 +54,15 @@ export function RealPropagationSummary({ evidence }: { evidence: EvidencePropaga
         </div>
       )}
 
-      {evidence.map((ev) => (
+      {evidence.length > 0 && evidenceWithMatches.length === 0 && (
+        <p className="text-sm text-text-tertiary">
+          None of this case&apos;s {evidence.length} evidence item{evidence.length === 1 ? "" : "s"} has a cross-case
+          or corpus match yet — the common, honest result, not a failure. Each item&apos;s own upload is still
+          tracked, just not listed here since there&apos;s nothing yet to compare it against.
+        </p>
+      )}
+
+      {evidenceWithMatches.map((ev) => (
         <div key={ev.evidenceId} className="rounded-lg border border-border-subtle bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
             <p className="font-mono text-xs text-text-tertiary">{ev.mimeType} · {ev.evidenceId.slice(0, 12)}…</p>

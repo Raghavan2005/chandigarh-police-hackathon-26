@@ -6,6 +6,3 @@ Thumbs.db
 .vscode/
 .idea/
 
-# env files
-.env
-.env.*

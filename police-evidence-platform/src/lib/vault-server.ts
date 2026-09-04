@@ -157,6 +157,7 @@ export async function getVaultEvidenceDetail(evidenceId: string) {
       videoDiffResult: true,
       documentSummaryResult: true,
       documentThreatAssessment: true,
+      webSearchResult: true,
       faceAnnotations: true,
       overrides: { orderBy: { timestamp: "desc" }, include: { overriddenBy: { select: { name: true } } } },
       uploadedBy: { select: { name: true } },

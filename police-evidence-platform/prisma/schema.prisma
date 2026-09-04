@@ -214,6 +214,7 @@ model Evidence {
   videoDiffResult          VideoDiffResult?
   documentSummaryResult      DocumentSummaryResult?
   documentThreatAssessment   DocumentThreatAssessment?
+  webSearchResult            WebSearchResult?
 
   corpusMatches       CorpusMatch[]
   matchesFrom         EvidenceMatch[] @relation("EvidenceMatchSource")
@@ -399,6 +400,25 @@ model ClaimVerificationResult {
   summary            String
   citationsJson      String // JSON array of {title, url, domain}
   ranAt              DateTime         @default(now())
+}
+
+// Real multi-engine web search using the evidence's own extracted text
+// (transcript/document text/AI description) as the query — a different
+// mechanism from ClaimVerificationResult above: that asks Gemini to judge
+// a claim; this returns real, unfiltered results from real search
+// engines (Google via Gemini grounding, Brave, DuckDuckGo — see
+// web-search.ts) merged into one list, each tagged with which provider(s)
+// found it, plus a best-effort domain-server geolocation. One row per
+// evidence — a re-run with a different query overwrites it (the point is
+// "the current search," not a history of past queries).
+model WebSearchResult {
+  id           String   @id @default(cuid())
+  evidenceId   String   @unique
+  evidence     Evidence @relation(fields: [evidenceId], references: [id])
+  query        String
+  resultsJson  String // JSON array of {title, url, domain, snippet, foundBy: string[], location: {lat,lon,label} | null}
+  providersRun String // JSON array of provider labels that actually ran
+  ranAt        DateTime @default(now())
 }
 
 // One cached translation of a TranscriptResult into a target language —

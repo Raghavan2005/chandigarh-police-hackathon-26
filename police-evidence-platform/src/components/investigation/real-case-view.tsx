@@ -1,14 +1,20 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Clock, FileDown, GitBranch, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Clock, FileDown, GitBranch, Radar, ShieldAlert } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddEvidenceDialog } from "@/components/investigation/add-evidence-dialog";
 import { EvidenceTabs } from "@/components/investigation/evidence-tabs";
 import { ForwardingDialog } from "@/components/investigation/forwarding-dialog";
 import { CaptureLinkDialog } from "@/components/investigation/capture-link-dialog";
 import { CaseLiveRefresh } from "@/components/investigation/case-live-refresh";
+import { SightingMap } from "@/components/propagation/sighting-map";
+import { RealPropagationSummary } from "@/components/propagation/real-propagation-summary";
+import { SourceFinderTab } from "@/components/investigation/source-finder-tab";
 import type { getRealCase } from "@/lib/cases-server";
+import type { EvidencePropagation } from "@/lib/propagation-server";
 
 type RealCase = NonNullable<Awaited<ReturnType<typeof getRealCase>>>;
 
@@ -21,8 +27,16 @@ type RealCase = NonNullable<Awaited<ReturnType<typeof getRealCase>>>;
  * slot isn't real yet (face/OSINT search — see EvidenceCard) rather than
  * faking it just to match the old visual.
  */
-export function RealCaseView({ caseData }: { caseData: RealCase }) {
+export function RealCaseView({
+  caseData,
+  propagation,
+}: {
+  caseData: RealCase;
+  propagation: EvidencePropagation[];
+}) {
   const isSensitive = caseData.sensitivityLevel !== "standard";
+  const crossCaseMatchCount = propagation.filter((ev) => ev.sightings.length > 1).length;
+  const sourceFinderResultCount = caseData.evidence.filter((ev) => ev.webSearchResult).length;
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-5 p-6">
@@ -56,13 +70,6 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
             >
               <Clock className="size-4" />
               History
-            </Link>
-            <Link
-              href={`/cases/${caseData.id}/propagation`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              <GitBranch className="size-4" />
-              Cross-case &amp; corpus matches
             </Link>
             <Link
               href={`/cases/${caseData.id}/report`}
@@ -111,21 +118,79 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
         </dl>
       </div>
 
-      <div>
+      <Tabs defaultValue="evidence">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
-            Evidence ({caseData.evidence.length})
-          </p>
+          <TabsList variant="line" className="border-b border-border-subtle">
+            <TabsTrigger value="evidence" className="gap-1.5">
+              Evidence ({caseData.evidence.length})
+            </TabsTrigger>
+            <TabsTrigger value="propagation" className="gap-1.5">
+              <GitBranch className="size-3.5" />
+              Cross-case &amp; corpus matches
+              {crossCaseMatchCount > 0 && (
+                <span className="ml-1 rounded-full bg-accent-dim px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent-primary">
+                  {crossCaseMatchCount}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="source-finder" className="gap-1.5">
+              <Radar className="size-3.5" />
+              Source finder
+              {sourceFinderResultCount > 0 && (
+                <span className="ml-1 rounded-full bg-accent-dim px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent-primary">
+                  {sourceFinderResultCount}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
           <AddEvidenceDialog caseId={caseData.id} />
         </div>
-        {caseData.evidence.length === 0 ? (
-          <div className="rounded-lg border border-border-subtle bg-surface p-8 text-center">
-            <p className="text-sm text-text-tertiary">No evidence uploaded on this case yet.</p>
-          </div>
-        ) : (
-          <EvidenceTabs caseId={caseData.id} sensitivityLevel={caseData.sensitivityLevel} evidence={caseData.evidence} />
-        )}
-      </div>
+
+        <TabsContent value="evidence" className="mt-4">
+          {caseData.evidence.length === 0 ? (
+            <div className="rounded-lg border border-border-subtle bg-surface p-8 text-center">
+              <p className="text-sm text-text-tertiary">No evidence uploaded on this case yet.</p>
+            </div>
+          ) : (
+            <EvidenceTabs caseId={caseData.id} sensitivityLevel={caseData.sensitivityLevel} evidence={caseData.evidence} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="propagation" className="mt-4 flex flex-col gap-4">
+          <p className="text-sm text-text-tertiary">
+            Real matches found for this case&apos;s evidence, ordered by timestamp — not a live/OSINT spread
+            scrape (that&apos;s an explicit non-goal), so most evidence with no matches will show only its own
+            upload here, which is the expected honest result.
+          </p>
+
+          <Card className="border-border-subtle bg-surface shadow-none">
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-text-secondary">Geographic trace</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SightingMap evidence={propagation} />
+            </CardContent>
+          </Card>
+
+          <Card className="border-border-subtle bg-surface shadow-none">
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-text-secondary">Matches</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RealPropagationSummary evidence={propagation} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="source-finder" className="mt-4">
+          <SourceFinderTab
+            caseId={caseData.id}
+            sensitivityLevel={caseData.sensitivityLevel}
+            evidence={caseData.evidence}
+            propagation={propagation}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
