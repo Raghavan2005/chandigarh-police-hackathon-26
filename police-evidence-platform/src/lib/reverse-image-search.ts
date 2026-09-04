@@ -73,3 +73,29 @@ export async function runReverseImageSearch(imageBuffer: Buffer): Promise<Revers
 export function isReverseImageSearchConfigured(): boolean {
   return Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS);
 }
+
+/** One reverse-image-search engine. Only `googleVisionProvider` below is
+ * real today — this interface exists so a second provider (once a real key
+ * + a confirmed, privacy-safe API contract exist) slots in without
+ * rewriting the route or the merge logic, not because a second provider is
+ * implemented now. */
+export interface ReverseImageSearchProvider {
+  id: string;
+  label: string;
+  isConfigured(): boolean;
+  run(imageBuffer: Buffer): Promise<ReverseImageSearchResult>;
+}
+
+export const googleVisionProvider: ReverseImageSearchProvider = {
+  id: "google_vision",
+  label: "Google Vision",
+  isConfigured: isReverseImageSearchConfigured,
+  run: runReverseImageSearch,
+};
+
+/** Every provider this deployment actually has credentials for — currently
+ * always just Google Vision, but callers should iterate this instead of
+ * assuming one provider so a second one can be added later. */
+export function getConfiguredProviders(): ReverseImageSearchProvider[] {
+  return [googleVisionProvider].filter((p) => p.isConfigured());
+}

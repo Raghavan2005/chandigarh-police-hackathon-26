@@ -18,6 +18,7 @@ import { ReverseImageSearchPanel } from "@/components/investigation/reverse-imag
 import { ImageDescriptionPanel } from "@/components/investigation/image-description-panel";
 import type { EvidenceKind, Verdict } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
+import { mergeReverseImageSearchResults, type CachedMergedReverseImageSearchResult } from "@/lib/reverse-image-search-merge";
 import type { CachedReverseImageSearchResult } from "@/lib/reverse-image-search";
 import type { CachedImageDescriptionResult } from "@/lib/image-description";
 import type { FaceAnnotationData } from "@/components/investigation/face-detail-dialog";
@@ -164,7 +165,8 @@ export function EvidenceCard({
             <ReverseImageSearchPanel
               caseId={caseId}
               evidenceId={evidence.id}
-              cached={parseReverseImageSearchResult(evidence.reverseImageSearchResult)}
+              cached={parseReverseImageSearchResult(evidence.reverseImageSearchResults)}
+              sensitivityLevel={sensitivityLevel}
             />
           )}
           {showFaceMatchSlot && (
@@ -172,6 +174,7 @@ export function EvidenceCard({
               caseId={caseId}
               evidenceId={evidence.id}
               cached={parseImageDescriptionResult(evidence.imageDescriptionResult)}
+              sensitivityLevel={sensitivityLevel}
             />
           )}
           {meta && meta.container === "PDF" && meta.exifJson && <DocumentDetails exifJson={meta.exifJson} />}
@@ -490,20 +493,36 @@ interface FrameScore {
   faceDetected: boolean;
 }
 
+// Kept as a plain local map (not imported from reverse-image-search.ts):
+// that module pulls in the real @google-cloud/vision SDK at module scope,
+// which is fine server-side but would drag Node-only dependencies (tls,
+// grpc) into this client component's browser bundle if imported as a value
+// here — only types are safe to import from it in client code.
+const PROVIDER_LABELS: Record<string, string> = { google_vision: "Google Vision" };
+function providerLabel(providerId: string): string {
+  return PROVIDER_LABELS[providerId] ?? providerId;
+}
+
 function parseReverseImageSearchResult(
-  row: Evidence["reverseImageSearchResult"],
-): CachedReverseImageSearchResult | null {
-  if (!row) return null;
+  rows: Evidence["reverseImageSearchResults"],
+): CachedMergedReverseImageSearchResult | null {
+  if (rows.length === 0) return null;
   try {
-    return {
-      fullMatches: JSON.parse(row.fullMatchesJson),
-      partialMatches: JSON.parse(row.partialMatchesJson),
-      pagesWithMatches: JSON.parse(row.pagesWithMatchesJson),
-      webEntities: JSON.parse(row.webEntitiesJson),
-      bestGuessLabels: JSON.parse(row.bestGuessLabelsJson),
-      labels: JSON.parse(row.labelsJson),
-      ranAt: row.ranAt.toISOString(),
-    };
+    const perProvider = rows.map((row) => ({
+      provider: row.provider,
+      label: providerLabel(row.provider),
+      result: {
+        fullMatches: JSON.parse(row.fullMatchesJson),
+        partialMatches: JSON.parse(row.partialMatchesJson),
+        pagesWithMatches: JSON.parse(row.pagesWithMatchesJson),
+        webEntities: JSON.parse(row.webEntitiesJson),
+        bestGuessLabels: JSON.parse(row.bestGuessLabelsJson),
+        labels: JSON.parse(row.labelsJson),
+      },
+    }));
+    const merged = mergeReverseImageSearchResults(perProvider);
+    const ranAt = rows.reduce((latest, row) => (row.ranAt > latest ? row.ranAt : latest), rows[0].ranAt);
+    return { ...merged, ranAt: ranAt.toISOString() };
   } catch {
     return null;
   }

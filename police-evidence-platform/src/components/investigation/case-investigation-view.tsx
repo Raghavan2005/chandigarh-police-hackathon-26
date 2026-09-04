@@ -12,7 +12,7 @@ import { usePipeline } from "@/lib/use-pipeline";
 import { pipelineSteps, faceMatches, faceMatchesByCase, fusionSignals, fusionSignalsByCase } from "@/lib/mock-data";
 import type { CaseSummary } from "@/lib/types";
 import { buttonVariants } from "@/components/ui/button";
-import { FileDown, GitBranch } from "lucide-react";
+import { Clock, FileDown, GitBranch } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function CaseInvestigationView({ caseData }: { caseData: CaseSummary }) {
@@ -40,6 +40,13 @@ export function CaseInvestigationView({ caseData }: { caseData: CaseSummary }) {
           )}
         </div>
         <div className="flex gap-2">
+          <Link
+            href={`/cases/${caseData.id}/history`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            <Clock className="size-4" />
+            History
+          </Link>
           <Link
             href={`/cases/${caseData.id}/propagation`}
             className={cn(buttonVariants({ variant: "outline", size: "sm" }))}

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { validateCaptureLink } from "@/lib/capture-link";
 import { ingestEvidence } from "@/lib/evidence-ingest";
 import { runImageInvestigation } from "@/lib/investigate-image";
+import { getRequestIp } from "@/lib/request-ip";
 
 /**
  * Public — deliberately no requireSession(). Authorization is the capture
@@ -45,6 +46,7 @@ export async function POST(
     mimeType,
     uploadedById: link.createdByUserId,
     auditDevice: "pramana-tablet-capture",
+    auditIp: getRequestIp(request),
   });
 
   if (!ingestResult.ok) {

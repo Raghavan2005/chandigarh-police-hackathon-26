@@ -909,6 +909,7 @@ export function RealEvidenceViewer({
           onOpenChange={(next) => {
             if (!next) setSelectedFaceIndex(null);
           }}
+          sensitivityLevel={sensitivityLevel}
           annotation={
             faceAnnotations.get(selectedFaceIndex) ?? { label: null, reverseSearch: null, description: null }
           }

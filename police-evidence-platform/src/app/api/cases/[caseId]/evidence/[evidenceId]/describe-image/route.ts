@@ -33,10 +33,17 @@ export async function POST(
   const { caseId, evidenceId } = await params;
   const evidence = await db.evidence.findUnique({
     where: { id: evidenceId },
-    include: { detectionResult: true, metadataResult: true },
+    include: { detectionResult: true, metadataResult: true, case: { select: { sensitivityLevel: true } } },
   });
   if (!evidence || evidence.caseId !== caseId) {
     return NextResponse.json({ error: "Evidence not found on this case." }, { status: 404 });
+  }
+
+  if (evidence.case.sensitivityLevel !== "standard") {
+    return NextResponse.json(
+      { error: "This evidence is flagged sensitive — sending it to an external service is blocked to avoid exposing it outside this platform." },
+      { status: 403 },
+    );
   }
 
   const isImage = evidence.mimeType.startsWith("image/");

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Loader2, ScanEye } from "lucide-react";
+import { AlertTriangle, Loader2, Lock, ScanEye } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { CachedImageDescriptionResult } from "@/lib/image-description";
@@ -37,16 +37,31 @@ export function ImageDescriptionPanel({
   caseId,
   evidenceId,
   cached,
+  sensitivityLevel,
 }: {
   caseId: string;
   evidenceId: string;
   cached: CachedImageDescriptionResult | null;
+  sensitivityLevel: string;
 }) {
   const [status, setStatus] = useState<"idle" | "running" | "done" | "not-configured" | "error">(
     cached ? "done" : "idle",
   );
   const [result, setResult] = useState<CachedImageDescriptionResult | null>(cached);
   const [errorMessage, setErrorMessage] = useState("");
+
+  // Same gate as the sensitive-content blur/reveal flow (real-evidence-viewer.tsx)
+  // — this evidence's bytes would otherwise be sent to an external API (Gemini),
+  // which is exactly the exposure that flow exists to prevent.
+  if (sensitivityLevel !== "standard") {
+    return (
+      <p className="flex items-center gap-1.5 rounded-md border border-status-warning/30 bg-status-warning-bg px-3 py-2 text-[11px] text-status-warning">
+        <Lock className="size-3.5 shrink-0" />
+        This evidence is flagged {sensitivityLevel === "ncii" ? "NCII" : "minor-sensitivity"} — AI image description
+        is blocked to avoid sending it to an external service.
+      </p>
+    );
+  }
 
   async function handleRun() {
     setStatus("running");

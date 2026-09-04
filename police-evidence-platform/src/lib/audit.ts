@@ -78,6 +78,7 @@ interface WriteAuditEntryInput {
   actorId?: string;
   action: AuditAction;
   device?: string;
+  ipAddress?: string;
 }
 
 /**
@@ -107,6 +108,7 @@ async function writeAuditEntryDb(input: WriteAuditEntryInput, tx: DbOrTx) {
         actorId: input.actorId ?? null,
         action: input.action,
         device: input.device ?? null,
+        ipAddress: input.ipAddress ?? null,
         timestamp: timestamp.toISOString(),
       }),
     )
@@ -119,6 +121,7 @@ async function writeAuditEntryDb(input: WriteAuditEntryInput, tx: DbOrTx) {
       actorId: input.actorId,
       action: input.action,
       device: input.device,
+      ipAddress: input.ipAddress,
       timestamp,
       entryHash,
       prevEntryHash,

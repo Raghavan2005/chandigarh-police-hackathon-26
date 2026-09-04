@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { appendCheckpoint, writeAuditEntry } from "@/lib/audit";
+import { getRequestIp } from "@/lib/request-ip";
 
 /**
  * Explicit "view sensitive content" action for NCII/minor-flagged evidence
@@ -30,6 +31,7 @@ export async function POST(
     actorId: session.userId,
     action: "VIEWED",
     device: `${request.headers.get("user-agent") ?? "unknown"} (sensitive-content-reveal)`,
+    ipAddress: getRequestIp(request) ?? undefined,
   });
   appendCheckpoint(entry);
 

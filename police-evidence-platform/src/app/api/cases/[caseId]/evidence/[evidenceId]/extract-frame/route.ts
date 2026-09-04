@@ -110,6 +110,8 @@ export async function POST(
         codec: extracted.codec,
         encoderSignature: extracted.encoderSignature,
         exifJson: extracted.exifJson,
+        gpsLatitude: extracted.gpsLatitude,
+        gpsLongitude: extracted.gpsLongitude,
       },
     });
     const metadataAuditEntry = await writeAuditEntryInTx(

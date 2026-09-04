@@ -21,13 +21,17 @@ A plain-language summary of what actually works vs. what's missing or limited, f
 - NCII/minor-sensitivity blur-then-reveal — real, the reveal action itself is logged
 - Document/PDF metadata extraction + tamper heuristic — real
 - Dashboard KPIs — computed from real case/evidence/verdict data, not hardcoded
+- Reverse-image search — real multi-provider architecture (one working engine today, Google Cloud Vision Web Detection; structured so a second provider can be added later without a rewrite once real credentials + a confirmed, privacy-safe API contract exist for one). Sends evidence bytes directly to the provider (not a public URL), returns real exact/partial matches, referencing pages, and content labels, each tagged with which provider(s) actually found it; results from every configured provider are merged/deduped by URL into one list. Cached per-provider and re-runnable, credentialed in this environment (`GOOGLE_APPLICATION_CREDENTIALS`). Blocked entirely (403, server-enforced) for NCII/minor-sensitivity evidence — never sent externally. This is real reverse-image search against providers' own indexes, not live scraping of specific social platforms (Telegram/X/WhatsApp) — that distinction still holds, see below.
+- AI news-summary cards — for any reverse-image-search matched page, a real fetch of that page's actual public content plus a real Vertex AI Gemini call that judges for itself whether it's genuinely a news article and, if so, produces a real summary (headline/outlet/date/summary) from the real fetched text. Never fabricates a summary for a non-news page or one it couldn't read — falls back to a plain link. Cached by URL (a matched page can recur across evidence items, no reason to re-fetch/re-summarize).
+- AI image description — real Vertex AI Gemini call describing an image/video frame and naming any recognizable person as a best-effort lead (never a verified identification); same caching/re-run pattern and same NCII/minor block as reverse-image search above.
+- Geographic sighting map (on the propagation page) — real EXIF GPS extraction (when the camera embedded it — most files won't have it, honestly shown as absent) with real offline IP geolocation (`geoip-lite`, bundled city-level database, no live calls, no account/key) as a fallback when a request happened to carry a resolvable public IP. Each point is labeled with its actual source (EXIF GPS vs. IP geolocation) — never blended, never guessed. IP capture itself only works when something in front of the app sets `x-forwarded-for`/`x-real-ip`; running locally with no reverse proxy (e.g. at the venue) means most sightings will have no IP to geolocate, and EXIF GPS will be the source that actually populates points, when present.
 
 ## Not real / not built
 
 The UI says so plainly wherever these would appear — never faked, never a silent gap.
 
-- OSINT / reverse-image / live web search — not built at all, needs a search API key we don't have
-- "Same person, different photo" matching (face-embedding across different pictures) — not built; only exact/near-duplicate *file* matching exists (hash-based)
+- Live social-platform spread scraping (Telegram/X/WhatsApp propagation tracing) — not built, explicit non-goal; reverse-image search (above) covers "does this appear elsewhere on the web," not "how did it spread across specific platforms"
+- "Same person, different photo" matching (face-embedding across different pictures) — not built; only exact/near-duplicate *file* matching exists (hash-based). Gemini image description can name a recognizable person as a best-effort lead, which is a different (non-biometric) mechanism — see above.
 - Propagation graph — not live social-media scraping; built from a small seeded demo corpus, labeled "illustrative demo corpus" everywhere it's shown
 - Anything requiring live internet access at runtime — the whole app is designed to run fully offline after initial setup
 

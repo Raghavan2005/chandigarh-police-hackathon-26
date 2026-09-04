@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/session";
 import { writeAuditEntry } from "@/lib/audit";
+import { getRequestIp } from "@/lib/request-ip";
 import { getRealCase, getRealCaseAuditLog } from "@/lib/cases-server";
 import { computeReportIntegrityHash } from "@/lib/report-hash";
 
@@ -36,6 +37,7 @@ export async function GET(
     actorId: session.userId,
     action: "EXPORTED",
     device: request.headers.get("user-agent") ?? undefined,
+    ipAddress: getRequestIp(request) ?? undefined,
   });
 
   const verdictCounts: Record<string, number> = {};

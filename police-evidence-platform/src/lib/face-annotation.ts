@@ -14,12 +14,12 @@ export async function loadFaceCropBuffer(
   caseId: string,
   evidenceId: string,
   faceIndex: number,
-): Promise<{ buffer: Buffer; evidenceSha256: string } | null> {
+): Promise<{ buffer: Buffer; evidenceSha256: string; sensitivityLevel: string } | null> {
   if (!Number.isInteger(faceIndex) || faceIndex < 0) return null;
 
   const evidence = await db.evidence.findUnique({
     where: { id: evidenceId },
-    include: { detectionResult: true },
+    include: { detectionResult: true, case: { select: { sensitivityLevel: true } } },
   });
   if (!evidence || evidence.caseId !== caseId || !evidence.detectionResult) return null;
 
@@ -33,5 +33,5 @@ export async function loadFaceCropBuffer(
   if (!cropPath) return null;
 
   const buffer = await readFile(resolveEvidencePath(cropPath));
-  return { buffer, evidenceSha256: evidence.sha256 };
+  return { buffer, evidenceSha256: evidence.sha256, sensitivityLevel: evidence.case.sensitivityLevel };
 }

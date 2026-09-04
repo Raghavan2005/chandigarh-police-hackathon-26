@@ -13,6 +13,8 @@ export interface ExtractedMetadata {
   codec: string | null;
   encoderSignature: string | null;
   exifJson: string | null;
+  gpsLatitude: number | null;
+  gpsLongitude: number | null;
 }
 
 /**
@@ -40,7 +42,16 @@ export async function extractMetadata(
   // Anything else (unsupported document formats, etc.): no extraction path
   // exists yet — return an honestly-empty result rather than fabricate
   // fields that don't apply.
-  return { container: null, resolution: null, duration: null, codec: null, encoderSignature: null, exifJson: null };
+  return {
+    container: null,
+    resolution: null,
+    duration: null,
+    codec: null,
+    encoderSignature: null,
+    exifJson: null,
+    gpsLatitude: null,
+    gpsLongitude: null,
+  };
 }
 
 async function extractViaFfprobe(filePath: string): Promise<ExtractedMetadata> {
@@ -78,10 +89,21 @@ async function extractViaFfprobe(filePath: string): Promise<ExtractedMetadata> {
       codec: primaryStream?.codec_name ?? null,
       encoderSignature,
       exifJson: null,
+      gpsLatitude: null,
+      gpsLongitude: null,
     };
   } catch (error) {
     console.warn(`[metadata] ffprobe failed for ${filePath}:`, error);
-    return { container: null, resolution: null, duration: null, codec: null, encoderSignature: null, exifJson: null };
+    return {
+      container: null,
+      resolution: null,
+      duration: null,
+      codec: null,
+      encoderSignature: null,
+      exifJson: null,
+      gpsLatitude: null,
+      gpsLongitude: null,
+    };
   }
 }
 
@@ -98,7 +120,16 @@ async function extractImageExif(buffer: Buffer): Promise<ExtractedMetadata> {
   try {
     const exif = await parseExif(buffer, true);
     if (!exif) {
-      return { container: null, resolution: null, duration: null, codec: null, encoderSignature: null, exifJson: null };
+      return {
+        container: null,
+        resolution: null,
+        duration: null,
+        codec: null,
+        encoderSignature: null,
+        exifJson: null,
+        gpsLatitude: null,
+        gpsLongitude: null,
+      };
     }
 
     const resolution =
@@ -113,6 +144,13 @@ async function extractImageExif(buffer: Buffer): Promise<ExtractedMetadata> {
     // is the same kind of inconsistency signal.
     const encoderSignature = typeof exif.Software === "string" ? exif.Software : null;
 
+    // exifr computes decimal-degree lat/long from the raw GPS tags when
+    // `gps: true` is enabled (which the `true` shorthand above includes) —
+    // only present when the camera actually embedded location, which most
+    // messaging-app-forwarded or re-saved images won't have. Never inferred.
+    const gpsLatitude = typeof exif.latitude === "number" ? exif.latitude : null;
+    const gpsLongitude = typeof exif.longitude === "number" ? exif.longitude : null;
+
     return {
       container: "image",
       resolution,
@@ -120,10 +158,21 @@ async function extractImageExif(buffer: Buffer): Promise<ExtractedMetadata> {
       codec: null,
       encoderSignature,
       exifJson: JSON.stringify(exif),
+      gpsLatitude,
+      gpsLongitude,
     };
   } catch (error) {
     console.warn(`[metadata] EXIF parse failed:`, error);
-    return { container: null, resolution: null, duration: null, codec: null, encoderSignature: null, exifJson: null };
+    return {
+      container: null,
+      resolution: null,
+      duration: null,
+      codec: null,
+      encoderSignature: null,
+      exifJson: null,
+      gpsLatitude: null,
+      gpsLongitude: null,
+    };
   }
 }
 
@@ -185,10 +234,21 @@ async function extractPdfMetadata(buffer: Buffer): Promise<ExtractedMetadata> {
         pageCount: text.total,
         textPreview: text.text.slice(0, 2000),
       }),
+      gpsLatitude: null,
+      gpsLongitude: null,
     };
   } catch (error) {
     console.warn(`[metadata] PDF parse failed:`, error);
-    return { container: null, resolution: null, duration: null, codec: null, encoderSignature: null, exifJson: null };
+    return {
+      container: null,
+      resolution: null,
+      duration: null,
+      codec: null,
+      encoderSignature: null,
+      exifJson: null,
+      gpsLatitude: null,
+      gpsLongitude: null,
+    };
   } finally {
     await parser?.destroy();
   }

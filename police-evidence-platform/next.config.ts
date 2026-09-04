@@ -33,6 +33,11 @@ const nextConfig: NextConfig = {
     // Native require sidesteps the rewrite, same fix as the others above.
     "pdf-parse",
     "pdfjs-dist",
+    // Loads its .dat lookup tables via a path.resolve(__dirname, ...)
+    // relative to its own package directory — same "Turbopack rewrites the
+    // path during bundling" failure as the packages above, surfacing as
+    // ENOENT on a bogus "/ROOT/node_modules/geoip-lite/data/..." path.
+    "geoip-lite",
   ],
 };
 

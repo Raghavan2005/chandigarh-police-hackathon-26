@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ExternalLink, Loader2, ScanEye, SearchCheck } from "lucide-react";
+import { AlertTriangle, ExternalLink, Loader2, Lock, ScanEye, SearchCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +48,7 @@ export function FaceDetailDialog({
   open,
   onOpenChange,
   annotation,
+  sensitivityLevel,
 }: {
   caseId: string;
   evidenceId: string;
@@ -56,7 +57,9 @@ export function FaceDetailDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   annotation: FaceAnnotationData;
+  sensitivityLevel: string;
 }) {
+  const isSensitive = sensitivityLevel !== "standard";
   const router = useRouter();
   const cropUrl = `/api/cases/${caseId}/evidence/${evidenceId}/face-crop?index=${faceIndex}`;
 
@@ -203,6 +206,13 @@ export function FaceDetailDialog({
 
         <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-surface p-2 text-xs">
           <p className="font-medium text-text-secondary">Reverse-image search (this face)</p>
+          {isSensitive ? (
+            <p className="flex items-center gap-1.5 text-status-warning">
+              <Lock className="size-3.5 shrink-0" />
+              Blocked — this evidence is flagged sensitive.
+            </p>
+          ) : (
+            <>
           {searchStatus === "not-configured" && (
             <p className="text-text-tertiary">Not configured on this deployment (no GCP credentials set).</p>
           )}
@@ -251,10 +261,19 @@ export function FaceDetailDialog({
               )}
             </>
           )}
+            </>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-surface p-2 text-xs">
           <p className="font-medium text-text-secondary">Possible identity (AI, this face)</p>
+          {isSensitive ? (
+            <p className="flex items-center gap-1.5 text-status-warning">
+              <Lock className="size-3.5 shrink-0" />
+              Blocked — this evidence is flagged sensitive.
+            </p>
+          ) : (
+            <>
           {descStatus === "not-configured" && (
             <p className="text-text-tertiary">Not configured on this deployment (no GCP credentials set).</p>
           )}
@@ -303,6 +322,8 @@ export function FaceDetailDialog({
               ) : (
                 <p className="text-text-tertiary">No individual confidently recognizable to the model.</p>
               )}
+            </>
+          )}
             </>
           )}
         </div>

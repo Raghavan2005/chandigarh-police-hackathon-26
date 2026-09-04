@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, FileDown, GitBranch, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Clock, FileDown, GitBranch, ShieldAlert } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AddEvidenceDialog } from "@/components/investigation/add-evidence-dialog";
@@ -50,6 +50,13 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
             {caseData.summary && <p className="mt-1 max-w-2xl text-sm text-text-tertiary">{caseData.summary}</p>}
           </div>
           <div className="flex gap-2">
+            <Link
+              href={`/cases/${caseData.id}/history`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              <Clock className="size-4" />
+              History
+            </Link>
             <Link
               href={`/cases/${caseData.id}/propagation`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}

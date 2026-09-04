@@ -48,7 +48,10 @@ const PROMPT = `You are assisting a police forensic evidence review. Describe th
 
 If any well-known public figure (politician, celebrity, other widely-recognized public person) appears to be depicted, list them in possibleIdentities with your honest confidence. Only include a name if you have a real, specific visual basis for it (distinctive, well-known appearance/attire/context) — do not guess a plausible-sounding name just to fill the field. If the person(s) shown are ordinary/private individuals, or you are not genuinely confident, leave possibleIdentities empty rather than speculating. Never fabricate a name.`;
 
-function buildClient(): VertexAI {
+/** Shared Vertex AI client builder — exported so other Gemini callers
+ * (news-summary.ts) reuse the exact same auth path instead of duplicating
+ * credential logic. */
+export function buildClient(): VertexAI {
   const projectId = process.env.GEMINI_GCP_PROJECT_ID;
   if (!projectId) {
     throw new Error("GEMINI_GCP_PROJECT_ID is not set.");

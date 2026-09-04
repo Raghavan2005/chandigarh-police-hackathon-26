@@ -5,7 +5,8 @@ import { requireSession } from "@/lib/session";
 import { writeAuditEntry } from "@/lib/audit";
 import { resolveEvidencePath } from "@/lib/storage";
 import { extractFrameAt } from "@/lib/frame-extract";
-import { isReverseImageSearchConfigured, runReverseImageSearch } from "@/lib/reverse-image-search";
+import { getConfiguredProviders, isReverseImageSearchConfigured } from "@/lib/reverse-image-search";
+import { mergeReverseImageSearchResults } from "@/lib/reverse-image-search-merge";
 
 /**
  * Real reverse-image search (Cloud Vision Web Detection) — was an explicit,
@@ -35,10 +36,17 @@ export async function POST(
   const { caseId, evidenceId } = await params;
   const evidence = await db.evidence.findUnique({
     where: { id: evidenceId },
-    include: { detectionResult: true, metadataResult: true },
+    include: { detectionResult: true, metadataResult: true, case: { select: { sensitivityLevel: true } } },
   });
   if (!evidence || evidence.caseId !== caseId) {
     return NextResponse.json({ error: "Evidence not found on this case." }, { status: 404 });
+  }
+
+  if (evidence.case.sensitivityLevel !== "standard") {
+    return NextResponse.json(
+      { error: "This evidence is flagged sensitive — sending it to an external service is blocked to avoid exposing it outside this platform." },
+      { status: 403 },
+    );
   }
 
   const isImage = evidence.mimeType.startsWith("image/");
@@ -77,38 +85,57 @@ export async function POST(
     imageBuffer = await extractFrameAt(resolveEvidencePath(evidence.filePath), timestampSeconds);
   }
 
-  const result = await runReverseImageSearch(imageBuffer).catch((error: unknown) => {
-    console.error("[reverse-image-search] Vision API call failed:", error);
-    return null;
-  });
-  if (!result) {
+  const providers = getConfiguredProviders();
+  const runs = await Promise.all(
+    providers.map(async (provider) => {
+      try {
+        const result = await provider.run(imageBuffer);
+        return { provider, result };
+      } catch (error: unknown) {
+        console.error(`[reverse-image-search] ${provider.label} call failed:`, error);
+        return null;
+      }
+    }),
+  );
+  const succeeded = runs.filter((r): r is NonNullable<typeof r> => r !== null);
+  if (succeeded.length === 0) {
     return NextResponse.json(
       { error: "Reverse-image search failed — the external service may be unreachable or the credential invalid." },
       { status: 502 },
     );
   }
 
-  const cached = await db.reverseImageSearchResult.upsert({
-    where: { evidenceId },
-    create: {
-      evidenceId,
-      fullMatchesJson: JSON.stringify(result.fullMatches),
-      partialMatchesJson: JSON.stringify(result.partialMatches),
-      pagesWithMatchesJson: JSON.stringify(result.pagesWithMatches),
-      webEntitiesJson: JSON.stringify(result.webEntities),
-      bestGuessLabelsJson: JSON.stringify(result.bestGuessLabels),
-      labelsJson: JSON.stringify(result.labels),
-    },
-    update: {
-      fullMatchesJson: JSON.stringify(result.fullMatches),
-      partialMatchesJson: JSON.stringify(result.partialMatches),
-      pagesWithMatchesJson: JSON.stringify(result.pagesWithMatches),
-      webEntitiesJson: JSON.stringify(result.webEntities),
-      bestGuessLabelsJson: JSON.stringify(result.bestGuessLabels),
-      labelsJson: JSON.stringify(result.labels),
-      ranAt: new Date(),
-    },
-  });
+  const cachedRows = await Promise.all(
+    succeeded.map(({ provider, result }) =>
+      db.reverseImageSearchResult.upsert({
+        where: { evidenceId_provider: { evidenceId, provider: provider.id } },
+        create: {
+          evidenceId,
+          provider: provider.id,
+          fullMatchesJson: JSON.stringify(result.fullMatches),
+          partialMatchesJson: JSON.stringify(result.partialMatches),
+          pagesWithMatchesJson: JSON.stringify(result.pagesWithMatches),
+          webEntitiesJson: JSON.stringify(result.webEntities),
+          bestGuessLabelsJson: JSON.stringify(result.bestGuessLabels),
+          labelsJson: JSON.stringify(result.labels),
+        },
+        update: {
+          fullMatchesJson: JSON.stringify(result.fullMatches),
+          partialMatchesJson: JSON.stringify(result.partialMatches),
+          pagesWithMatchesJson: JSON.stringify(result.pagesWithMatches),
+          webEntitiesJson: JSON.stringify(result.webEntities),
+          bestGuessLabelsJson: JSON.stringify(result.bestGuessLabels),
+          labelsJson: JSON.stringify(result.labels),
+          ranAt: new Date(),
+        },
+      }),
+    ),
+  );
+
+  const merged = mergeReverseImageSearchResults(
+    succeeded.map(({ provider, result }) => ({ provider: provider.id, label: provider.label, result })),
+  );
+  const ranAt = cachedRows.reduce((latest, row) => (row.ranAt > latest ? row.ranAt : latest), cachedRows[0].ranAt);
 
   await writeAuditEntry({
     caseId,
@@ -118,5 +145,5 @@ export async function POST(
     device: "pramana-vision-api",
   });
 
-  return NextResponse.json({ ...result, ranAt: cached.ranAt });
+  return NextResponse.json({ ...merged, ranAt });
 }

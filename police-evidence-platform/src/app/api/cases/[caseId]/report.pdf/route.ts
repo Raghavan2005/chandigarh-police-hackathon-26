@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/session";
 import { writeAuditEntry } from "@/lib/audit";
+import { getRequestIp } from "@/lib/request-ip";
 import { db } from "@/lib/db";
 import { renderPageToPdf } from "@/lib/pdf";
 
@@ -45,6 +46,7 @@ export async function GET(
     actorId: session.userId,
     action: "EXPORTED",
     device: request.headers.get("user-agent") ?? undefined,
+    ipAddress: getRequestIp(request) ?? undefined,
   });
 
   return new NextResponse(new Uint8Array(pdf), {

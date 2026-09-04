@@ -207,7 +207,7 @@ model Evidence {
   provenanceResult ProvenanceResult?
   forensicExpert   ForensicExpert?
   fusionVerdict    FusionVerdict?
-  reverseImageSearchResult ReverseImageSearchResult?
+  reverseImageSearchResults ReverseImageSearchResult[]
   imageDescriptionResult   ImageDescriptionResult?
   transcriptResult         TranscriptResult?
 
@@ -264,6 +264,8 @@ model MetadataResult {
   codec            String?
   encoderSignature String?
   exifJson         String? // JSON-encoded — SQLite has no native JSON type
+  gpsLatitude      Float? // real EXIF GPS, when the camera embedded it — null (not inferred) when absent, which is most files
+  gpsLongitude     Float?
 }
 
 model DetectionResult {
@@ -363,8 +365,12 @@ model TranscriptTranslation {
 // on every page load the way it would be dishonest to imply for a
 // classifier score computed once and never re-checked.
 model ReverseImageSearchResult {
-  id                   String   @id @default(cuid())
-  evidenceId           String   @unique
+  id         String   @id @default(cuid())
+  evidenceId String
+  // One row per (evidence, provider) — was evidence-unique before
+  // multi-provider support; kept the same column name/default so existing
+  // rows are valid as "google_vision" without a data migration.
+  provider   String   @default("google_vision")
   evidence             Evidence @relation(fields: [evidenceId], references: [id])
   fullMatchesJson      String
   partialMatchesJson   String
@@ -373,6 +379,25 @@ model ReverseImageSearchResult {
   bestGuessLabelsJson  String   @default("[]")
   labelsJson           String   @default("[]")
   ranAt                DateTime @default(now())
+
+  @@unique([evidenceId, provider])
+}
+
+// Cached AI news-summary for a page a reverse-image search matched to —
+// keyed by URL, not evidence: the same matched page can surface from more
+// than one evidence item, and there's no reason to re-fetch/re-summarize
+// it each time. Real Gemini judgment (`isNewsArticle`), never assumed from
+// the URL shape; null summary fields mean the model judged it not news or
+// couldn't produce one, not a placeholder.
+model PageSummary {
+  id            String   @id @default(cuid())
+  url           String   @unique
+  isNewsArticle Boolean
+  headline      String?
+  outlet        String?
+  publishedDate String?
+  summary       String?
+  ranAt         DateTime @default(now())
 }
 
 // Real Vertex AI Gemini image description — separate cache/table from
@@ -524,6 +549,7 @@ model AuditLogEntry {
   action        String // "UPLOADED" | "ANALYZED" | "VIEWED" | "OVERRIDDEN" | "EXPORTED" | "ASSIGNED" | "CUSTODY_TRANSFERRED"
   timestamp     DateTime @default(now())
   device        String?
+  ipAddress     String? // real client IP when a proxy sets x-forwarded-for/x-real-ip; null when neither is present (e.g. local dev with no reverse proxy) — never fabricated
   entryHash     String   @unique
   prevEntryHash String?
 

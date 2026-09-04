@@ -30,15 +30,17 @@ export async function GET(
     return NextResponse.json({ error: "Evidence not found on this case." }, { status: 404 });
   }
 
-  const cached = await db.reverseImageSearchResult.findUnique({ where: { evidenceId } });
-  if (!cached) {
+  const cached = await db.reverseImageSearchResult.findMany({ where: { evidenceId } });
+  if (cached.length === 0) {
     return NextResponse.json({ error: "No reverse-image search result on file for this exhibit." }, { status: 404 });
   }
 
-  const allowedUrls = new Set<string>([
-    ...(JSON.parse(cached.fullMatchesJson) as string[]),
-    ...(JSON.parse(cached.partialMatchesJson) as string[]),
-  ]);
+  const allowedUrls = new Set<string>(
+    cached.flatMap((row) => [
+      ...(JSON.parse(row.fullMatchesJson) as string[]),
+      ...(JSON.parse(row.partialMatchesJson) as string[]),
+    ]),
+  );
   if (!allowedUrls.has(url)) {
     return NextResponse.json({ error: "URL is not part of this exhibit's recorded search result." }, { status: 403 });
   }

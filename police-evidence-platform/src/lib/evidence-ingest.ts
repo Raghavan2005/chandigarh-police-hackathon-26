@@ -12,6 +12,7 @@ interface IngestEvidenceInput {
   deviceIdentifier?: string;
   casePropertyNumber?: string;
   auditDevice?: string;
+  auditIp?: string | null;
 }
 
 type IngestEvidenceResult =
@@ -75,6 +76,7 @@ export async function ingestEvidence(input: IngestEvidenceInput): Promise<Ingest
         actorId: input.uploadedById,
         action: "UPLOADED",
         device: input.auditDevice,
+        ipAddress: input.auditIp ?? undefined,
       },
       tx,
     );
@@ -101,6 +103,8 @@ export async function ingestEvidence(input: IngestEvidenceInput): Promise<Ingest
         codec: extracted.codec,
         encoderSignature: extracted.encoderSignature,
         exifJson: extracted.exifJson,
+        gpsLatitude: extracted.gpsLatitude,
+        gpsLongitude: extracted.gpsLongitude,
       },
     });
     const metadataAuditEntry = await writeAuditEntryInTx(

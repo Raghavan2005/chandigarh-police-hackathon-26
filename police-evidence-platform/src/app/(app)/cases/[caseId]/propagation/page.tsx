@@ -3,6 +3,7 @@ import { caseById } from "@/lib/mock-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PropagationGraph } from "@/components/propagation/propagation-graph";
 import { RealPropagationSummary } from "@/components/propagation/real-propagation-summary";
+import { SightingMap } from "@/components/propagation/sighting-map";
 import { getRealCase } from "@/lib/cases-server";
 import { getRealCasePropagation } from "@/lib/propagation-server";
 
@@ -28,6 +29,15 @@ export default async function PropagationPage(
             upload here, which is the expected honest result.
           </p>
         </div>
+
+        <Card className="border-border-subtle bg-surface shadow-none">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-text-secondary">{realCase.title} — geographic trace</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SightingMap evidence={propagation} />
+          </CardContent>
+        </Card>
 
         <Card className="border-border-subtle bg-surface shadow-none">
           <CardHeader>

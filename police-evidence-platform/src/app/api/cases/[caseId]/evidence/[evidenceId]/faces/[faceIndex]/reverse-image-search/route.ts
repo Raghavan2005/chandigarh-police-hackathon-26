@@ -35,6 +35,13 @@ export async function POST(
     return NextResponse.json({ error: "No detected face at that index for this evidence." }, { status: 404 });
   }
 
+  if (resolved.sensitivityLevel !== "standard") {
+    return NextResponse.json(
+      { error: "This evidence is flagged sensitive — sending it to an external service is blocked to avoid exposing it outside this platform." },
+      { status: 403 },
+    );
+  }
+
   const result = await runReverseImageSearch(resolved.buffer).catch((error: unknown) => {
     console.error("[face reverse-image-search] Vision API call failed:", error);
     return null;

@@ -150,7 +150,7 @@ export async function getVaultEvidenceDetail(evidenceId: string) {
       provenanceResult: true,
       fusionVerdict: true,
       forensicExpert: true,
-      reverseImageSearchResult: true,
+      reverseImageSearchResults: true,
       imageDescriptionResult: true,
       transcriptResult: { include: { translations: true } },
       faceAnnotations: true,
