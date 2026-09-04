@@ -8,9 +8,24 @@ backend in `police-evidence-platform/` — never called from the browser
 directly. See `../Docs/Plan/PS4_MVP_BUILD_PLAN.md` (§2, §3) for the
 architecture this fits into.
 
+## Models used — source & license summary
+
+Every real model this service loads, pretrained and used as-is (no training/fine-tuning done in this repo), for the hackathon guidelines' model-disclosure requirement:
+
+| Model | Used for | Source | License |
+|---|---|---|---|
+| `not-lain/deepfake` | Image/video deepfake classification | [Hugging Face](https://huggingface.co/not-lain/deepfake) | Apache-2.0 |
+| `Gustking/wav2vec2-large-xlsr-deepfake-audio-classification` | Audio deepfake/voice-spoofing classification | [Hugging Face](https://huggingface.co/Gustking/wav2vec2-large-xlsr-deepfake-audio-classification) | Apache-2.0 |
+| `facenet_pytorch.MTCNN` | Face detection/alignment (feeds the image/video classifier) | [facenet-pytorch](https://github.com/timesler/facenet-pytorch) | MIT |
+| faster-whisper (CTranslate2 reimplementation of OpenAI Whisper) | Live-caption transcription | [GitHub](https://github.com/SYSTRAN/faster-whisper) | MIT |
+| `facebook/nllb-200-distilled-600M` ("No Language Left Behind") | Caption translation | [Hugging Face](https://huggingface.co/facebook/nllb-200-distilled-600M) | CC-BY-NC-4.0 (non-commercial) |
+| Silero VAD (bundled inside faster-whisper) | Independent speech-presence validation | [GitHub](https://github.com/snakers4/silero-vad) | MIT |
+
+Detail on each below (image/video and audio — the two models behind the actual AUTHENTIC/MANIPULATED/AI_GENERATED verdict — get the fullest writeup since that's the core problem-statement work; the transcription/translation/VAD models are supporting features and get a shorter one).
+
 ## Image/video model
 
-**`not-lain/deepfake`** on Hugging Face — https://huggingface.co/not-lain/deepfake
+**`not-lain/deepfake`** on Hugging Face — https://huggingface.co/not-lain/deepfake — **Apache-2.0**
 
 This is a packaged re-release of the weights from
 https://huggingface.co/aaronespasa/deepfake-detection-resnetinceptionv1 (a
@@ -62,7 +77,7 @@ let the UI imply this is a general-purpose AI-image detector.
 ## Audio model
 
 **`Gustking/wav2vec2-large-xlsr-deepfake-audio-classification`** on Hugging
-Face — https://huggingface.co/Gustking/wav2vec2-large-xlsr-deepfake-audio-classification
+Face — https://huggingface.co/Gustking/wav2vec2-large-xlsr-deepfake-audio-classification — **Apache-2.0**
 
 Architecture: **`Wav2Vec2ForSequenceClassification`**, fine-tuned from
 `alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech` for binary
@@ -101,6 +116,35 @@ unlike the image model above.
 — voice spoofing/TTS/voice-conversion detection on the feature space it was
 fine-tuned on. It says nothing about whether audio was edited/spliced, only
 whether the voice itself sounds synthetic/spoofed.
+
+## Transcription model (supporting feature, not the core verdict)
+
+**faster-whisper** (a CTranslate2 reimplementation of OpenAI's Whisper) —
+https://github.com/SYSTRAN/faster-whisper — **MIT**, pretrained, no training
+done here. Chosen over the reference `openai-whisper` package for CPU
+inference speed and lower memory (`transcriber.py`). Powers the live-captions
+feature (`/transcribe`) for audio and video evidence — has no role in the
+manipulation verdict itself.
+
+## Translation model (supporting feature)
+
+**`facebook/nllb-200-distilled-600M`** ("No Language Left Behind") —
+https://huggingface.co/facebook/nllb-200-distilled-600M — **CC-BY-NC-4.0
+(non-commercial)**, pretrained, no training done here (`translator.py`). A
+single multilingual model rather than many per-language-pair models, so it
+covers every language this service exposes (including Punjabi) without
+English-pivot logic. On-demand caption translation only, never run
+automatically.
+
+## Speech-validation model (supporting feature)
+
+**Silero VAD** — https://github.com/snakers4/silero-vad — **MIT**, bundled
+inside `faster-whisper` (the same model `vad_filter=True` already runs
+internally during transcription — see `transcriber.py`) and reused directly
+via `faster_whisper`'s own `get_vad_model()` (`speech_validator.py`), no
+separate download. Runs an independent pass over the whole clip to report
+what fraction is actually classified as speech, guarding against Whisper's
+known failure mode of hallucinating text over silence/music/noise.
 
 ## API
 
