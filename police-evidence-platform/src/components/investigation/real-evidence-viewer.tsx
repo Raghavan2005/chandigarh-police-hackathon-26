@@ -10,15 +10,21 @@ import {
   EyeOff,
   Languages,
   Loader2,
+  ExternalLink,
+  FileText,
+  HelpCircle,
   Mic,
   ScanFace,
+  Search,
   ShieldAlert,
   ShieldCheck,
   Siren,
+  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { AudioAnalyser } from "@/components/investigation/audio-analyser";
+import { SpliceDetectionPanel, type CachedSpliceDetectionResult } from "@/components/investigation/splice-detection-panel";
 import { FaceDetailDialog, type FaceAnnotationData } from "@/components/investigation/face-detail-dialog";
 import {
   MediaPlayer,
@@ -72,6 +78,14 @@ export interface CachedTranscript {
     severity: "low" | "medium" | "high" | null;
     reasoning: string | null;
     quote: string | null;
+  } | null;
+  // Real, live Google Search-grounded verdict on whether real sources
+  // confirm/debunk the transcript's actual content — null until an
+  // investigator explicitly runs "Verify claim".
+  claimVerification: {
+    verdict: "confirmed" | "debunked" | "unclear";
+    summary: string;
+    citations: { title: string; url: string; domain: string }[];
   } | null;
   translations: { targetLang: string; segments: TranscriptSegment[] }[];
 }
@@ -184,6 +198,7 @@ export function RealEvidenceViewer({
   faceAnnotations,
   frameScores,
   cachedTranscript,
+  cachedSpliceDetection,
 }: {
   caseId: string;
   evidenceId: string;
@@ -196,6 +211,7 @@ export function RealEvidenceViewer({
   faceAnnotations: Map<number, FaceAnnotationData>;
   frameScores: FrameScore[] | null;
   cachedTranscript: CachedTranscript | null;
+  cachedSpliceDetection: CachedSpliceDetectionResult | null;
 }) {
   const router = useRouter();
   const isSensitive = sensitivityLevel !== "standard";
@@ -226,6 +242,14 @@ export function RealEvidenceViewer({
   const [validateSpeechError, setValidateSpeechError] = useState("");
   const [detectingThreat, setDetectingThreat] = useState(false);
   const [detectThreatError, setDetectThreatError] = useState("");
+  const [verifyingClaim, setVerifyingClaim] = useState(false);
+  const [verifyClaimError, setVerifyClaimError] = useState("");
+  // Full-transcript reading view, separate from the player's own live
+  // caption overlay — lets an investigator read the whole thing at once
+  // instead of only whatever line is showing at the current playback
+  // position. null = the original-language transcript.
+  const [showScript, setShowScript] = useState(false);
+  const [scriptLang, setScriptLang] = useState<string | null>(null);
   // Which sampled frame's own heatmap to show instead of the single
   // worst-scoring frame's — null means "the default worst-frame heatmap."
   const [selectedFrameIndex, setSelectedFrameIndex] = useState<number | null>(null);
@@ -465,6 +489,22 @@ export function RealEvidenceViewer({
     }
     const data: CachedTranscript["threatAssessment"] = await response.json();
     setTranscript((prev) => (prev ? { ...prev, threatAssessment: data } : prev));
+  }
+
+  async function handleVerifyClaim() {
+    setVerifyingClaim(true);
+    setVerifyClaimError("");
+    const response = await fetch(`/api/cases/${caseId}/evidence/${evidenceId}/verify-claim`, {
+      method: "POST",
+    }).catch(() => null);
+    setVerifyingClaim(false);
+    if (!response || !response.ok) {
+      const body = await response?.json().catch(() => null);
+      setVerifyClaimError(body?.error ?? "Claim verification failed — check the credentials are configured and try again.");
+      return;
+    }
+    const data: CachedTranscript["claimVerification"] = await response.json();
+    setTranscript((prev) => (prev ? { ...prev, claimVerification: data } : prev));
   }
 
   const isImage = mimeType.startsWith("image/");
@@ -771,6 +811,14 @@ export function RealEvidenceViewer({
                 {languageLabel(transcript.language)} auto-detected
                 {transcript.truncated ? " (long file — captions cover the first 10 min only)" : ""}
               </span>
+              <button
+                type="button"
+                onClick={() => setShowScript((s) => !s)}
+                className={buttonVariants({ variant: "outline", size: "xs" })}
+              >
+                <FileText className="size-3.5" />
+                {showScript ? "Hide script" : "View script"}
+              </button>
               <Languages className="size-3.5 text-text-tertiary" />
               <select
                 value={translateTarget}
@@ -810,9 +858,10 @@ export function RealEvidenceViewer({
                   {validatingSpeech ? "Checking for speech…" : "Validate speech"}
                 </button>
               ) : transcript.hasSpeech ? (
-                <span className="flex items-center gap-1 text-status-safe">
+                <span className="flex items-center gap-1 text-status-safe" title="Confirms the clip contains an audible voice — says nothing about whether what's said is true.">
                   <ShieldCheck className="size-3.5 shrink-0" />
-                  Speech confirmed ({Math.round((transcript.speechRatio ?? 0) * 100)}% of clip)
+                  Audio contains speech ({Math.round((transcript.speechRatio ?? 0) * 100)}% of clip) — captions
+                  aren&apos;t a hallucination over silence/noise
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-status-critical">
@@ -843,6 +892,18 @@ export function RealEvidenceViewer({
                   No threat detected
                 </span>
               )}
+              {!transcript.claimVerification && (
+                <button
+                  type="button"
+                  onClick={handleVerifyClaim}
+                  disabled={verifyingClaim}
+                  className={buttonVariants({ variant: "outline", size: "xs" })}
+                  title="Real live Google Search — checks whether real news/fact-check sources confirm this was actually said, not just whether audio contains speech."
+                >
+                  {verifyingClaim ? <Loader2 className="size-3.5 animate-spin" /> : <Search className="size-3.5" />}
+                  {verifyingClaim ? "Searching real sources…" : "Verify claim"}
+                </button>
+              )}
             </>
           )}
           {transcriptStatus === "error" && (
@@ -869,6 +930,123 @@ export function RealEvidenceViewer({
               {detectThreatError}
             </span>
           )}
+          {verifyClaimError && (
+            <span role="alert" className="flex items-center gap-1 text-status-critical">
+              <AlertTriangle className="size-3.5 shrink-0" />
+              {verifyClaimError}
+            </span>
+          )}
+        </div>
+      )}
+
+      {revealed && transcript?.claimVerification && (
+        <div
+          className={cn(
+            "flex flex-col gap-1.5 rounded-md border p-2.5 text-xs",
+            transcript.claimVerification.verdict === "debunked"
+              ? "border-status-critical/30 bg-status-critical-bg"
+              : transcript.claimVerification.verdict === "confirmed"
+                ? "border-status-safe/30 bg-status-safe-bg"
+                : "border-border-subtle bg-surface-sunken",
+          )}
+        >
+          <p
+            className={cn(
+              "flex items-center gap-1.5 font-medium",
+              transcript.claimVerification.verdict === "debunked"
+                ? "text-status-critical"
+                : transcript.claimVerification.verdict === "confirmed"
+                  ? "text-status-safe"
+                  : "text-text-secondary",
+            )}
+          >
+            {transcript.claimVerification.verdict === "debunked" ? (
+              <XCircle className="size-3.5 shrink-0" />
+            ) : transcript.claimVerification.verdict === "confirmed" ? (
+              <ShieldCheck className="size-3.5 shrink-0" />
+            ) : (
+              <HelpCircle className="size-3.5 shrink-0" />
+            )}
+            Claim verification —{" "}
+            {transcript.claimVerification.verdict === "debunked"
+              ? "debunked by real sources"
+              : transcript.claimVerification.verdict === "confirmed"
+                ? "confirmed by real sources"
+                : "no clear coverage found"}
+          </p>
+          <p className="text-text-secondary">{transcript.claimVerification.summary}</p>
+          {transcript.claimVerification.citations.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {transcript.claimVerification.citations.slice(0, 8).map((c, i) => (
+                <a
+                  key={i}
+                  href={c.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="flex items-center gap-1 rounded-full border border-border-subtle bg-surface px-2 py-0.5 text-[10px] text-accent-primary hover:underline"
+                  title={c.title}
+                >
+                  <ExternalLink className="size-3 shrink-0" />
+                  {c.domain || c.title}
+                </a>
+              ))}
+            </div>
+          )}
+          <p className="text-[10px] text-text-tertiary">
+            Real live Google Search grounding, not the model&apos;s own training knowledge — sources shown are what
+            it actually found. Still an AI-produced summary of that research, not a verified legal finding.
+          </p>
+        </div>
+      )}
+
+      {revealed && showScript && transcript && (
+        <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-surface-sunken p-2.5 text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-medium text-text-secondary">Full transcript</p>
+            {transcript.translations.length > 0 && (
+              <select
+                value={scriptLang ?? transcript.language}
+                onChange={(e) => setScriptLang(e.target.value === transcript.language ? null : e.target.value)}
+                className="rounded-md border border-border-subtle bg-surface px-1.5 py-1 text-text-primary"
+              >
+                <option value={transcript.language}>{languageLabel(transcript.language)} (original)</option>
+                {transcript.translations.map((t) => (
+                  <option key={t.targetLang} value={t.targetLang}>
+                    {languageLabel(t.targetLang)} (translated)
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          {(() => {
+            const activeSegments =
+              scriptLang && scriptLang !== transcript.language
+                ? (transcript.translations.find((t) => t.targetLang === scriptLang)?.segments ?? transcript.segments)
+                : transcript.segments;
+            if (activeSegments.length === 0) {
+              return <p className="text-text-tertiary">No transcript text available.</p>;
+            }
+            return (
+              <ol className="flex max-h-64 flex-col gap-1 overflow-y-auto">
+                {activeSegments.map((seg, i) => (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (playerRef.current) playerRef.current.currentTime = seg.start;
+                      }}
+                      className="flex w-full gap-2 rounded-md px-1.5 py-1 text-left hover:bg-surface"
+                    >
+                      <span className="shrink-0 font-mono text-[10px] text-text-tertiary">
+                        {formatTimestamp(seg.start)}
+                      </span>
+                      <span className="text-text-primary">{seg.text}</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            );
+          })()}
         </div>
       )}
 
@@ -879,6 +1057,17 @@ export function RealEvidenceViewer({
       )}
 
       {revealed && (isVideo || isAudio) && <AudioAnalyser mediaEl={mediaEl} />}
+
+      {revealed && (isVideo || isAudio) && (
+        <SpliceDetectionPanel
+          caseId={caseId}
+          evidenceId={evidenceId}
+          cached={cachedSpliceDetection}
+          onSeek={(seconds) => {
+            if (playerRef.current) playerRef.current.currentTime = seconds;
+          }}
+        />
+      )}
 
       {revealed && (isImage || isVideo) && (
         <div className="flex flex-col gap-2">

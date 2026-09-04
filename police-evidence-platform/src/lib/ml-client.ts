@@ -46,8 +46,24 @@ export interface SpeechValidationResponse {
   totalSeconds: number;
 }
 
+export interface SpliceCandidate {
+  timestampSeconds: number;
+  magnitude: number;
+}
+
+export interface SpliceDetectionResponse {
+  candidates: SpliceCandidate[];
+  totalSeconds: number;
+}
+
 async function callDetect<T>(
-  endpoint: "/detect/image" | "/detect/video-frame" | "/detect/audio" | "/transcribe" | "/validate-speech",
+  endpoint:
+    | "/detect/image"
+    | "/detect/video-frame"
+    | "/detect/audio"
+    | "/transcribe"
+    | "/validate-speech"
+    | "/detect-splices",
   buffer: Buffer,
   mimeType: string,
   filename: string,
@@ -112,6 +128,12 @@ export async function translateSegments(
 // over silence/music/noise.
 export function validateSpeech(buffer: Buffer, mimeType: string): Promise<SpeechValidationResponse> {
   return callDetect<SpeechValidationResponse>("/validate-speech", buffer, mimeType, "media");
+}
+
+// Real spectral-flux-based splice-point detection — audio and video (its
+// audio track) both go through here, same as transcribeMedia above.
+export function detectSplices(buffer: Buffer, mimeType: string): Promise<SpliceDetectionResponse> {
+  return callDetect<SpliceDetectionResponse>("/detect-splices", buffer, mimeType, "media");
 }
 
 export async function mlServiceHealthy(): Promise<boolean> {

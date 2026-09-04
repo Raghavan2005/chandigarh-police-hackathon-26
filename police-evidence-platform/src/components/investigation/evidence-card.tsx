@@ -8,6 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
 import { RealEvidenceViewer, type CachedTranscript } from "@/components/investigation/real-evidence-viewer";
+import type { CachedSpliceDetectionResult } from "@/components/investigation/splice-detection-panel";
 import { RealFusionSignals } from "@/components/investigation/real-fusion-signals";
 import { RealPipelinePanel } from "@/components/investigation/real-pipeline-panel";
 import { OverrideDialog } from "@/components/investigation/override-dialog";
@@ -167,6 +168,7 @@ export function EvidenceCard({
             faceAnnotations={parseFaceAnnotations(evidence.faceAnnotations)}
             frameScores={parseFrameScores(evidence.detectionResult?.frameScoresJson)}
             cachedTranscript={parseTranscript(evidence.transcriptResult)}
+            cachedSpliceDetection={parseSpliceDetection(evidence.spliceDetectionResult)}
           />
           {showFaceMatchSlot && (
             <ReverseImageSearchPanel
@@ -585,6 +587,13 @@ function parseTranscript(row: Evidence["transcriptResult"]): CachedTranscript | 
             quote: row.threatAssessment.quote,
           }
         : null,
+      claimVerification: row.claimVerification
+        ? {
+            verdict: row.claimVerification.verdict as "confirmed" | "debunked" | "unclear",
+            summary: row.claimVerification.summary,
+            citations: JSON.parse(row.claimVerification.citationsJson),
+          }
+        : null,
       translations: row.translations.map((t) => ({ targetLang: t.targetLang, segments: JSON.parse(t.segmentsJson) })),
     };
   } catch {
@@ -608,6 +617,19 @@ function parseDocumentThreatAssessment(
     quote: row.quote,
     ranAt: row.ranAt.toISOString(),
   };
+}
+
+function parseSpliceDetection(row: Evidence["spliceDetectionResult"]): CachedSpliceDetectionResult | null {
+  if (!row) return null;
+  try {
+    return {
+      candidates: JSON.parse(row.candidatesJson),
+      totalSeconds: row.totalSeconds,
+      ranAt: row.ranAt.toISOString(),
+    };
+  } catch {
+    return null;
+  }
 }
 
 function parseVideoDiffResult(row: Evidence["videoDiffResult"]): CachedVideoDiffResult | null {

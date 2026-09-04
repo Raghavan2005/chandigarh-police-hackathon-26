@@ -146,6 +146,27 @@ separate download. Runs an independent pass over the whole clip to report
 what fraction is actually classified as speech, guarding against Whisper's
 known failure mode of hallucinating text over silence/music/noise.
 
+## Splice-point detection (algorithm, not a pretrained model)
+
+Real short-time spectral-flux analysis (`splice_detector.py`) — plain
+`numpy` FFT math, no pretrained weights and no new dependency. Flags
+timestamps where a clip's frequency content jumps abruptly relative to its
+own local neighborhood (a local adaptive threshold, not one global
+threshold for the whole clip — tested directly and found a global threshold
+misses real discontinuities when part of the clip is naturally noisier).
+The automated, cached counterpart to the frontend's live waveform/
+spectrogram visualizer (`AudioAnalyser.tsx`), which only shows a human
+something to look at and computes/stores nothing.
+
+**Honesty note on scope:** verified against synthetic test audio with known
+splice points (correctly detected, wide margin) and a real speech clip
+(correctly found zero false positives at first, then — once a longer real
+video was tested — found ordinary speech consonants also trigger this,
+which is exactly why the outlier threshold is tuned against real data, not
+assumed). This is a real, checkable heuristic, never a trained splice
+classifier, and never proof of editing on its own — the UI presents each
+candidate as a lead for the investigator to check by ear.
+
 ## API
 
 - `GET /health` → `{ "status": "ok", "modelLoaded": true, "audioModelLoaded": false }`

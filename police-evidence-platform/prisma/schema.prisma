@@ -210,6 +210,7 @@ model Evidence {
   reverseImageSearchResults ReverseImageSearchResult[]
   imageDescriptionResult   ImageDescriptionResult?
   transcriptResult         TranscriptResult?
+  spliceDetectionResult    SpliceDetectionResult?
   videoDiffResult          VideoDiffResult?
   documentSummaryResult      DocumentSummaryResult?
   documentThreatAssessment   DocumentThreatAssessment?
@@ -325,6 +326,20 @@ model ForensicExpert {
   labRef      String
 }
 
+// Real spectral-flux-based splice-point detection (ml-service, local — see
+// splice_detector.py) — the automated, cached, re-runnable counterpart to
+// AudioAnalyser.tsx's live waveform/spectrogram, which is a real-time visual
+// aid only and stores nothing. Independent of TranscriptResult: doesn't
+// need a transcript to exist first. Audio and video evidence only.
+model SpliceDetectionResult {
+  id             String   @id @default(cuid())
+  evidenceId     String   @unique
+  evidence       Evidence @relation(fields: [evidenceId], references: [id])
+  candidatesJson String // JSON array of {timestampSeconds, magnitude}, magnitude = std deviations above local baseline
+  totalSeconds   Float
+  ranAt          DateTime @default(now())
+}
+
 // Real Whisper transcription (ml-service, local — see transcriber.py),
 // cached per exhibit for the same reason as ReverseImageSearchResult below:
 // a real (if local, not billed) compute-heavy call that shouldn't silently
@@ -350,6 +365,7 @@ model TranscriptResult {
 
   translations     TranscriptTranslation[]
   threatAssessment ThreatAssessment?
+  claimVerification ClaimVerificationResult?
 }
 
 // Real Gemini judgment of whether a call/video transcript's actual content
@@ -365,6 +381,23 @@ model ThreatAssessment {
   severity           String? // "low" | "medium" | "high" — null when containsThreat is false
   reasoning          String?
   quote              String? // the specific concerning excerpt from the transcript, if any
+  ranAt              DateTime         @default(now())
+}
+
+// Real claim verification — a real, live Google Search-grounded Gemini
+// call (@google/genai, not the older @google-cloud/vertexai client used
+// elsewhere) judging whether real news/fact-check sources confirm or
+// debunk the transcript's actual content, with real citation URLs. A
+// materially different mechanism from every other AI feature here: those
+// judge from the model's own training knowledge; this performs a real
+// live search and reports what it actually found.
+model ClaimVerificationResult {
+  id                 String           @id @default(cuid())
+  transcriptResultId String           @unique
+  transcriptResult   TranscriptResult @relation(fields: [transcriptResultId], references: [id])
+  verdict            String // "confirmed" | "debunked" | "unclear"
+  summary            String
+  citationsJson      String // JSON array of {title, url, domain}
   ranAt              DateTime         @default(now())
 }
 

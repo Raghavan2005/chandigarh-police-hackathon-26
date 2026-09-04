@@ -31,10 +31,17 @@ directly). Endpoints:
                                independent of whatever Whisper transcribed
                                (guards against Whisper hallucinating text
                                over silence/music/noise).
+  - POST /detect-splices      audio or video -> { candidates, totalSeconds }
+                               real spectral-flux outlier detection —
+                               candidate timestamps where the frequency
+                               content jumps abruptly, the kind of signature
+                               a cut-and-stitched edit produces (also
+                               triggered by loud transients in genuine
+                               audio — a signal to investigate, not proof).
 
 See detector.py / audio_detector.py / transcriber.py / translator.py /
-speech_validator.py for model choice/rationale and README.md for how this
-was verified.
+speech_validator.py / splice_detector.py for model/algorithm choice and
+README.md for how this was verified.
 """
 
 from __future__ import annotations
@@ -49,6 +56,7 @@ from pydantic import BaseModel
 from audio_detector import AudioDeepfakeDetector
 from detector import DeepfakeDetector
 from speech_validator import validate_speech
+from splice_detector import detect_splices
 from transcriber import Transcriber
 from translator import Translator, UnsupportedLanguage
 
@@ -108,6 +116,16 @@ class TranslationResponse(BaseModel):
 class SpeechValidationResponse(BaseModel):
     hasSpeech: bool
     speechRatio: float
+    totalSeconds: float
+
+
+class SpliceCandidateModel(BaseModel):
+    timestampSeconds: float
+    magnitude: float
+
+
+class SpliceDetectionResponse(BaseModel):
+    candidates: list[SpliceCandidateModel]
     totalSeconds: float
 
 
@@ -293,6 +311,34 @@ async def validate_speech_endpoint(file: UploadFile = File(...)) -> SpeechValida
 
     return SpeechValidationResponse(
         hasSpeech=result.has_speech, speechRatio=result.speech_ratio, totalSeconds=result.total_seconds
+    )
+
+
+@app.post("/detect-splices", response_model=SpliceDetectionResponse)
+async def detect_splices_endpoint(file: UploadFile = File(...)) -> SpliceDetectionResponse:
+    if file.content_type is not None and not (
+        file.content_type.startswith("audio/") or file.content_type.startswith("video/")
+    ):
+        raise HTTPException(status_code=400, detail=f"Expected an audio or video file, got content-type {file.content_type!r}")
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    try:
+        result = detect_splices(raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - surface as a 500 with context, don't crash the service
+        logger.exception("Splice detection failed")
+        raise HTTPException(status_code=500, detail=f"Splice detection failed: {exc}") from exc
+
+    return SpliceDetectionResponse(
+        candidates=[
+            SpliceCandidateModel(timestampSeconds=c.timestamp_seconds, magnitude=c.magnitude)
+            for c in result.candidates
+        ],
+        totalSeconds=result.total_seconds,
     )
 
 
