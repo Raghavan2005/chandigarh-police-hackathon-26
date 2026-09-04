@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { appendCheckpoint, writeAuditEntryInTx } from "@/lib/audit";
-import { resolveEvidencePath, writeFaceCrops, writeHeatmap } from "@/lib/storage";
+import { resolveEvidencePath, writeFaceCrops, writeFrameHeatmaps, writeHeatmap } from "@/lib/storage";
 import { detectAudio, detectVideoFrame } from "@/lib/ml-client";
 import { sampleVideoFrames } from "@/lib/frame-extract";
 import { computePerceptualHash } from "@/lib/perceptual-hash";
@@ -85,6 +85,11 @@ export async function POST(
   // Now kept and stored so the investigator UI can show a real frame-by-
   // frame timeline instead of one static worst frame with no time context.
   let frameScores: { timestampSeconds: number; probability: number; faceDetected: boolean }[] | null = null;
+  // Every sampled frame already gets a full Grad-CAM heatmap computed by
+  // the ML service (not just the worst-scoring one) — previously all but
+  // the worst frame's heatmap were discarded after scoring. Now kept so
+  // the modified region can be browsed across the whole clip.
+  let frameHeatmapsPngBase64: string[] | null = null;
 
   if (isVideo) {
     const durationSeconds = evidence.metadataResult?.duration ? parseFloat(evidence.metadataResult.duration) : 0;
@@ -116,6 +121,7 @@ export async function POST(
       probability: r.probability,
       faceDetected: r.faceDetected,
     }));
+    frameHeatmapsPngBase64 = frameResults.map((r) => r.heatmapPngBase64);
   } else {
     // Audio: a 1D waveform classifier has no spatial heatmap/perceptual-hash
     // equivalent — those stay null/absent rather than fabricating a
@@ -139,6 +145,8 @@ export async function POST(
   const faceBoxesJson = JSON.stringify(faceBoxes);
   const faceCropPathsJson = JSON.stringify(faceCropPaths);
   const frameScoresJson = frameScores ? JSON.stringify(frameScores) : null;
+  const frameHeatmapPaths = frameHeatmapsPngBase64 ? writeFrameHeatmaps(evidence.id, frameHeatmapsPngBase64) : null;
+  const frameHeatmapPathsJson = frameHeatmapPaths ? JSON.stringify(frameHeatmapPaths) : null;
 
   const modelName = isAudio ? "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification" : "not-lain/deepfake";
   const modelVersion = isAudio ? "wav2vec2-large-xlsr-53" : "InceptionResnetV1-vggface2";
@@ -153,6 +161,7 @@ export async function POST(
         faceBoxesJson,
         faceCropPathsJson,
         frameScoresJson,
+        frameHeatmapPathsJson,
         modelName,
         modelVersion,
       },
@@ -162,6 +171,7 @@ export async function POST(
         faceBoxesJson,
         faceCropPathsJson,
         frameScoresJson,
+        frameHeatmapPathsJson,
         modelName,
         modelVersion,
       },

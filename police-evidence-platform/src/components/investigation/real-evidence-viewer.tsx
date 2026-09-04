@@ -14,6 +14,7 @@ import {
   ScanFace,
   ShieldAlert,
   ShieldCheck,
+  Siren,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
@@ -63,6 +64,15 @@ export interface CachedTranscript {
   // music/noise.
   hasSpeech: boolean | null;
   speechRatio: number | null;
+  // Real Gemini judgment of whether the transcript's actual content
+  // contains a threat — null until an investigator explicitly runs
+  // "Detect threat" (never automatic, same rule as hasSpeech above).
+  threatAssessment: {
+    containsThreat: boolean;
+    severity: "low" | "medium" | "high" | null;
+    reasoning: string | null;
+    quote: string | null;
+  } | null;
   translations: { targetLang: string; segments: TranscriptSegment[] }[];
 }
 
@@ -168,6 +178,7 @@ export function RealEvidenceViewer({
   mimeType,
   sensitivityLevel,
   hasHeatmap,
+  hasFrameHeatmaps,
   faceBoxes,
   faceCropCount,
   faceAnnotations,
@@ -179,6 +190,7 @@ export function RealEvidenceViewer({
   mimeType: string;
   sensitivityLevel: string;
   hasHeatmap: boolean;
+  hasFrameHeatmaps: boolean;
   faceBoxes: [number, number, number, number][];
   faceCropCount: number;
   faceAnnotations: Map<number, FaceAnnotationData>;
@@ -212,6 +224,11 @@ export function RealEvidenceViewer({
   const [translateError, setTranslateError] = useState("");
   const [validatingSpeech, setValidatingSpeech] = useState(false);
   const [validateSpeechError, setValidateSpeechError] = useState("");
+  const [detectingThreat, setDetectingThreat] = useState(false);
+  const [detectThreatError, setDetectThreatError] = useState("");
+  // Which sampled frame's own heatmap to show instead of the single
+  // worst-scoring frame's — null means "the default worst-frame heatmap."
+  const [selectedFrameIndex, setSelectedFrameIndex] = useState<number | null>(null);
   // Which languages already have a live TextTrack attached to the player —
   // a ref, not state, since it's write-once-per-language bookkeeping that
   // shouldn't itself trigger a re-render. Vidstack allows only one
@@ -337,7 +354,10 @@ export function RealEvidenceViewer({
   }, []);
 
   const fileUrl = `/api/cases/${caseId}/evidence/${evidenceId}/file`;
-  const heatmapUrl = `/api/cases/${caseId}/evidence/${evidenceId}/heatmap`;
+  const heatmapUrl =
+    hasFrameHeatmaps && selectedFrameIndex !== null
+      ? `/api/cases/${caseId}/evidence/${evidenceId}/heatmap?frame=${selectedFrameIndex}`
+      : `/api/cases/${caseId}/evidence/${evidenceId}/heatmap`;
   const faceCropUrl = `/api/cases/${caseId}/evidence/${evidenceId}/face-crop`;
 
   async function handleReveal() {
@@ -429,6 +449,22 @@ export function RealEvidenceViewer({
     }
     const data: { hasSpeech: boolean; speechRatio: number } = await response.json();
     setTranscript((prev) => (prev ? { ...prev, hasSpeech: data.hasSpeech, speechRatio: data.speechRatio } : prev));
+  }
+
+  async function handleDetectThreat() {
+    setDetectingThreat(true);
+    setDetectThreatError("");
+    const response = await fetch(`/api/cases/${caseId}/evidence/${evidenceId}/threat-detection`, {
+      method: "POST",
+    }).catch(() => null);
+    setDetectingThreat(false);
+    if (!response || !response.ok) {
+      const body = await response?.json().catch(() => null);
+      setDetectThreatError(body?.error ?? "Threat detection failed — check the credentials are configured and try again.");
+      return;
+    }
+    const data: CachedTranscript["threatAssessment"] = await response.json();
+    setTranscript((prev) => (prev ? { ...prev, threatAssessment: data } : prev));
   }
 
   const isImage = mimeType.startsWith("image/");
@@ -661,22 +697,28 @@ export function RealEvidenceViewer({
         <div className="flex flex-col gap-1">
           <p className="text-[10px] text-text-tertiary">
             Sampled frames analyzed ({frameScores.length}) — click to jump the player to that frame
+            {hasFrameHeatmaps ? " and view its own heatmap" : ""}
           </p>
           <div className="relative h-8 rounded-md border border-border-subtle bg-surface-sunken">
             {frameScores.map((fs, i) => {
               const leftPct = videoDuration ? (fs.timestampSeconds / videoDuration) * 100 : 0;
               const isWorst = fs.probability === Math.max(...frameScores.map((f) => f.probability));
+              const isSelected = hasFrameHeatmaps && selectedFrameIndex === i;
               return (
                 <button
                   key={i}
                   type="button"
-                  title={`${formatTimestamp(fs.timestampSeconds)} — ${fs.probability.toFixed(1)}% manipulation probability${fs.faceDetected ? "" : " (no face detected)"}`}
+                  title={`${formatTimestamp(fs.timestampSeconds)} — ${fs.probability.toFixed(1)}% manipulation probability${fs.faceDetected ? "" : " (no face detected)"}${hasFrameHeatmaps ? " — click to view this frame's heatmap" : ""}`}
                   onClick={() => {
                     if (playerRef.current) playerRef.current.currentTime = fs.timestampSeconds;
+                    if (hasFrameHeatmaps) {
+                      setSelectedFrameIndex(i);
+                      setOverlayMode("heatmap");
+                    }
                   }}
                   className={cn(
                     "absolute top-0.5 flex w-3 -translate-x-1/2 flex-col items-center gap-0.5",
-                    isWorst && "z-10",
+                    (isWorst || isSelected) && "z-10",
                   )}
                   style={{ left: `${leftPct}%` }}
                 >
@@ -684,6 +726,7 @@ export function RealEvidenceViewer({
                     className={cn(
                       "block w-1.5 rounded-full",
                       isWorst ? "bg-status-critical" : fs.probability >= 50 ? "bg-status-warning" : "bg-status-safe",
+                      isSelected && "ring-2 ring-accent-primary",
                     )}
                     style={{ height: `${6 + (fs.probability / 100) * 20}px` }}
                   />
@@ -770,6 +813,28 @@ export function RealEvidenceViewer({
                   may be a hallucination, verify by ear
                 </span>
               )}
+              {!transcript.threatAssessment ? (
+                <button
+                  type="button"
+                  onClick={handleDetectThreat}
+                  disabled={detectingThreat}
+                  className={buttonVariants({ variant: "outline", size: "xs" })}
+                >
+                  {detectingThreat ? <Loader2 className="size-3.5 animate-spin" /> : <Siren className="size-3.5" />}
+                  {detectingThreat ? "Analyzing conversation…" : "Detect threat"}
+                </button>
+              ) : transcript.threatAssessment.containsThreat ? (
+                <span className="flex items-center gap-1 text-status-critical" title={transcript.threatAssessment.reasoning ?? undefined}>
+                  <ShieldAlert className="size-3.5 shrink-0" />
+                  Possible threat ({transcript.threatAssessment.severity ?? "unspecified"} severity)
+                  {transcript.threatAssessment.quote ? ` — "${transcript.threatAssessment.quote}"` : ""}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-status-safe">
+                  <ShieldCheck className="size-3.5 shrink-0" />
+                  No threat detected
+                </span>
+              )}
             </>
           )}
           {transcriptStatus === "error" && (
@@ -788,6 +853,12 @@ export function RealEvidenceViewer({
             <span role="alert" className="flex items-center gap-1 text-status-critical">
               <AlertTriangle className="size-3.5 shrink-0" />
               {validateSpeechError}
+            </span>
+          )}
+          {detectThreatError && (
+            <span role="alert" className="flex items-center gap-1 text-status-critical">
+              <AlertTriangle className="size-3.5 shrink-0" />
+              {detectThreatError}
             </span>
           )}
         </div>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Clock3, FileDigit, GitCompareArrows, Loader2, ScanSearch } from "lucide-react";
+import { AlertTriangle, Clock3, FileDigit, GitCompareArrows, Loader2, ScanSearch, Shield, ShieldAlert, ShieldCheck } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
@@ -16,6 +16,7 @@ import { DeclarantDialog } from "@/components/investigation/declarant-dialog";
 import { CustodyTransferDialog } from "@/components/investigation/custody-transfer-dialog";
 import { ReverseImageSearchPanel } from "@/components/investigation/reverse-image-search-panel";
 import { ImageDescriptionPanel } from "@/components/investigation/image-description-panel";
+import { VideoDiffPanel, type CachedVideoDiffResult } from "@/components/investigation/video-diff-panel";
 import type { EvidenceKind, Verdict } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
 import { mergeReverseImageSearchResults, type CachedMergedReverseImageSearchResult } from "@/lib/reverse-image-search-merge";
@@ -155,6 +156,7 @@ export function EvidenceCard({
             mimeType={evidence.mimeType}
             sensitivityLevel={sensitivityLevel}
             hasHeatmap={Boolean(evidence.detectionResult?.heatmapPath)}
+            hasFrameHeatmaps={Boolean(evidence.detectionResult?.frameHeatmapPathsJson)}
             faceBoxes={parseFaceBoxes(evidence.detectionResult?.faceBoxesJson)}
             faceCropCount={parseFaceCropCount(evidence.detectionResult?.faceCropPathsJson)}
             faceAnnotations={parseFaceAnnotations(evidence.faceAnnotations)}
@@ -175,6 +177,13 @@ export function EvidenceCard({
               evidenceId={evidence.id}
               cached={parseImageDescriptionResult(evidence.imageDescriptionResult)}
               sensitivityLevel={sensitivityLevel}
+            />
+          )}
+          {evidence.mimeType.startsWith("video/") && evidence.matchesFrom.length > 0 && (
+            <VideoDiffPanel
+              caseId={caseId}
+              evidenceId={evidence.id}
+              cached={parseVideoDiffResult(evidence.videoDiffResult)}
             />
           )}
           {meta && meta.container === "PDF" && meta.exifJson && <DocumentDetails exifJson={meta.exifJson} />}
@@ -552,11 +561,29 @@ function parseTranscript(row: Evidence["transcriptResult"]): CachedTranscript | 
       truncated: row.truncated,
       hasSpeech: row.hasSpeech,
       speechRatio: row.speechRatio,
+      threatAssessment: row.threatAssessment
+        ? {
+            containsThreat: row.threatAssessment.containsThreat,
+            severity: row.threatAssessment.severity as "low" | "medium" | "high" | null,
+            reasoning: row.threatAssessment.reasoning,
+            quote: row.threatAssessment.quote,
+          }
+        : null,
       translations: row.translations.map((t) => ({ targetLang: t.targetLang, segments: JSON.parse(t.segmentsJson) })),
     };
   } catch {
     return null;
   }
+}
+
+function parseVideoDiffResult(row: Evidence["videoDiffResult"]): CachedVideoDiffResult | null {
+  if (!row) return null;
+  return {
+    matchedEvidenceId: row.matchedEvidenceId,
+    diffPercentage: row.diffPercentage,
+    timestampSeconds: row.timestampSeconds,
+    ranAt: row.ranAt.toISOString(),
+  };
 }
 
 function parseFrameScores(json: string | null | undefined): FrameScore[] | null {
@@ -609,6 +636,12 @@ interface PdfDocumentInfo {
   modifiedAfterCreation: boolean;
   pageCount: number;
   textPreview: string;
+  // Optional: absent on PDFs uploaded before this check existed — never
+  // backfilled, so an older exhibit honestly shows nothing here rather
+  // than a guessed status.
+  signaturePresent?: boolean;
+  signatureCoversWholeFile?: boolean | null;
+  signerName?: string | null;
 }
 
 /** Real PDF Stage 1 extraction results (src/lib/metadata.ts's
@@ -637,6 +670,26 @@ function DocumentDetails({ exifJson }: { exifJson: string }) {
           <AlertTriangle className="size-3.5 shrink-0" />
           Modified after creation — not proof of tampering on its own, but worth checking against the claimed
           chain of custody.
+        </p>
+      )}
+      {info.signaturePresent === true &&
+        (info.signatureCoversWholeFile ? (
+          <p className="flex items-center gap-1.5 rounded-md border border-status-safe/30 bg-status-safe-bg px-2.5 py-1.5 text-status-safe">
+            <ShieldCheck className="size-3.5 shrink-0" />
+            Digitally signed{info.signerName ? ` — signer: ${info.signerName}` : ""}. Signature covers the whole
+            file — no bytes have been added since signing.
+          </p>
+        ) : (
+          <p className="flex items-center gap-1.5 rounded-md border border-status-critical/30 bg-status-critical-bg px-2.5 py-1.5 text-status-critical">
+            <ShieldAlert className="size-3.5 shrink-0" />
+            Digitally signed{info.signerName ? ` — signer: ${info.signerName}` : ""}, but the file extends beyond
+            what the signature covers — bytes were added after signing.
+          </p>
+        ))}
+      {info.signaturePresent === false && (
+        <p className="flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1.5 text-text-tertiary">
+          <Shield className="size-3.5 shrink-0" />
+          No digital signature found on this file.
         </p>
       )}
       {info.textPreview && (

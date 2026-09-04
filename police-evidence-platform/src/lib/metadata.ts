@@ -3,6 +3,7 @@ import { promisify } from "util";
 import { path as ffprobePath } from "@ffprobe-installer/ffprobe";
 import { parse as parseExif } from "exifr";
 import { PDFParse } from "pdf-parse";
+import { verifyPdfSignature } from "@/lib/pdf-signature";
 
 const execFileAsync = promisify(execFile);
 
@@ -219,6 +220,18 @@ async function extractPdfMetadata(buffer: Buffer): Promise<ExtractedMetadata> {
       ? `${toolSignature ?? "unknown tool"} — modified after creation`
       : toolSignature;
 
+    // Separate try/catch from the parse logic above: an unsigned PDF (the
+    // overwhelming majority of real evidence) must never make metadata
+    // extraction fail for the whole file just because signature detection
+    // hit something unexpected.
+    let signature: ReturnType<typeof verifyPdfSignature>;
+    try {
+      signature = verifyPdfSignature(buffer);
+    } catch (error) {
+      console.warn(`[metadata] PDF signature check failed:`, error);
+      signature = { present: false, coversWholeFile: null, signerName: null };
+    }
+
     return {
       container: "PDF",
       resolution: null,
@@ -233,6 +246,9 @@ async function extractPdfMetadata(buffer: Buffer): Promise<ExtractedMetadata> {
         modifiedAfterCreation,
         pageCount: text.total,
         textPreview: text.text.slice(0, 2000),
+        signaturePresent: signature.present,
+        signatureCoversWholeFile: signature.coversWholeFile,
+        signerName: signature.signerName,
       }),
       gpsLatitude: null,
       gpsLongitude: null,

@@ -16,11 +16,9 @@ Six real-world investigator workflows the platform needs to cover, dictated by t
 
 **Goal**: From a call recording, caption/transcribe the audio, offer translation, analyze the conversation's actual content to flag whether it contains a threat, and check whether the audio itself is AI-generated/voice-spoofed.
 
-**Status**: Partially built — 3 of 4 pieces are already real.
+**Status**: Built (2026-09-04) — all 4 pieces are now real.
 
-**What exists today**: Real Whisper transcription (`TranscriptResult`), real translation (`TranscriptTranslation`), and real audio deepfake/voice-spoofing detection (`ml-service/audio_detector.py`, wav2vec2) are all shipped and live. The one missing piece — threat detection from the transcript's actual content — doesn't exist.
-
-**What a full build would need**: A new Gemini structured-JSON-schema call (the exact pattern already used in `src/lib/news-summary.ts`'s `summarizeArticle` — reuse `buildClient()` from `src/lib/image-description.ts`) that takes a transcript's text and returns `{ containsThreat, severity, reasoning, quote }` or similar, a small Prisma cache table (mirrors `ImageDescriptionResult`/`PageSummary`), a route following the existing cached-AI-analysis pattern (`.../describe-image/route.ts` is the template), and a "Detect threat" button slotted next to the existing Captions/Translate/Validate-speech actions in `real-evidence-viewer.tsx`. This is the cheapest of the 5 gaps to build — it's almost entirely reuse of an established pattern.
+**What exists today**: Real Whisper transcription (`TranscriptResult`), real translation (`TranscriptTranslation`), real audio deepfake/voice-spoofing detection (`ml-service/audio_detector.py`, wav2vec2), and now real threat detection: a Gemini structured-JSON-schema call (`src/lib/threat-detection.ts`, mirrors `news-summary.ts`'s pattern) judges the transcript's actual content for a genuine threat — never inferred from keywords, honestly returns `containsThreat: false` for ordinary conversation. Cached per-transcript (`ThreatAssessment`), gated behind the same NCII/minor sensitivity check as every other external-AI-call route (transcript content still leaves the platform on this call), triggered via a "Detect threat" button next to Captions/Translate/Validate-speech in `real-evidence-viewer.tsx`. Verified live: a real Gemini call on a real transcript, and the NCII gate confirmed blocking it on a sensitivity-flagged case.
 
 ## 3. Deepfake image — AI check, face count/search, describe, geolocate
 
@@ -34,21 +32,17 @@ Six real-world investigator workflows the platform needs to cover, dictated by t
 
 **Goal**: For a deepfake video, flag the specific modified/manipulated region, and compare it against the original video (if one can be found) to pinpoint exactly what changed.
 
-**Status**: Partially built, with a real structural limitation worth disclosing up front.
+**Status**: Built (2026-09-04), with a real, disclosed structural limitation.
 
-**What exists today**: Grad-CAM heatmap generation is real (`ml-service/detector.py`), but for video it currently keeps only the single worst-scoring frame's heatmap, not one per sampled frame. Per-frame probability scores exist (`DetectionResult.frameScoresJson`). Perceptual-hash matching (`src/lib/matching.ts`) can surface a near-duplicate "original" — but only for **cross-case matches** (`EvidenceMatch`, which link to a real file on disk); the seeded **corpus** (`CorpusItem`) only stores a thumbnail, not a full source file, so corpus matches can never be diffed against. No pixel/frame-diff capability (SSIM or similar) exists anywhere in the codebase today.
-
-**What a full build would need**: (a) keep Grad-CAM heatmaps for every sampled frame instead of just the worst one, giving a real "where across the clip" view; (b) a new frame-alignment + pixel-diff step (e.g. SSIM via a new Python dependency) that only activates when a real cross-case match exists — corpus matches would honestly show "no full original available to diff," not a fake diff.
+**What exists today**: Grad-CAM heatmap generation is real (`ml-service/detector.py`) — every sampled frame already gets a full heatmap computed, and now **all of them are persisted** (`DetectionResult.frameHeatmapPathsJson`, `writeFrameHeatmaps` in `storage.ts`), not just the worst-scoring one; the investigator can click any sampled-frame tick in the timeline to browse that frame's own heatmap (`?frame=N` on the heatmap route). For "diff against the original": real frame extraction + pixel comparison (`src/lib/video-diff.ts`, `sharp` + `pixelmatch`, no new Python dependency) only ever runs when a real **cross-case match** exists with an actual file on disk — verified live with two cases sharing the same video (0% diff, correctly proving no false positives). The seeded **corpus** (`CorpusItem`) still only stores a thumbnail, so corpus-only matches honestly 422 with "no full original available to diff" rather than faking one — confirmed live.
 
 ## 5. Documents — verify signature, detect edits after signing
 
 **Goal**: For a document, check whether it's digitally signed, and whether it's been edited after signing.
 
-**Status**: Partially built — the existing check is a heuristic, not a real signature verification.
+**Status**: Built (2026-09-04), scoped deliberately to what's robust rather than a fragile full crypto-verify.
 
-**What exists today**: Real PDF metadata extraction and a narrow tamper heuristic (`src/lib/metadata.ts::extractPdfMetadata` — flags `ModDate - CreationDate > 60s`), deliberately excluded from the fusion verdict since it isn't a real forgery-detection model. No cryptographic signature library is installed (`package.json` has no `node-forge`, `pdf-lib`, `@signpdf/*`, or any PKCS#7/CMS/X.509 tooling) — C2PA (`@contentauth/c2pa-node`) exists but is a different scheme (content-provenance manifests for media) and isn't wired up for PDFs today.
-
-**What a full build would need**: A new dependency capable of reading a PDF's embedded `/Sig` dictionary and its `ByteRange` — the standard, well-defined technique for detecting whether bytes were appended/modified after signing (real, verifiable, doesn't require trusting a certificate authority chain to still be useful). New fields on `MetadataResult` (or a new model, following the `ProvenanceResult` pattern), and a new section in the existing `DocumentDetails` panel (`evidence-card.tsx`).
+**What exists today**: Real PDF metadata extraction and the existing tamper heuristic, plus a real, structural digital-signature check (`src/lib/pdf-signature.ts`, using `node-forge`): detects a signature via the standard `/ByteRange` + `/Contents` pattern, extracts the signer's Common Name from the embedded X.509 certificate, and — the actual "detect edits after signing" signal — checks whether the signed byte range still covers the entire current file (`signatureCoversWholeFile`). If the file has grown past what the signature covers, that's the well-known PDF "incremental update" tampering pattern. Deliberately does **not** attempt full CMS/PKCS#7 cryptographic signature verification (RSA-verifying the digest against the certificate's public key) — node-forge's PKCS#7 support makes that fragile to hand-roll correctly across every real signing tool's ASN.1 encoding choices, and a subtly-wrong "cryptographically valid" claim would be worse than not making it. Verified live end-to-end with three real PDFs generated for this test (via `pyhanko` + a self-signed cert): an unsigned PDF (`signaturePresent: false`, no crash — confirmed the existing unsigned-PDF path is unaffected), a freshly signed PDF (`signaturePresent: true, coversWholeFile: true, signerName: "Test Investigator"`), and the same PDF with bytes appended after signing (`coversWholeFile: false`, correctly flagged). Rendered in the existing `DocumentDetails` panel (`evidence-card.tsx`) as a green/red/neutral status banner.
 
 ## 6. Cross-evidence relationship mind map + case summary
 
@@ -62,6 +56,6 @@ Six real-world investigator workflows the platform needs to cover, dictated by t
 
 ## Open decisions
 
-- **Build order / who picks up what**: not yet decided. The 5 gaps (everything but #3) are largely independent and could be split across team members; #2 and #5 are the cheapest/most self-contained, #1 and #6 are the largest.
+- **Remaining gaps**: only #1 (CCTV vehicle/plate/face detection) and #6 (cross-evidence mind map) are still unbuilt — #2, #4, and #5 shipped 2026-09-04. #1 and #6 are also the two largest/most novel; no build order decided between them yet.
 - **CCTV reference-face-matching (#1)**: turns a documented non-goal (biometric face matching) into a real capability — flagging this explicitly for a deliberate go/no-go rather than assuming yes.
-- **Seed cases**: still paused per the original request — will resume once (a subset of) these gaps are built, so seed cases can actually demonstrate real capability rather than being built against features that don't exist yet.
+- **Seed cases**: still paused per the original request — will resume once (a subset of) the remaining gaps are built, so seed cases can actually demonstrate real capability rather than being built against features that don't exist yet.

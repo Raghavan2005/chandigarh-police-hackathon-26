@@ -9,6 +9,7 @@ const UPLOADS_DIR = path.join(STORAGE_DIR, "uploads");
 const HEATMAPS_DIR = path.join(STORAGE_DIR, "heatmaps");
 const FACE_CROPS_DIR = path.join(STORAGE_DIR, "face-crops");
 const PENDING_CAPTURES_DIR = path.join(STORAGE_DIR, "pending-captures");
+const VIDEO_DIFFS_DIR = path.join(STORAGE_DIR, "video-diffs");
 
 const EXTENSION_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -80,6 +81,31 @@ export function writeHeatmap(evidenceId: string, heatmapPngBase64: string): stri
   const filename = `${evidenceId}.png`;
   writeFileSync(path.join(HEATMAPS_DIR, filename), Buffer.from(heatmapPngBase64, "base64"));
   return path.join("heatmaps", filename);
+}
+
+/** Decodes and writes every real per-frame Grad-CAM heatmap for a video —
+ * same keyed-by-evidence-ID pattern as writeHeatmap, distinct filenames so
+ * this never collides with the single worst-frame heatmap `writeHeatmap`
+ * already writes to `heatmaps/{evidenceId}.png`. Returns the paths in the
+ * same order/index as the input array (which must match frameScoresJson's
+ * order). */
+export function writeFrameHeatmaps(evidenceId: string, heatmapsPngBase64: string[]): string[] {
+  mkdirSync(HEATMAPS_DIR, { recursive: true });
+  return heatmapsPngBase64.map((base64, i) => {
+    const filename = `${evidenceId}-frame${i}.png`;
+    writeFileSync(path.join(HEATMAPS_DIR, filename), Buffer.from(base64, "base64"));
+    return path.join("heatmaps", filename);
+  });
+}
+
+/** Writes a real pixel-diff overlay PNG (already-encoded, from
+ * video-diff.ts) to storage/video-diffs/ — same keyed-by-evidence-ID
+ * pattern as writeHeatmap, a derived artifact tied to one diff run. */
+export function writeVideoDiff(evidenceId: string, diffPngBuffer: Buffer): string {
+  mkdirSync(VIDEO_DIFFS_DIR, { recursive: true });
+  const filename = `${evidenceId}.png`;
+  writeFileSync(path.join(VIDEO_DIFFS_DIR, filename), diffPngBuffer);
+  return path.join("video-diffs", filename);
 }
 
 /** Decodes and writes every real detected face crop (index 0 is MTCNN's

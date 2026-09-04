@@ -210,6 +210,7 @@ model Evidence {
   reverseImageSearchResults ReverseImageSearchResult[]
   imageDescriptionResult   ImageDescriptionResult?
   transcriptResult         TranscriptResult?
+  videoDiffResult          VideoDiffResult?
 
   corpusMatches       CorpusMatch[]
   matchesFrom         EvidenceMatch[] @relation("EvidenceMatchSource")
@@ -288,6 +289,14 @@ model DetectionResult {
   // worst one; this is what was previously computed then discarded. Null
   // for image/audio evidence, which only ever has a single detection pass.
   frameScoresJson        String?
+  // Real per-sampled-frame Grad-CAM heatmap paths, same order/index as
+  // frameScoresJson above — every sampled frame already gets a full
+  // heatmap computed by the ML service (not just the worst-scoring one,
+  // which is all heatmapPath above ever kept); this persists the rest
+  // instead of discarding them, so the modified region can be browsed
+  // across the whole clip, not just its single worst moment. Null for
+  // image/audio evidence, same as frameScoresJson.
+  frameHeatmapPathsJson  String?
   modelName              String
   modelVersion           String
   ranAt                  DateTime @default(now())
@@ -337,7 +346,24 @@ model TranscriptResult {
   speechRatio     Float? // 0-1, fraction of the clip VAD classified as speech
   speechValidatedAt DateTime?
 
-  translations TranscriptTranslation[]
+  translations     TranscriptTranslation[]
+  threatAssessment ThreatAssessment?
+}
+
+// Real Gemini judgment of whether a call/video transcript's actual content
+// contains a genuine threat — separate from Silero VAD (hasSpeech above),
+// which only checks whether the clip contains speech at all, not what it
+// says. Never automatic (§8 avoid unnecessary model calls) — investigator
+// explicitly runs "Detect threat" once a transcript exists.
+model ThreatAssessment {
+  id                 String           @id @default(cuid())
+  transcriptResultId String           @unique
+  transcriptResult   TranscriptResult @relation(fields: [transcriptResultId], references: [id])
+  containsThreat     Boolean
+  severity           String? // "low" | "medium" | "high" — null when containsThreat is false
+  reasoning          String?
+  quote              String? // the specific concerning excerpt from the transcript, if any
+  ranAt              DateTime         @default(now())
 }
 
 // One cached translation of a TranscriptResult into a target language —
@@ -437,6 +463,22 @@ model FaceAnnotation {
   updatedAt          DateTime  @updatedAt
 
   @@unique([evidenceId, faceIndex])
+}
+
+// Real frame-vs-frame pixel diff against a matched cross-case original —
+// only ever computed when a real EvidenceMatch links to another exhibit
+// with an actual file on disk. Seeded-corpus matches (CorpusItem below)
+// can never populate this: CorpusItem only stores a thumbnail, not a full
+// source file, so there is nothing to diff against.
+model VideoDiffResult {
+  id                String   @id @default(cuid())
+  evidenceId        String   @unique
+  evidence          Evidence @relation(fields: [evidenceId], references: [id])
+  matchedEvidenceId String // which EvidenceMatch this diff is against
+  diffImagePath     String
+  diffPercentage    Float
+  timestampSeconds  Float
+  ranAt             DateTime @default(now())
 }
 
 // --- Cross-case & seeded-corpus matching ---------------------------------
