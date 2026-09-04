@@ -17,6 +17,11 @@ import { CustodyTransferDialog } from "@/components/investigation/custody-transf
 import { ReverseImageSearchPanel } from "@/components/investigation/reverse-image-search-panel";
 import { ImageDescriptionPanel } from "@/components/investigation/image-description-panel";
 import { VideoDiffPanel, type CachedVideoDiffResult } from "@/components/investigation/video-diff-panel";
+import {
+  DocumentAnalysisPanel,
+  type CachedDocumentSummary,
+  type CachedDocumentThreatAssessment,
+} from "@/components/investigation/document-analysis-panel";
 import type { EvidenceKind, Verdict } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
 import { mergeReverseImageSearchResults, type CachedMergedReverseImageSearchResult } from "@/lib/reverse-image-search-merge";
@@ -186,7 +191,18 @@ export function EvidenceCard({
               cached={parseVideoDiffResult(evidence.videoDiffResult)}
             />
           )}
-          {meta && meta.container === "PDF" && meta.exifJson && <DocumentDetails exifJson={meta.exifJson} />}
+          {meta && meta.container === "PDF" && meta.exifJson && (
+            <>
+              <DocumentDetails exifJson={meta.exifJson} sha256={evidence.sha256} />
+              <DocumentAnalysisPanel
+                caseId={caseId}
+                evidenceId={evidence.id}
+                cachedSummary={parseDocumentSummary(evidence.documentSummaryResult)}
+                cachedThreat={parseDocumentThreatAssessment(evidence.documentThreatAssessment)}
+                sensitivityLevel={sensitivityLevel}
+              />
+            </>
+          )}
         </div>
 
         <div className="min-w-0 rounded-lg border border-border-subtle bg-surface-sunken p-4">
@@ -576,6 +592,24 @@ function parseTranscript(row: Evidence["transcriptResult"]): CachedTranscript | 
   }
 }
 
+function parseDocumentSummary(row: Evidence["documentSummaryResult"]): CachedDocumentSummary | null {
+  if (!row) return null;
+  return { summary: row.summary, ranAt: row.ranAt.toISOString() };
+}
+
+function parseDocumentThreatAssessment(
+  row: Evidence["documentThreatAssessment"],
+): CachedDocumentThreatAssessment | null {
+  if (!row) return null;
+  return {
+    containsThreat: row.containsThreat,
+    severity: row.severity as "low" | "medium" | "high" | null,
+    reasoning: row.reasoning,
+    quote: row.quote,
+    ranAt: row.ranAt.toISOString(),
+  };
+}
+
 function parseVideoDiffResult(row: Evidence["videoDiffResult"]): CachedVideoDiffResult | null {
   if (!row) return null;
   return {
@@ -649,7 +683,7 @@ interface PdfDocumentInfo {
  * preview extracted from the document's real text layer, not OCR'd from a
  * rendered image (that's a further scope cut, not something this build
  * claims to do). */
-function DocumentDetails({ exifJson }: { exifJson: string }) {
+function DocumentDetails({ exifJson, sha256 }: { exifJson: string; sha256: string }) {
   let info: PdfDocumentInfo | null = null;
   try {
     info = JSON.parse(exifJson);
@@ -664,6 +698,9 @@ function DocumentDetails({ exifJson }: { exifJson: string }) {
         <Field label="Pages" value={String(info.pageCount)} />
         {info.creationDate && <Field label="Created" value={new Date(info.creationDate).toLocaleString()} />}
         {info.modDate && <Field label="Modified" value={new Date(info.modDate).toLocaleString()} />}
+        {info.producer && <Field label="Producer" value={info.producer} />}
+        {info.creator && <Field label="Creator" value={info.creator} />}
+        <Field label="SHA-256" value={sha256} className="col-span-2 sm:col-span-4 truncate" />
       </div>
       {info.modifiedAfterCreation && (
         <p className="flex items-center gap-1.5 rounded-md border border-status-warning/30 bg-status-warning-bg px-2.5 py-1.5 text-status-warning">

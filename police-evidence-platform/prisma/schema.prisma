@@ -211,6 +211,8 @@ model Evidence {
   imageDescriptionResult   ImageDescriptionResult?
   transcriptResult         TranscriptResult?
   videoDiffResult          VideoDiffResult?
+  documentSummaryResult      DocumentSummaryResult?
+  documentThreatAssessment   DocumentThreatAssessment?
 
   corpusMatches       CorpusMatch[]
   matchesFrom         EvidenceMatch[] @relation("EvidenceMatchSource")
@@ -440,6 +442,33 @@ model ImageDescriptionResult {
   description            String
   possibleIdentitiesJson String
   ranAt                  DateTime @default(now())
+}
+
+// Real Gemini plain-language summary of a document exhibit's actual
+// extracted text (MetadataResult.exifJson's textPreview) — same
+// cache-and-manually-re-run philosophy as ImageDescriptionResult above,
+// just for documents instead of images.
+model DocumentSummaryResult {
+  id         String   @id @default(cuid())
+  evidenceId String   @unique
+  evidence   Evidence @relation(fields: [evidenceId], references: [id])
+  summary    String
+  ranAt      DateTime @default(now())
+}
+
+// Real Gemini threat judgment over a document's actual extracted text —
+// same real analyzeThreat() call already used for call/video transcripts
+// (ThreatAssessment above), just keyed by evidenceId directly since a
+// document exhibit has no TranscriptResult to hang off of.
+model DocumentThreatAssessment {
+  id             String   @id @default(cuid())
+  evidenceId     String   @unique
+  evidence       Evidence @relation(fields: [evidenceId], references: [id])
+  containsThreat Boolean
+  severity       String?
+  reasoning      String?
+  quote          String?
+  ranAt          DateTime @default(now())
 }
 
 // Per-face annotation — a manual label plus cached reverse-image-search /

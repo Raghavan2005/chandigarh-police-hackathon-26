@@ -470,8 +470,9 @@ export function RealEvidenceViewer({
   const isImage = mimeType.startsWith("image/");
   const isVideo = mimeType.startsWith("video/");
   const isAudio = mimeType.startsWith("audio/");
+  const isPdf = mimeType === "application/pdf";
 
-  if (!isImage && !isVideo && !isAudio) {
+  if (!isImage && !isVideo && !isAudio && !isPdf) {
     return (
       <div className="flex h-40 items-center justify-center rounded-lg border border-border-subtle bg-surface-sunken text-xs text-text-tertiary">
         No inline preview for this file type — download from the evidence record.
@@ -551,6 +552,13 @@ export function RealEvidenceViewer({
                 }}
                 onLoad={(e) => setNaturalSizeIfChanged(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
               />
+            )}
+            {isPdf && (
+              // Same auth-gated file route as everything else here — it
+              // already serves `Content-Disposition: inline`, so the
+              // browser's own native PDF viewer renders it directly, no
+              // separate PDF-rendering library needed.
+              <iframe src={fileUrl} title="Evidence document" className="h-[280px] w-full bg-white" />
             )}
             {isVideo && (
               // Real video player (Vidstack, not a bare native <video>) for
