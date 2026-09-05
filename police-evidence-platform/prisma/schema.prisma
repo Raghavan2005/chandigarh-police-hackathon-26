@@ -99,6 +99,7 @@ model Case {
   captureLinks      CaptureLink[]
   investigationLinks InvestigationCase[]
   alerts            Alert[]
+  mindMap           CaseMindMap?
 
   @@index([investigatorId])
   @@index([firNumber])
@@ -547,6 +548,25 @@ model VideoDiffResult {
   diffImagePath     String
   diffPercentage    Float
   timestampSeconds  Float
+  ranAt             DateTime @default(now())
+}
+
+// Real Gemini synthesis across every real per-exhibit text already
+// gathered for a case (transcripts/translations, AI image descriptions,
+// per-face labels/notes, document text/summaries) — a single case-level
+// entity/relationship graph + narrative, distinct from every other AI
+// result above (all scoped to one exhibit). PS4_USE_CASES.md #6. Cached
+// per case, manually re-run on demand (same philosophy as
+// ImageDescriptionResult/DocumentSummaryResult) — never recomputed
+// automatically as new evidence is added.
+model CaseMindMap {
+  id                String   @id @default(cuid())
+  caseId            String   @unique
+  case              Case     @relation(fields: [caseId], references: [id])
+  entitiesJson      String // JSON array of {name, type, note}
+  relationshipsJson String // JSON array of {from, to, label, evidence}
+  summary           String
+  exhibitCount      Int // how many exhibits actually contributed real text to this run — shown so a stale re-run against more evidence later is honestly comparable
   ranAt             DateTime @default(now())
 }
 

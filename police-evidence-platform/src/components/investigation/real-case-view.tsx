@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Clock, FileDown, GitBranch, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Clock, FileDown, GitBranch, Network, ShieldAlert } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AddEvidenceDialog } from "@/components/investigation/add-evidence-dialog";
@@ -70,6 +70,13 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
             >
               <FileDown className="size-4" />
               Report
+            </Link>
+            <Link
+              href={`/cases/${caseData.id}/mindmap`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              <Network className="size-4" />
+              Mind map
             </Link>
             <CaptureLinkDialog caseId={caseData.id} />
             <ForwardingDialog
