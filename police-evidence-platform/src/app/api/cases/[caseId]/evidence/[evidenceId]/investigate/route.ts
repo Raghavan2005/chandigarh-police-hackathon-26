@@ -72,7 +72,18 @@ export async function POST(
   // --- Stage 2: detection (external HTTP call — must happen before the DB
   // transaction below, not inside it; a network call has no place holding a
   // SQLite transaction open). ---
-  let classifierScore: number;
+  // The evidence type's own primary model's raw score (wav2vec2 for audio,
+  // the face-swap classifier for video) — stored as-is in
+  // manipulationProbability, and passed to fusion as faceSwapScore (fusion
+  // itself picks whichever of the two scores is more alarming internally).
+  let primaryModelProbability: number;
+  // Worst (highest) general-AI-classifier score across all sampled frames —
+  // tracked independently of the face-swap model's own "worst frame" below,
+  // since the two classifiers can disagree on which frame is most
+  // suspicious (see general_ai_detector.py's docstring: they're trained on
+  // different axes entirely). Null for audio, which has no image
+  // classifier at all.
+  let generalAiProbability: number | null = null;
   let heatmapPngBase64: string | null = null;
   let faceBoxes: [number, number, number, number][] = [];
   let faceCropsPngBase64: string[] = [];
@@ -109,7 +120,8 @@ export async function POST(
       0,
     );
     const worst = frameResults[worstIndex];
-    classifierScore = worst.probability;
+    primaryModelProbability = worst.probability;
+    generalAiProbability = Math.max(...frameResults.map((r) => r.generalAiProbability));
     heatmapPngBase64 = worst.heatmapPngBase64;
     // Face boxes/crops are relative to that same worst-scoring frame — the
     // one still image actually shown for the heatmap, not the whole video.
@@ -127,7 +139,7 @@ export async function POST(
     // equivalent — those stay null/absent rather than fabricating a
     // meaningless visualization or hash.
     const result = await detectAudio(fileBuffer, evidence.mimeType);
-    classifierScore = result.probability;
+    primaryModelProbability = result.probability;
   }
 
   // --- Stage 3: provenance (C2PA), Stage 4a: perceptual hash — both local,
@@ -152,11 +164,16 @@ export async function POST(
   const modelVersion = isAudio ? "wav2vec2-large-xlsr-53" : "InceptionResnetV1-vggface2";
 
   const { fusionVerdict, matchCounts, auditEntry } = await db.$transaction(async (tx) => {
+    // manipulationProbability stores the evidence type's own primary
+    // model's raw score, never the combined classifierScore fed to fusion
+    // below -- that combination only exists as fuseEvidence's input, not a
+    // persisted, blended fact.
     await tx.detectionResult.upsert({
       where: { evidenceId: evidence.id },
       create: {
         evidenceId: evidence.id,
-        manipulationProbability: classifierScore,
+        manipulationProbability: primaryModelProbability,
+        generalAiProbability,
         heatmapPath,
         faceBoxesJson,
         faceCropPathsJson,
@@ -166,7 +183,8 @@ export async function POST(
         modelVersion,
       },
       update: {
-        manipulationProbability: classifierScore,
+        manipulationProbability: primaryModelProbability,
+        generalAiProbability,
         heatmapPath,
         faceBoxesJson,
         faceCropPathsJson,
@@ -191,7 +209,8 @@ export async function POST(
 
     const metadataInconsistent = Boolean(evidence.metadataResult?.encoderSignature);
     const fusion = fuseEvidence({
-      classifierScore,
+      faceSwapScore: primaryModelProbability,
+      generalAiScore: generalAiProbability,
       metadataInconsistent,
       c2paPresent: provenance.c2paPresent,
       c2paValid: provenance.c2paValid,

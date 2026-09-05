@@ -2,7 +2,12 @@ export interface PipelineEvidenceInput {
   mimeType: string;
   uploadedAt: Date;
   metadataResult: { container: string | null; resolution: string | null; encoderSignature: string | null } | null;
-  detectionResult: { manipulationProbability: number; modelName: string; modelVersion: string } | null;
+  detectionResult: {
+    manipulationProbability: number;
+    generalAiProbability: number | null;
+    modelName: string;
+    modelVersion: string;
+  } | null;
   provenanceResult: { c2paPresent: boolean; c2paValid: boolean } | null;
   fusionVerdict: { coverageCount: number; verdict: string; confidence: number; computedAt: Date } | null;
   matchesFrom: unknown[];
@@ -64,7 +69,12 @@ export function computePipelineStatus(evidence: PipelineEvidenceInput): Pipeline
       detail: "ML classifier scores the file for manipulation/synthesis artifacts.",
       metrics: evidence.detectionResult
         ? [
-            { label: "Raw classifier score", value: `${Math.round(evidence.detectionResult.manipulationProbability)}%` },
+            { label: "Face-swap classifier score", value: `${Math.round(evidence.detectionResult.manipulationProbability)}%` },
+            // Null for audio, which has no image-classifier equivalent at
+            // all — omit the row rather than show a fabricated 0%.
+            ...(evidence.detectionResult.generalAiProbability !== null
+              ? [{ label: "General AI-image classifier score", value: `${Math.round(evidence.detectionResult.generalAiProbability)}%` }]
+              : []),
             { label: "Model", value: `${evidence.detectionResult.modelName} ${evidence.detectionResult.modelVersion}` },
           ]
         : undefined,

@@ -285,6 +285,13 @@ model DetectionResult {
   evidenceId             String   @unique
   evidence               Evidence @relation(fields: [evidenceId], references: [id])
   manipulationProbability Float
+  // Second, separate signal from a general (not face-swap-specific)
+  // AI-image classifier -- see ml-service/general_ai_detector.py's own
+  // docstring for why this exists (manipulationProbability's model is
+  // blind to full-synthesis content) and this project's real, disclosed
+  // calibration numbers for both models. Null for audio evidence, which
+  // has no image-classifier equivalent at all.
+  generalAiProbability   Float?
   heatmapPath            String?
   // Every real MTCNN detection box, JSON array of [x1,y1,x2,y2] (0-1
   // fractions of the source image's width/height), sorted by detection

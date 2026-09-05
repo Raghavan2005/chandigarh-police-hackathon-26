@@ -56,7 +56,6 @@ export async function runImageInvestigation(
   // --- Stage 2: detection (external HTTP call — must happen before the DB
   // transaction below, not inside it). ---
   const detection = await detectImage(fileBuffer, evidence.mimeType);
-  const classifierScore = detection.probability;
   const heatmapPngBase64 = detection.heatmapPngBase64;
   const faceBoxes = detection.faceBoxes;
   const faceCropsPngBase64 = detection.faceCropsPngBase64;
@@ -81,7 +80,8 @@ export async function runImageInvestigation(
       where: { evidenceId: evidence.id },
       create: {
         evidenceId: evidence.id,
-        manipulationProbability: classifierScore,
+        manipulationProbability: detection.probability,
+        generalAiProbability: detection.generalAiProbability,
         heatmapPath,
         faceBoxesJson,
         faceCropPathsJson,
@@ -90,7 +90,8 @@ export async function runImageInvestigation(
         modelVersion,
       },
       update: {
-        manipulationProbability: classifierScore,
+        manipulationProbability: detection.probability,
+        generalAiProbability: detection.generalAiProbability,
         heatmapPath,
         faceBoxesJson,
         faceCropPathsJson,
@@ -113,8 +114,16 @@ export async function runImageInvestigation(
     }
 
     const metadataInconsistent = Boolean(evidence.metadataResult?.encoderSignature);
+    // Fusion sees both raw scores and picks whichever is more alarming
+    // internally — this is what closes the general-AI-detector's coverage
+    // gap (see general_ai_detector.py's docstring): the face-swap model
+    // alone scored a known-real full-synthesis test image 0%, so relying
+    // on it alone would keep missing that whole content class even with
+    // this second model now running. Both scores are also stored
+    // separately in DetectionResult above, never blended in the DB.
     const fusion = fuseEvidence({
-      classifierScore,
+      faceSwapScore: detection.probability,
+      generalAiScore: detection.generalAiProbability,
       metadataInconsistent,
       c2paPresent: provenance.c2paPresent,
       c2paValid: provenance.c2paValid,

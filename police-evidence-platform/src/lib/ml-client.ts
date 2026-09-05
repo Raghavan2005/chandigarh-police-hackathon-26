@@ -8,6 +8,14 @@ const ML_SERVICE_URL = process.env.ML_SERVICE_URL ?? "http://127.0.0.1:8008";
 
 export interface DetectionResponse {
   probability: number;
+  // Second, separate signal from a general (not face-swap-specific)
+  // AI-image classifier (ml-service/general_ai_detector.py) -- added
+  // because `probability`'s model is fine-tuned on face-swap seam
+  // artifacts specifically and, per this project's own live calibration
+  // testing, is effectively blind to full-synthesis content (scored a
+  // known-real StyleGAN test image 0%). Never blended server-side; the
+  // caller decides how to combine the two.
+  generalAiProbability: number;
   heatmapPngBase64: string;
   faceDetected: boolean;
   // Every detected face, each normalized [x1, y1, x2, y2] fractions (0-1)

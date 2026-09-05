@@ -4,15 +4,27 @@ FastAPI detection microservice for the PS4 evidence platform.
 Called over localhost HTTP by the Next.js backend (never from the browser
 directly). Endpoints:
   - GET  /health              liveness check
-  - POST /detect/image        image -> { probability, heatmapPngBase64,
-                               faceDetected, faceBoxes, faceCropsPngBase64 }
+  - POST /detect/image        image -> { probability, generalAiProbability,
+                               heatmapPngBase64, faceDetected, faceBoxes,
+                               faceCropsPngBase64 }. `probability` is the
+                               face-swap classifier's score (detector.py);
+                               `generalAiProbability` is a second, separate
+                               signal from a general (not face-swap-
+                               specific) AI-image classifier
+                               (general_ai_detector.py) — added because the
+                               first model is effectively blind to full-
+                               synthesis content (see that module's
+                               docstring for the real calibration numbers
+                               behind this). Neither score is blended into
+                               the other here; the Next.js side decides how
+                               to combine them for Evidence Fusion.
                                faceBoxes/faceCropsPngBase64 are parallel
                                arrays, one entry per detected face (both
                                empty if none); faceCropsPngBase64[0] is the
                                literal input the classifier scored, the
                                rest are plain crops for display only —
                                never a fabricated position or crop.
-  - POST /detect/video-frame  same contract, same model; the Next.js side
+  - POST /detect/video-frame  same contract, same models; the Next.js side
                                samples frames from video and calls this once
                                per sampled frame (frame extraction happens on
                                the Next.js/ffmpeg side, not here).
@@ -73,6 +85,7 @@ from pydantic import BaseModel
 
 from audio_detector import AudioDeepfakeDetector
 from detector import DeepfakeDetector
+from general_ai_detector import GeneralAiDetector
 from object_detector import ObjectDetector
 from plate_ocr import read_plate
 from speech_validator import validate_speech
@@ -90,10 +103,16 @@ _audio_detector: AudioDeepfakeDetector | None = None
 _transcriber: Transcriber | None = None
 _translator: Translator | None = None
 _object_detector: ObjectDetector | None = None
+_general_ai_detector: GeneralAiDetector | None = None
 
 
 class DetectionResponse(BaseModel):
     probability: float
+    # Second, complementary signal from a general (not face-swap-specific)
+    # AI-image classifier -- see general_ai_detector.py for why this exists
+    # and its own honestly-disclosed limitations. Never blended into
+    # `probability` here; the Next.js side decides how to combine them.
+    generalAiProbability: float
     heatmapPngBase64: str
     faceDetected: bool
     # Every detected face, each normalized [x1, y1, x2, y2] fractions (0-1)
@@ -229,6 +248,15 @@ def get_object_detector() -> ObjectDetector:
     return _object_detector
 
 
+def get_general_ai_detector() -> GeneralAiDetector:
+    global _general_ai_detector
+    if _general_ai_detector is None:
+        logger.info("Loading general AI-image detection model on first use (downloads weights on first run, then cached)...")
+        _general_ai_detector = GeneralAiDetector()
+        logger.info("General AI-image detection model loaded.")
+    return _general_ai_detector
+
+
 async def _run_detection(file: UploadFile) -> DetectionResponse:
     if file.content_type is not None and not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail=f"Expected an image file, got content-type {file.content_type!r}")
@@ -250,8 +278,16 @@ async def _run_detection(file: UploadFile) -> DetectionResponse:
         logger.exception("Detection failed")
         raise HTTPException(status_code=500, detail=f"Detection failed: {exc}") from exc
 
+    general_ai_detector = get_general_ai_detector()
+    try:
+        general_result = general_ai_detector.detect(image)
+    except Exception as exc:  # noqa: BLE001 - same "surface, don't crash" rule as the primary classifier above
+        logger.exception("General AI-image detection failed")
+        raise HTTPException(status_code=500, detail=f"General AI-image detection failed: {exc}") from exc
+
     return DetectionResponse(
         probability=result.probability,
+        generalAiProbability=general_result.probability,
         heatmapPngBase64=result.heatmap_png_base64,
         faceDetected=result.face_detected,
         faceBoxes=result.face_boxes,
@@ -499,4 +535,5 @@ def health() -> dict:
         "transcriberLoaded": _transcriber is not None,
         "translatorLoaded": _translator is not None,
         "objectDetectorLoaded": _object_detector is not None,
+        "generalAiDetectorLoaded": _general_ai_detector is not None,
     }

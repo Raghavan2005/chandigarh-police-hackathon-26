@@ -14,7 +14,8 @@ Every real model this service loads, pretrained and used as-is (no training/fine
 
 | Model | Used for | Source | License |
 |---|---|---|---|
-| `not-lain/deepfake` | Image/video deepfake classification | [Hugging Face](https://huggingface.co/not-lain/deepfake) | Apache-2.0 |
+| `not-lain/deepfake` | Image/video deepfake (face-swap) classification | [Hugging Face](https://huggingface.co/not-lain/deepfake) | Apache-2.0 |
+| `dima806/ai_vs_real_image_detection` | General (not face-swap-specific) AI-generated-image classification — second, complementary signal | [Hugging Face](https://huggingface.co/dima806/ai_vs_real_image_detection) | Apache-2.0 |
 | `Gustking/wav2vec2-large-xlsr-deepfake-audio-classification` | Audio deepfake/voice-spoofing classification | [Hugging Face](https://huggingface.co/Gustking/wav2vec2-large-xlsr-deepfake-audio-classification) | Apache-2.0 |
 | `facenet_pytorch.MTCNN` | Face detection/alignment (feeds the image/video classifier) | [facenet-pytorch](https://github.com/timesler/facenet-pytorch) | MIT |
 | faster-whisper (CTranslate2 reimplementation of OpenAI Whisper) | Live-caption transcription | [GitHub](https://github.com/SYSTRAN/faster-whisper) | MIT |
@@ -73,6 +74,63 @@ was taken — worth wiring into `signalBreakdownJson` on the Next.js side later
 if useful. This is exactly the kind of generalization limit
 `AGENT_PS4_DEEPFAKE_REPORT.md` and the build plan are explicit about — don't
 let the UI imply this is a general-purpose AI-image detector.
+
+## General AI-image model (second signal)
+
+**`dima806/ai_vs_real_image_detection`** on Hugging Face —
+https://huggingface.co/dima806/ai_vs_real_image_detection — **Apache-2.0**
+
+Architecture: ViT-base (`AutoModelForImageClassification`), fine-tuned as a
+binary real/AI-generated image classifier — not restricted to faces, unlike
+`not-lain/deepfake` above. Runs as a completely separate second pass in
+`general_ai_detector.py` over every image `not-lain/deepfake` already scores
+(`/detect/image` and `/detect/video-frame` both now return two independent
+scores, `probability` and `generalAiProbability`); the two are never blended
+inside the ml-service — the caller (`fuseEvidence` in the Next.js app) decides
+how to combine them.
+
+**Why this was added — a real, measured gap, not a hypothetical one.** Live
+calibration testing of `not-lain/deepfake` alone (see the "How this was
+verified" section below) found known-real photos scoring 88–100% "fake" and
+known-fake StyleGAN images scoring 0–1% "fake" — the checkpoint is trained
+specifically on face-*swap* seam artifacts, so a fully-synthetic image with
+no swap seam at all is out-of-distribution and the model is effectively blind
+to that entire content class. `dima806/ai_vs_real_image_detection` targets
+that exact gap: a general full-synthesis detector rather than a face-swap-
+seam detector.
+
+**Tested live, three real images, before wiring this into the app (values
+from this session's direct `/detect/image` and standalone-script calls):**
+
+| Test image | `not-lain/deepfake` (face-swap) | `dima806/ai_vs_real_image_detection` (general) | Correct answer |
+|---|---|---|---|
+| Real StyleGAN-generated face (`a312863063/seeprettyface-dataset`, genuinely synthetic) | 0.0% | 69.75% | Fake |
+| Real photo with genuine EXIF/GPS (`ianare/exif-samples`, genuinely a real photo) | — | 31.98% | Real |
+| Known-real stock photo that `not-lain/deepfake` scored high | 97.77% | 97.77%\* | Real |
+
+\*This third row is the paired "known-real-face-image-REAL.jpg" test file from
+`Arman176001/deepfake-detection` — both models score it high, i.e. the new
+model does **not** fix every false positive `not-lain/deepfake` produces; it
+adds coverage for a *different* content class (full synthesis), it doesn't
+correct the first model's own face-swap-detection errors. Only the first row
+is a case where the new model materially improves on the old one alone (0% →
+69.75%, correctly flagging a real synthetic image the face-swap model missed
+entirely). This is reported plainly rather than oversold: three real test
+images is a smoke test confirming the model loads correctly and responds in
+roughly the expected direction, not a calibrated accuracy claim — the same
+"real calibration against a labeled validation set is a separate follow-up
+task" caveat from the section below applies here too.
+
+**How fusion uses the two scores** (`src/lib/fusion.ts`,
+`FusionInput.faceSwapScore`/`generalAiScore`): the coverage-aware cap applies
+to `Math.max(faceSwapScore, generalAiScore ?? 0)`, so a high score from either
+model is still subject to the same "zero corroboration → INCONCLUSIVE
+regardless of raw score" rule — adding a second model does not weaken that
+safety net. Which model produced the higher score also decides the verdict
+between `MANIPULATED` (face-swap classifier dominant) and `AI_GENERATED`
+(general classifier dominant) when corroborated and above threshold — the
+first real use of the `AI_GENERATED` enum value in this codebase, previously
+unreachable because there was no second detector to justify the distinction.
 
 ## Audio model
 
