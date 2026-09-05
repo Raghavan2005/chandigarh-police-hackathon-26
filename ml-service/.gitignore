@@ -4,6 +4,7 @@
 # Downloaded model weights / caches (fetched at setup time, never committed)
 .hf_cache/
 .torch_cache/
+.easyocr_cache/
 model_cache/
 
 # Python bytecode

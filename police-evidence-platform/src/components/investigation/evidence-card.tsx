@@ -18,6 +18,7 @@ import { CustodyTransferDialog } from "@/components/investigation/custody-transf
 import { ReverseImageSearchPanel } from "@/components/investigation/reverse-image-search-panel";
 import { ImageDescriptionPanel } from "@/components/investigation/image-description-panel";
 import { VideoDiffPanel, type CachedVideoDiffResult } from "@/components/investigation/video-diff-panel";
+import { CctvSearchPanel } from "@/components/investigation/cctv-search-panel";
 import {
   DocumentAnalysisPanel,
   type CachedDocumentSummary,
@@ -191,6 +192,14 @@ export function EvidenceCard({
               caseId={caseId}
               evidenceId={evidence.id}
               cached={parseVideoDiffResult(evidence.videoDiffResult)}
+            />
+          )}
+          {evidence.mimeType.startsWith("video/") && (
+            <CctvSearchPanel
+              caseId={caseId}
+              evidenceId={evidence.id}
+              cachedFrameSamples={evidence.cctvFrameSamples}
+              cachedMatches={parseReferenceMatchResults(evidence.referenceMatchResults)}
             />
           )}
           {meta && meta.container === "PDF" && meta.exifJson && (
@@ -630,6 +639,20 @@ function parseSpliceDetection(row: Evidence["spliceDetectionResult"]): CachedSpl
   } catch {
     return null;
   }
+}
+
+function parseReferenceMatchResults(rows: Evidence["referenceMatchResults"]) {
+  return rows.map((row) => ({
+    id: row.id,
+    matchType: row.matchType,
+    referenceLabel: row.referenceLabel,
+    referenceImagePath: row.referenceImagePath,
+    frameIndex: row.frameIndex,
+    timestampSeconds: row.timestampSeconds,
+    similarity: row.similarity,
+    boundingBoxJson: row.boundingBoxJson,
+    ranAt: row.ranAt.toISOString(),
+  }));
 }
 
 function parseVideoDiffResult(row: Evidence["videoDiffResult"]): CachedVideoDiffResult | null {

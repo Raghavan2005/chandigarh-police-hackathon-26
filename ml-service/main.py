@@ -38,10 +38,28 @@ directly). Endpoints:
                                a cut-and-stitched edit produces (also
                                triggered by loud transients in genuine
                                audio — a signal to investigate, not proof).
+  - POST /detect/objects      image -> { objects: [{objectClass,
+                               confidence, box, plateText, plateConfidence}] }
+                               real torchvision COCO detector (person/car/
+                               truck/bus/motorcycle) — plateText/
+                               plateConfidence are set only on vehicle
+                               detections where EasyOCR found a plausible
+                               plate-shaped read over that box's lower
+                               region, null otherwise. CCTV use case (PS4
+                               use case #1).
+  - POST /embed/face          image -> { faces: [{box, embedding,
+                               detectionProbability}] } — every face MTCNN
+                               finds, each with a real 512-d face embedding
+                               (see detector.py's embed_faces docstring for
+                               which model actually computes it and why).
+                               Used for reference-face matching against
+                               CCTV footage; a similarity score against a
+                               stated threshold, never a certified
+                               biometric identification.
 
 See detector.py / audio_detector.py / transcriber.py / translator.py /
-speech_validator.py / splice_detector.py for model/algorithm choice and
-README.md for how this was verified.
+speech_validator.py / splice_detector.py / object_detector.py / plate_ocr.py
+for model/algorithm choice and README.md for how this was verified.
 """
 
 from __future__ import annotations
@@ -55,6 +73,8 @@ from pydantic import BaseModel
 
 from audio_detector import AudioDeepfakeDetector
 from detector import DeepfakeDetector
+from object_detector import ObjectDetector
+from plate_ocr import read_plate
 from speech_validator import validate_speech
 from splice_detector import detect_splices
 from transcriber import Transcriber
@@ -69,6 +89,7 @@ _detector: DeepfakeDetector | None = None
 _audio_detector: AudioDeepfakeDetector | None = None
 _transcriber: Transcriber | None = None
 _translator: Translator | None = None
+_object_detector: ObjectDetector | None = None
 
 
 class DetectionResponse(BaseModel):
@@ -129,6 +150,31 @@ class SpliceDetectionResponse(BaseModel):
     totalSeconds: float
 
 
+class ObjectDetectionModel(BaseModel):
+    objectClass: str
+    confidence: float
+    box: list[float]  # normalized [x1, y1, x2, y2], 0-1 fractions of the frame
+    # Set only on vehicle-class detections where EasyOCR found a plausible
+    # plate-shaped read over that box's lower region -- null otherwise
+    # (no vehicle present, or OCR found nothing plausible), never fabricated.
+    plateText: str | None = None
+    plateConfidence: float | None = None
+
+
+class ObjectDetectionResponse(BaseModel):
+    objects: list[ObjectDetectionModel]
+
+
+class FaceEmbeddingModel(BaseModel):
+    box: list[float]  # normalized [x1, y1, x2, y2], 0-1 fractions of the frame
+    embedding: list[float]  # 512-d, L2-normalized
+    detectionProbability: float | None = None
+
+
+class FaceEmbeddingResponse(BaseModel):
+    faces: list[FaceEmbeddingModel]
+
+
 @app.on_event("startup")
 def load_model() -> None:
     global _detector
@@ -172,6 +218,15 @@ def get_translator() -> Translator:
         _translator = Translator()
         logger.info("Translation model loaded.")
     return _translator
+
+
+def get_object_detector() -> ObjectDetector:
+    global _object_detector
+    if _object_detector is None:
+        logger.info("Loading object detection model on first use (downloads weights on first run, then cached)...")
+        _object_detector = ObjectDetector()
+        logger.info("Object detection model loaded.")
+    return _object_detector
 
 
 async def _run_detection(file: UploadFile) -> DetectionResponse:
@@ -342,6 +397,99 @@ async def detect_splices_endpoint(file: UploadFile = File(...)) -> SpliceDetecti
     )
 
 
+@app.post("/detect/objects", response_model=ObjectDetectionResponse)
+async def detect_objects(file: UploadFile = File(...)) -> ObjectDetectionResponse:
+    """Real COCO object detection (person/car/truck/bus/motorcycle) plus a
+    real EasyOCR plate-text attempt over each detected vehicle's own box —
+    CCTV use case #1 (PS4_USE_CASES.md). Never fabricates a detection or a
+    plate read: an empty `objects` list is an honest "nothing above
+    threshold found," and plateText stays null on a vehicle whenever OCR
+    found nothing plausible, not a guessed string.
+    """
+    if file.content_type is not None and not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail=f"Expected an image file, got content-type {file.content_type!r}")
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    try:
+        image = Image.open(io.BytesIO(raw))
+        image.load()
+    except UnidentifiedImageError:
+        raise HTTPException(status_code=400, detail="Could not decode file as an image.")
+
+    object_detector = get_object_detector()
+    try:
+        detections = object_detector.detect(image)
+    except Exception as exc:  # noqa: BLE001 - surface as a 500 with context, don't crash the service
+        logger.exception("Object detection failed")
+        raise HTTPException(status_code=500, detail=f"Object detection failed: {exc}") from exc
+
+    VEHICLE_CLASSES = {"car", "truck", "bus", "motorcycle"}
+    objects: list[ObjectDetectionModel] = []
+    for detection in detections:
+        plate_text: str | None = None
+        plate_confidence: float | None = None
+        if detection.object_class in VEHICLE_CLASSES:
+            try:
+                plate = read_plate(image, detection.box)
+            except Exception:  # noqa: BLE001 - a single vehicle's OCR failing (e.g. a degenerate crop) shouldn't sink the whole detection response
+                logger.exception("Plate OCR failed for one vehicle box")
+                plate = None
+            if plate is not None:
+                plate_text = plate.text
+                plate_confidence = plate.confidence
+        objects.append(
+            ObjectDetectionModel(
+                objectClass=detection.object_class,
+                confidence=detection.confidence,
+                box=detection.box,
+                plateText=plate_text,
+                plateConfidence=plate_confidence,
+            )
+        )
+
+    return ObjectDetectionResponse(objects=objects)
+
+
+@app.post("/embed/face", response_model=FaceEmbeddingResponse)
+async def embed_face(file: UploadFile = File(...)) -> FaceEmbeddingResponse:
+    """Real 512-d face embeddings for every face MTCNN finds in the image —
+    reference-face matching against CCTV footage (PS4 use case #1). See
+    detector.py's embed_faces docstring for exactly which model computes
+    the embedding and the real discrimination numbers that were verified
+    before this shipped. Empty `faces` list is an honest "no face found,"
+    never a fabricated entry.
+    """
+    if file.content_type is not None and not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail=f"Expected an image file, got content-type {file.content_type!r}")
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    try:
+        image = Image.open(io.BytesIO(raw))
+        image.load()
+    except UnidentifiedImageError:
+        raise HTTPException(status_code=400, detail="Could not decode file as an image.")
+
+    detector = get_detector()
+    try:
+        faces = detector.embed_faces(image)
+    except Exception as exc:  # noqa: BLE001 - surface as a 500 with context, don't crash the service
+        logger.exception("Face embedding failed")
+        raise HTTPException(status_code=500, detail=f"Face embedding failed: {exc}") from exc
+
+    return FaceEmbeddingResponse(
+        faces=[
+            FaceEmbeddingModel(box=f.box, embedding=f.embedding, detectionProbability=f.detectionProbability)
+            for f in faces
+        ]
+    )
+
+
 @app.get("/health")
 def health() -> dict:
     return {
@@ -350,4 +498,5 @@ def health() -> dict:
         "audioModelLoaded": _audio_detector is not None,
         "transcriberLoaded": _transcriber is not None,
         "translatorLoaded": _translator is not None,
+        "objectDetectorLoaded": _object_detector is not None,
     }

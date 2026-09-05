@@ -42,17 +42,24 @@ export async function extractFrameAt(filePath: string, timestampSeconds: number)
 }
 
 /**
- * Samples up to `maxFrames` evenly-spaced frames from a video for the
- * detection classifier (PS4_MVP_BUILD_PLAN.md §3 — "reuse the image model
- * via frame sampling," video support isn't a separate model). Returns each
+ * Samples frames from a video for a detection model — either evenly spaced
+ * across the whole clip (default, PS4_MVP_BUILD_PLAN.md §3 — "reuse the
+ * image model via frame sampling," used by the deepfake classifier) or, if
+ * `intervalSeconds` is given, at a fixed interval up to `maxFrames` — the
+ * denser coverage CCTV-style scanning needs (use case #1: a person/
+ * vehicle/plate may only be on-screen for a couple of seconds, which a
+ * 6-frame whole-clip sample would very likely miss entirely). Returns each
  * frame's real timestamp alongside its bytes — previously discarded after
- * picking the worst-scoring frame, now the basis for the real per-frame
- * timeline surfaced in the investigator UI (DetectionResult.frameScoresJson).
+ * picking the worst-scoring frame in the deepfake path, now also the basis
+ * for the real per-frame timeline surfaced in the investigator UI
+ * (DetectionResult.frameScoresJson) and, for the interval mode, the CCTV
+ * object/face detection pipeline.
  */
 export async function sampleVideoFrames(
   filePath: string,
   durationSeconds: number,
   maxFrames = 6,
+  intervalSeconds?: number,
 ): Promise<SampledFrame[]> {
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
     // No usable duration (ffprobe failed earlier, or a 0-length/corrupt
@@ -61,13 +68,25 @@ export async function sampleVideoFrames(
     return [];
   }
 
-  const frameCount = Math.max(1, Math.min(maxFrames, Math.floor(durationSeconds)));
-  // Evenly spaced, avoiding the very first/last frame (often black/blank in
-  // real footage) by sampling within the middle 90% of the clip.
-  const timestamps = Array.from({ length: frameCount }, (_, i) => {
-    const fraction = frameCount === 1 ? 0.5 : 0.05 + (0.9 * i) / (frameCount - 1);
-    return durationSeconds * fraction;
-  });
+  let timestamps: number[];
+  if (intervalSeconds && intervalSeconds > 0) {
+    // Fixed-interval sampling: starts half an interval in (skips a likely
+    // black/blank opening frame, same reasoning as the 5% margin below)
+    // and steps every intervalSeconds up to the cap — disclosed sampling
+    // strategy for CCTV use case #1, not an attempt to sample every frame.
+    const count = Math.max(1, Math.min(maxFrames, Math.floor(durationSeconds / intervalSeconds)));
+    timestamps = Array.from({ length: count }, (_, i) =>
+      Math.min(durationSeconds - 0.05, intervalSeconds / 2 + i * intervalSeconds),
+    );
+  } else {
+    const frameCount = Math.max(1, Math.min(maxFrames, Math.floor(durationSeconds)));
+    // Evenly spaced, avoiding the very first/last frame (often black/blank
+    // in real footage) by sampling within the middle 90% of the clip.
+    timestamps = Array.from({ length: frameCount }, (_, i) => {
+      const fraction = frameCount === 1 ? 0.5 : 0.05 + (0.9 * i) / (frameCount - 1);
+      return durationSeconds * fraction;
+    });
+  }
 
   const frames: SampledFrame[] = [];
   for (const timestampSeconds of timestamps) {
