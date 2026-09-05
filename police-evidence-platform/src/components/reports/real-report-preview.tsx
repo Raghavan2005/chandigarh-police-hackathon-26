@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { AlertTriangle, Download, FileJson, Loader2, Printer } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatDateOnly, formatTimestamp } from "@/lib/utils";
 import type { getRealCase, getRealCaseAuditLog } from "@/lib/cases-server";
 
 type RealCase = NonNullable<Awaited<ReturnType<typeof getRealCase>>>;
@@ -260,7 +260,7 @@ export function RealReportPreview({
               {caseData.firDate && (
                 <>
                   <dt><Bi en="FIR date" hi="प्राथमिकी दिनांक" /></dt>
-                  <dd className="text-neutral-900">{new Date(caseData.firDate).toLocaleDateString()}</dd>
+                  <dd className="text-neutral-900">{formatDateOnly(new Date(caseData.firDate))}</dd>
                 </>
               )}
               <dt><Bi en="Police Station" hi="थाना" /></dt>
@@ -307,7 +307,7 @@ export function RealReportPreview({
               <dt><Bi en="Status" hi="स्थिति" /></dt>
               <dd className="capitalize text-neutral-900">{caseData.status}</dd>
               <dt><Bi en="Opened" hi="प्रारंभ तिथि" /></dt>
-              <dd className="text-neutral-900">{new Date(caseData.openedAt).toLocaleString()}</dd>
+              <dd className="text-neutral-900">{formatTimestamp(new Date(caseData.openedAt))}</dd>
             </dl>
           </div>
 
@@ -493,7 +493,7 @@ export function RealReportPreview({
                                   {[t.witness1Name, t.witness2Name].filter(Boolean).join("; ") || "none recorded"}
                                 </td>
                                 <td className="py-1.5 text-right font-mono text-[10px] text-neutral-400">
-                                  {new Date(t.occurredAt).toLocaleString()}
+                                  {formatTimestamp(new Date(t.occurredAt))}
                                 </td>
                               </tr>
                             ))}
@@ -528,7 +528,7 @@ export function RealReportPreview({
                 )}
                 {auditLog.map((a) => (
                   <tr key={a.id} className="border-b border-dashed border-neutral-100">
-                    <td className="py-1.5 font-mono text-neutral-400">{new Date(a.timestamp).toLocaleString()}</td>
+                    <td className="py-1.5 font-mono text-neutral-400">{formatTimestamp(new Date(a.timestamp))}</td>
                     <td className="py-1.5">{a.actor?.name ?? "system"}</td>
                     <td className="py-1.5">{a.action.toLowerCase()}</td>
                     <td className="py-1.5 text-right font-mono text-[10px] text-neutral-400">{a.device ?? "—"}</td>
@@ -601,7 +601,7 @@ export function RealReportPreview({
                       <dt><Bi en="Record hash (SHA-256)" hi="अभिलेख हैश" /></dt>
                       <dd className="break-all font-mono text-[10px] text-neutral-900">{ev.sha256}</dd>
                       <dt><Bi en="Computed at intake" hi="अंतर्ग्रहण के समय" /></dt>
-                      <dd className="text-neutral-900">{new Date(ev.uploadedAt).toLocaleString()}</dd>
+                      <dd className="text-neutral-900">{formatTimestamp(new Date(ev.uploadedAt))}</dd>
                     </dl>
                     {/* The Schedule to Section 63/65B's four conditions,
                         enumerated separately rather than merged into one
@@ -728,7 +728,7 @@ export function RealReportPreview({
               <>
                 <p className="mt-1 text-[10px] leading-snug text-neutral-500">
                   <Bi
-                    en={`Forwarded by ${caseData.forwardingOfficerName}, ${caseData.forwardingOfficerRank}${caseData.forwardingOfficerBadgeNo ? ` (${caseData.forwardingOfficerBadgeNo})` : ""} on ${caseData.forwardedAt ? new Date(caseData.forwardedAt).toLocaleDateString() : "—"}.${caseData.forwardingRemarks ? ` Remarks: ${caseData.forwardingRemarks}` : ""}`}
+                    en={`Forwarded by ${caseData.forwardingOfficerName}, ${caseData.forwardingOfficerRank}${caseData.forwardingOfficerBadgeNo ? ` (${caseData.forwardingOfficerBadgeNo})` : ""} on ${caseData.forwardedAt ? formatDateOnly(new Date(caseData.forwardedAt)) : "—"}.${caseData.forwardingRemarks ? ` Remarks: ${caseData.forwardingRemarks}` : ""}`}
                     hi={`${caseData.forwardingOfficerName}, ${caseData.forwardingOfficerRank} द्वारा अग्रेषित।`}
                   />
                 </p>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Clock3, FileDigit, GitCompareArrows, Loader2, ScanSearch, Shield, ShieldAlert, ShieldCheck } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatDateOnly, formatTimestamp } from "@/lib/utils";
 import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
 import { RealEvidenceViewer, type CachedTranscript } from "@/components/investigation/real-evidence-viewer";
 import type { CachedSpliceDetectionResult } from "@/components/investigation/splice-detection-panel";
@@ -151,7 +151,7 @@ export function EvidenceCard({
           )}
         </div>
         <span className="shrink-0 text-[11px] text-text-tertiary">
-          {evidence.uploadedBy.name} · {new Date(evidence.uploadedAt).toLocaleString()}
+          {evidence.uploadedBy.name} · {formatTimestamp(new Date(evidence.uploadedAt))}
         </span>
       </div>
 
@@ -377,7 +377,7 @@ export function EvidenceCard({
           {evidence.overrides.map((o) => (
             <p key={o.id} className="text-[11px] text-text-tertiary">
               {o.previousVerdict.replace("_", "-")} → {o.newVerdict.replace("_", "-")} by {o.overriddenBy.name}
-              {" "}({new Date(o.timestamp).toLocaleString()}): {o.reason}
+              {" "}({formatTimestamp(new Date(o.timestamp))}): {o.reason}
             </p>
           ))}
         </div>
@@ -400,7 +400,7 @@ export function EvidenceCard({
           {evidence.custodyTransfers.map((t) => (
             <p key={t.id} className="text-[11px] text-text-tertiary">
               {t.fromPerson} → {t.toPerson} ({t.purpose}){t.location ? ` — ${t.location}` : ""} — logged by{" "}
-              {t.recordedBy.name} ({new Date(t.occurredAt).toLocaleString()})
+              {t.recordedBy.name} ({formatTimestamp(new Date(t.occurredAt))})
               {t.witness1Name && `; witness: ${t.witness1Name}`}
               {t.witness2Name && `, ${t.witness2Name}`}
             </p>
@@ -447,7 +447,7 @@ export function EvidenceCard({
           {evidence.corpusMatches.map((m) => (
             <p key={m.id} className="text-[11px] text-text-secondary">
               Matches seeded corpus item from {m.corpusItem.sourcePlatform} (first seen{" "}
-              {new Date(m.corpusItem.firstSeenAt).toLocaleDateString()}) — {Math.round(m.similarity * 100)}% similar
+              {formatDateOnly(new Date(m.corpusItem.firstSeenAt))}) — {Math.round(m.similarity * 100)}% similar
             </p>
           ))}
         </div>
@@ -741,8 +741,8 @@ function DocumentDetails({ exifJson, sha256 }: { exifJson: string; sha256: strin
     <div className="flex flex-col gap-2 border-t border-border-subtle pt-3 text-xs">
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
         <Field label="Pages" value={String(info.pageCount)} />
-        {info.creationDate && <Field label="Created" value={new Date(info.creationDate).toLocaleString()} />}
-        {info.modDate && <Field label="Modified" value={new Date(info.modDate).toLocaleString()} />}
+        {info.creationDate && <Field label="Created" value={formatTimestamp(new Date(info.creationDate))} />}
+        {info.modDate && <Field label="Modified" value={formatTimestamp(new Date(info.modDate))} />}
         {info.producer && <Field label="Producer" value={info.producer} />}
         {info.creator && <Field label="Creator" value={info.creator} />}
         <Field label="SHA-256" value={sha256} className="col-span-2 sm:col-span-4 truncate" />

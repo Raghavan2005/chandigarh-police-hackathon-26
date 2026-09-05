@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, Info, ShieldAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, formatTimestamp } from "@/lib/utils";
 import { getSession } from "@/lib/session";
 import { listAlertsForUser } from "@/lib/alerts-server";
 import { AcknowledgeAlertButton } from "@/components/investigation/acknowledge-alert-button";
@@ -79,7 +79,7 @@ export default async function AlertsPage() {
                             </>
                           )}
                           <span>&middot;</span>
-                          <span>{alert.createdAt.toLocaleString()}</span>
+                          <span>{formatTimestamp(alert.createdAt)}</span>
                         </div>
                       </div>
                     </div>
@@ -105,7 +105,7 @@ export default async function AlertsPage() {
                 <div key={alert.id} className="border-t border-border-subtle pt-2 text-xs text-text-tertiary first:border-t-0 first:pt-0">
                   <span className="font-mono uppercase tracking-wide">{alert.type}</span> — {alert.message}
                   <p className="mt-0.5">
-                    Acknowledged by {alert.acknowledgedBy?.name ?? "—"} ({alert.acknowledgedAt?.toLocaleString()})
+                    Acknowledged by {alert.acknowledgedBy?.name ?? "—"} ({alert.acknowledgedAt ? formatTimestamp(alert.acknowledgedAt) : "—"})
                   </p>
                 </div>
               ))}

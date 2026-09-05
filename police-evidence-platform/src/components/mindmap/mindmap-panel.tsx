@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, Loader2, Lock, Network } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatTimestamp } from "@/lib/utils";
 import type { MindMapEntity, MindMapRelationship } from "@/lib/mindmap-server";
 import { MindMapGraph } from "@/components/mindmap/mindmap-graph";
 
@@ -147,7 +147,7 @@ export function MindMapPanel({
         <div className="min-w-0">
           <p className="text-xs text-text-tertiary">
             Synthesized from {result.exhibitCount} of {totalEvidenceCount} exhibit{totalEvidenceCount === 1 ? "" : "s"}{" "}
-            — results as of {formatRelativeTime(result.ranAt)} ({new Date(result.ranAt).toLocaleString()}), not
+            — results as of {formatRelativeTime(result.ranAt)} ({formatTimestamp(new Date(result.ranAt))}), not
             re-checked automatically as new evidence is added.
           </p>
         </div>

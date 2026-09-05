@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
 import { VerdictBadge } from "@/components/shared/verdict-badge";
-import { cn } from "@/lib/utils";
+import { cn, formatDateOnly, formatTimestamp } from "@/lib/utils";
 import { listVaultEvidence } from "@/lib/vault-server";
 import type { EvidenceKind, Verdict } from "@/lib/types";
 
@@ -239,13 +239,13 @@ export default async function VaultPage({
                               On hold
                             </span>
                           ) : item.retentionUntil ? (
-                            new Date(item.retentionUntil).toLocaleDateString()
+                            formatDateOnly(new Date(item.retentionUntil))
                           ) : (
                             "—"
                           )}
                         </TableCell>
                         <TableCell className="text-right text-xs text-text-tertiary">
-                          {item.uploadedAt.toLocaleString()}
+                          {formatTimestamp(item.uploadedAt)}
                         </TableCell>
                       </TableRow>
                     );

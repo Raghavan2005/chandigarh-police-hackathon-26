@@ -12,7 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatTimeOnly } from "@/lib/utils";
 
 interface CaptureLinkState {
   url: string;
@@ -99,7 +99,7 @@ export function CaptureLinkDialog({ caseId }: { caseId: string }) {
                 {link.url}
               </p>
               <p className="text-xs text-text-tertiary">
-                Expires {new Date(link.expiresAt).toLocaleTimeString()}
+                Expires {formatTimeOnly(new Date(link.expiresAt))}
               </p>
             </>
           )}

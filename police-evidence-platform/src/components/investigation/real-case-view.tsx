@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Clock, FileDown, GitBranch, Network, ShieldAlert } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatDateOnly, formatTimestamp } from "@/lib/utils";
 import { AddEvidenceDialog } from "@/components/investigation/add-evidence-dialog";
 import { EvidenceTabs } from "@/components/investigation/evidence-tabs";
 import { ForwardingDialog } from "@/components/investigation/forwarding-dialog";
@@ -96,7 +96,7 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Case particulars</p>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm sm:grid-cols-4">
           <Row label="FIR number" value={caseData.firNumber} />
-          {caseData.firDate && <Row label="FIR date" value={new Date(caseData.firDate).toLocaleDateString()} />}
+          {caseData.firDate && <Row label="FIR date" value={formatDateOnly(new Date(caseData.firDate))} />}
           <Row label="Police station" value={caseData.policeStation} />
           <Row label="District/UT" value={caseData.district} />
           {caseData.offenceSections && <Row label="Sections of law" value={caseData.offenceSections} />}
@@ -108,7 +108,7 @@ export function RealCaseView({ caseData }: { caseData: RealCase }) {
           <Row label="Investigator" value={caseData.investigator.name} />
           {caseData.investigatorRank && <Row label="Rank" value={caseData.investigatorRank} />}
           {caseData.investigatorBadgeNo && <Row label="Badge/PIS No." value={caseData.investigatorBadgeNo} mono />}
-          <Row label="Opened" value={new Date(caseData.openedAt).toLocaleString()} />
+          <Row label="Opened" value={formatTimestamp(new Date(caseData.openedAt))} />
           {caseData.forwardingOfficerName && (
             <Row
               label="Forwarded to"

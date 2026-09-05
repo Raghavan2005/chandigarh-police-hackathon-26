@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, formatTimestamp } from "@/lib/utils";
 import type { InvestigationTimelineEntry } from "@/lib/investigations-server";
 
 const ACTION_COLOR: Record<string, string> = {
@@ -35,7 +35,7 @@ export function InvestigationTimeline({ entries }: { entries: InvestigationTimel
           <div className="flex flex-col gap-2">
             {entries.map((e) => (
               <div key={e.id} className="flex items-baseline gap-2 border-t border-border-subtle pt-2 text-xs first:border-t-0 first:pt-0">
-                <span className="shrink-0 font-mono text-text-tertiary">{new Date(e.timestamp).toLocaleString()}</span>
+                <span className="shrink-0 font-mono text-text-tertiary">{formatTimestamp(new Date(e.timestamp))}</span>
                 <span className={cn("shrink-0 font-mono font-semibold", ACTION_COLOR[e.action] ?? "text-text-secondary")}>
                   {e.action}
                 </span>
