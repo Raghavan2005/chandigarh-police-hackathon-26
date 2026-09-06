@@ -1,7 +1,7 @@
 import "server-only";
 import { GoogleGenAI } from "@google/genai";
 import { SchemaType } from "@google-cloud/vertexai";
-import { buildClient } from "@/lib/image-description";
+import { buildClient, isGeminiConfigured } from "@/lib/image-description";
 
 export interface ClaimCitation {
   title: string;
@@ -124,5 +124,5 @@ export async function verifyClaim(claimText: string): Promise<ClaimVerificationR
  * SDK actually being installed (it's a separate package from
  * @google-cloud/vertexai, added specifically for Search grounding). */
 export function isClaimVerificationConfigured(): boolean {
-  return Boolean(process.env.GEMINI_APPLICATION_CREDENTIALS && process.env.GEMINI_GCP_PROJECT_ID);
+  return isGeminiConfigured();
 }

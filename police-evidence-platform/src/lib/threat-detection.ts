@@ -1,6 +1,6 @@
 import "server-only";
 import { SchemaType } from "@google-cloud/vertexai";
-import { buildClient } from "@/lib/image-description";
+import { buildClient, isGeminiConfigured } from "@/lib/image-description";
 
 export interface ThreatAssessmentResult {
   containsThreat: boolean;
@@ -80,5 +80,5 @@ export async function analyzeThreat(transcriptText: string): Promise<ThreatAsses
 /** Whether threat detection is actually configured — same credential as
  * every other Vertex AI Gemini caller in this codebase. */
 export function isThreatDetectionConfigured(): boolean {
-  return Boolean(process.env.GEMINI_APPLICATION_CREDENTIALS && process.env.GEMINI_GCP_PROJECT_ID);
+  return isGeminiConfigured();
 }

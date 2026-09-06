@@ -1,6 +1,6 @@
 import "server-only";
 import { SchemaType } from "@google-cloud/vertexai";
-import { buildClient } from "@/lib/image-description";
+import { buildClient, isGeminiConfigured } from "@/lib/image-description";
 import { extractDocumentText } from "@/lib/document-analysis";
 import type { getRealCase } from "@/lib/cases-server";
 
@@ -258,5 +258,5 @@ export async function synthesizeCaseMindMap(combinedText: string): Promise<CaseM
 /** Whether the mind-map synthesis is actually configured — same Gemini
  * credential as every other Vertex AI caller in this app. */
 export function isMindMapConfigured(): boolean {
-  return Boolean(process.env.GEMINI_APPLICATION_CREDENTIALS && process.env.GEMINI_GCP_PROJECT_ID);
+  return isGeminiConfigured();
 }

@@ -1,4 +1,5 @@
 import "server-only";
+import { existsSync } from "fs";
 import { SchemaType, VertexAI } from "@google-cloud/vertexai";
 
 export interface PossibleIdentity {
@@ -129,9 +130,23 @@ export async function describeImage(imageBuffer: Buffer, mimeType: string): Prom
   };
 }
 
+/** Shared Gemini/Vertex AI configuration check — every Gemini-backed
+ * feature (image description, threat detection, document analysis, claim
+ * verification, mind map) imports this instead of duplicating it. Checks
+ * that the credential file actually exists on disk, not just that the env
+ * var pointing at it is set — a missing key file (see secrets/README.md;
+ * never committed, must be copied in per-machine) previously passed this
+ * check and only failed later as a confusing runtime error instead of the
+ * honest "not configured" response every caller is already designed to
+ * give when this returns false. */
+export function isGeminiConfigured(): boolean {
+  const keyPath = process.env.GEMINI_APPLICATION_CREDENTIALS;
+  return Boolean(keyPath && process.env.GEMINI_GCP_PROJECT_ID && existsSync(keyPath));
+}
+
 /** Whether Gemini image description is actually configured — checked
  * before offering the feature so a missing credential shows an honest
  * "not configured" state instead of a confusing runtime error. */
 export function isImageDescriptionConfigured(): boolean {
-  return Boolean(process.env.GEMINI_APPLICATION_CREDENTIALS && process.env.GEMINI_GCP_PROJECT_ID);
+  return isGeminiConfigured();
 }
