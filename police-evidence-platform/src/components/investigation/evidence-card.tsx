@@ -9,7 +9,7 @@ import { cn, formatDateOnly, formatTimestamp } from "@/lib/utils";
 import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
 import { RealEvidenceViewer, type CachedTranscript } from "@/components/investigation/real-evidence-viewer";
 import type { CachedSpliceDetectionResult } from "@/components/investigation/splice-detection-panel";
-import { RealFusionSignals } from "@/components/investigation/real-fusion-signals";
+import { RealFusionSignals, DOCUMENT_FUSION_SIGNALS } from "@/components/investigation/real-fusion-signals";
 import { RealPipelinePanel } from "@/components/investigation/real-pipeline-panel";
 import { OverrideDialog } from "@/components/investigation/override-dialog";
 import { ForensicExpertDialog } from "@/components/investigation/forensic-expert-dialog";
@@ -84,6 +84,12 @@ export function EvidenceCard({
   const isVideo = evidence.mimeType.startsWith("video/");
   const isAudio = evidence.mimeType.startsWith("audio/");
   const isImage = evidence.mimeType.startsWith("image/");
+  // Documents get a real verdict too (document-fusion.ts, computed
+  // automatically at upload — see evidence-ingest.ts), just not via the
+  // manual Investigate button: there's no async ML step to gate behind one,
+  // the two real signals it's based on (signature check, tamper-date
+  // consistency) are already computed synchronously at upload time.
+  const isDocumentPdf = evidence.mimeType === "application/pdf";
   // A case's evidenceKind is one value for the whole case, but individual
   // evidence items can be a different real mimeType (e.g. a document
   // uploaded onto an "audio" case) — the icon must reflect the actual file,
@@ -217,13 +223,13 @@ export function EvidenceCard({
         </div>
 
         <div className="min-w-0 rounded-lg border border-border-subtle bg-surface-sunken p-4">
-          {canInvestigate ? (
+          {canInvestigate || isDocumentPdf ? (
             <RealPipelinePanel evidence={evidence} />
           ) : (
             <div className="flex flex-col gap-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Analysis pipeline</p>
               <p className="mt-2 text-xs text-text-tertiary">
-                Detection isn&apos;t available for this evidence type yet (image/video/audio only in this build).
+                Detection isn&apos;t available for this evidence type yet (image/video/audio/PDF only in this build).
               </p>
             </div>
           )}
@@ -359,7 +365,9 @@ export function EvidenceCard({
 
       {evidence.fusionVerdict && (
         <div className="rounded-lg border border-border-subtle bg-surface-sunken p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Evidence fusion</p>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+            {isDocumentPdf ? "Document integrity" : "Evidence fusion"}
+          </p>
           <RealFusionSignals
             signalBreakdownJson={evidence.fusionVerdict.signalBreakdownJson}
             coverageCount={evidence.fusionVerdict.coverageCount}
@@ -367,6 +375,14 @@ export function EvidenceCard({
             verdict={evidence.fusionVerdict.verdict}
             confidence={evidence.fusionVerdict.confidence}
             explanation={evidence.fusionVerdict.explanation}
+            {...(isDocumentPdf
+              ? {
+                  signals: DOCUMENT_FUSION_SIGNALS,
+                  totalSignals: 2,
+                  introText:
+                    "There is no ML classifier for documents in this build — this verdict comes purely from the two structural signals below, never a content-authenticity claim.",
+                }
+              : {})}
           />
         </div>
       )}

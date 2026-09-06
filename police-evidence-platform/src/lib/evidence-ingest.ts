@@ -3,6 +3,14 @@ import { db } from "@/lib/db";
 import { appendCheckpoint, writeAuditEntryInTx } from "@/lib/audit";
 import { resolveEvidencePath, sha256Hex, writeEvidenceFile } from "@/lib/storage";
 import { extractMetadata } from "@/lib/metadata";
+import { fuseDocumentEvidence } from "@/lib/document-fusion";
+
+interface PdfSignatureExifFields {
+  signaturePresent?: boolean;
+  signatureCoversWholeFile?: boolean | null;
+  signerName?: string | null;
+  modifiedAfterCreation?: boolean;
+}
 
 interface IngestEvidenceInput {
   caseId: string;
@@ -120,6 +128,54 @@ export async function ingestEvidence(input: IngestEvidenceInput): Promise<Ingest
     return { metadataAuditEntry };
   });
   appendCheckpoint(metadataAuditEntry);
+
+  // Documents have no ML classifier and no separate "Investigate" click
+  // (see investigate/route.ts's own 422 for this evidence type) — the two
+  // real, structural signals that DO exist for a PDF (digital-signature
+  // check, creation-vs-modification-date consistency) are both already
+  // computed synchronously above, so there is no reason to wait for a
+  // manual action before turning them into a verdict. Previously they sat
+  // unused in metadataResult.exifJson while the UI told the investigator
+  // "no verdict to show" — misleading once real signals actually exist.
+  if (extracted.container === "PDF" && extracted.exifJson) {
+    let exif: PdfSignatureExifFields = {};
+    try {
+      exif = JSON.parse(extracted.exifJson);
+    } catch {
+      exif = {};
+    }
+    const fusion = fuseDocumentEvidence({
+      signaturePresent: exif.signaturePresent ?? false,
+      signatureCoversWholeFile: exif.signatureCoversWholeFile ?? null,
+      signerName: exif.signerName ?? null,
+      modifiedAfterCreation: exif.modifiedAfterCreation ?? false,
+    });
+    const { documentFusionAuditEntry } = await db.$transaction(async (tx) => {
+      await tx.fusionVerdict.create({
+        data: {
+          evidenceId: evidence.id,
+          verdict: fusion.verdict,
+          confidence: fusion.confidence,
+          coverageCount: fusion.coverageCount,
+          confidenceCeiling: fusion.confidenceCeiling,
+          explanation: fusion.explanation,
+          signalBreakdownJson: JSON.stringify(fusion.signalBreakdown),
+        },
+      });
+      const documentFusionAuditEntry = await writeAuditEntryInTx(
+        {
+          caseId: input.caseId,
+          evidenceHash: sha256,
+          actorId: input.uploadedById,
+          action: "ANALYZED",
+          device: "pramana-document-fusion",
+        },
+        tx,
+      );
+      return { documentFusionAuditEntry };
+    });
+    appendCheckpoint(documentFusionAuditEntry);
+  }
 
   return { ok: true, evidence };
 }

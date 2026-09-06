@@ -1,7 +1,14 @@
 export interface PipelineEvidenceInput {
   mimeType: string;
   uploadedAt: Date;
-  metadataResult: { container: string | null; resolution: string | null; encoderSignature: string | null } | null;
+  metadataResult: {
+    container: string | null;
+    resolution: string | null;
+    encoderSignature: string | null;
+    // Only actually read for documents (application/pdf) — carries the
+    // signature-check fields written by metadata.ts's extractPdfMetadata.
+    exifJson: string | null;
+  } | null;
   detectionResult: {
     manipulationProbability: number;
     generalAiProbability: number | null;
@@ -37,6 +44,76 @@ export interface PipelineStatus {
  * one place, not two copies that could drift.
  */
 export function computePipelineStatus(evidence: PipelineEvidenceInput): PipelineStatus {
+  // Documents have no ML classifier, no perceptual-hash equivalent, and no
+  // C2PA check ever run against them (checkProvenance is only called from
+  // the image/video/audio investigate path) — showing those steps as
+  // "pending" would imply a capability that doesn't exist for this
+  // evidence type. The two real, structural checks that DO exist for a PDF
+  // (digital-signature check, creation-vs-modification-date consistency)
+  // get their own step list instead of being forced into the classifier-
+  // shaped one below.
+  if (evidence.mimeType === "application/pdf") {
+    let sig: { signaturePresent?: boolean; signatureCoversWholeFile?: boolean | null; signerName?: string | null } = {};
+    try {
+      sig = evidence.metadataResult?.exifJson ? JSON.parse(evidence.metadataResult.exifJson) : {};
+    } catch {
+      sig = {};
+    }
+    const steps: PipelineStep[] = [
+      {
+        id: "metadata",
+        label: "Metadata extracted",
+        done: Boolean(evidence.metadataResult),
+        detail: "Page count, creation/modification dates, and producer/creator tool read from the PDF's own document info dictionary.",
+        metrics: evidence.metadataResult
+          ? [
+              { label: "Container", value: evidence.metadataResult.container ?? "—" },
+              ...(evidence.metadataResult.encoderSignature
+                ? [{ label: "Editing tool signature", value: evidence.metadataResult.encoderSignature }]
+                : []),
+            ]
+          : undefined,
+      },
+      {
+        id: "signature",
+        label: "Digital signature check",
+        done: Boolean(evidence.metadataResult),
+        detail: "Checks for an embedded PKCS#7/CMS signature and whether it covers the whole file — structural detection only, not a cryptographic trust-chain verification (see WHAT_IS_REAL.md).",
+        metrics: evidence.metadataResult
+          ? sig.signaturePresent
+            ? [
+                { label: "Signature present", value: "Yes" },
+                { label: "Signer", value: sig.signerName ?? "—" },
+                {
+                  label: "Covers whole file",
+                  value: sig.signatureCoversWholeFile ? "Yes" : "No — bytes appended after signing",
+                },
+              ]
+            : [{ label: "Signature present", value: "No" }]
+          : undefined,
+      },
+      {
+        id: "fusion",
+        label: "Document integrity verdict",
+        done: Boolean(evidence.fusionVerdict),
+        detail: "Signature status and tamper-date consistency combined into one verdict — no ML classifier exists for documents, so this is a structural check only, never a claim about the content's truthfulness.",
+        metrics: evidence.fusionVerdict
+          ? [
+              { label: "Signals corroborating", value: `${evidence.fusionVerdict.coverageCount} / 2` },
+              { label: "Verdict", value: evidence.fusionVerdict.verdict },
+              { label: "Confidence", value: `${evidence.fusionVerdict.confidence}%` },
+            ]
+          : undefined,
+      },
+    ];
+    return {
+      steps,
+      totalMs: evidence.fusionVerdict
+        ? evidence.fusionVerdict.computedAt.getTime() - evidence.uploadedAt.getTime()
+        : null,
+    };
+  }
+
   const matchCount = evidence.matchesFrom.length + evidence.corpusMatches.length;
   // Audio has no perceptual-hash equivalent (Evidence.phash is "null for
   // audio/document" per its schema comment) — the matching step still runs

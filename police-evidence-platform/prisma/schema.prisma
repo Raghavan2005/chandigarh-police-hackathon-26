@@ -749,7 +749,7 @@ model FusionVerdict {
   evidence           Evidence @relation(fields: [evidenceId], references: [id])
   verdict            String // "AUTHENTIC" | "MANIPULATED" | "AI_GENERATED" | "INCONCLUSIVE"
   confidence         Int // 0-100, post-cap displayed confidence
-  coverageCount      Int // 0-3 corroborating signals that fired
+  coverageCount      Int // 0-3 (image/video/audio, fuseEvidence) or 0-2 (documents, fuseDocumentEvidence) corroborating signals that fired
   confidenceCeiling  Int // 60 + coverageCount*13, per the fusion algorithm spec
   explanation        String
   signalBreakdownJson String // each corroborating check recorded as fired/absent/contradicted — never omitted

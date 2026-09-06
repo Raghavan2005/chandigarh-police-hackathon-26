@@ -31,6 +31,11 @@ function signalLabel(key: string): string {
   if (key === "metadata") return "Metadata consistency";
   if (key === "c2pa") return "C2PA / Provenance";
   if (key === "hashMatch") return "Hash / corpus match";
+  // Document-fusion.ts's own two signals (no ML classifier exists for
+  // documents, see that module's docstring) — same signalBreakdownJson
+  // column, a different shape for this evidence kind.
+  if (key === "signature") return "Digital signature";
+  if (key === "tamperDate") return "Modification-date consistency";
   return key;
 }
 
@@ -417,7 +422,19 @@ export function RealReportPreview({
                     <>
                       <p className="mt-1 text-neutral-600">{ev.fusionVerdict.explanation}</p>
                       <p className="mt-1 text-neutral-500">
-                        Signals corroborating: {ev.fusionVerdict.coverageCount}/3 (
+                        Signals corroborating: {ev.fusionVerdict.coverageCount}/
+                        {(() => {
+                          // Denominator comes from however many signals this
+                          // verdict's own breakdown actually has, not a
+                          // hardcoded 3 — fuseDocumentEvidence's breakdown
+                          // has 2 (no ML classifier for documents), fuseEvidence's has 3.
+                          try {
+                            return Object.keys(JSON.parse(ev.fusionVerdict.signalBreakdownJson)).length;
+                          } catch {
+                            return 3;
+                          }
+                        })()}{" "}
+                        (
                         {(() => {
                           try {
                             const breakdown: Record<string, string> = JSON.parse(ev.fusionVerdict.signalBreakdownJson);

@@ -25,7 +25,7 @@ export async function GET(
   const evidence = await db.evidence.findUnique({
     where: { id: evidenceId },
     include: {
-      metadataResult: { select: { container: true, resolution: true, encoderSignature: true } },
+      metadataResult: { select: { container: true, resolution: true, encoderSignature: true, exifJson: true } },
       detectionResult: { select: { manipulationProbability: true, generalAiProbability: true, modelName: true, modelVersion: true } },
       provenanceResult: { select: { c2paPresent: true, c2paValid: true } },
       fusionVerdict: { select: { coverageCount: true, verdict: true, confidence: true, computedAt: true } },

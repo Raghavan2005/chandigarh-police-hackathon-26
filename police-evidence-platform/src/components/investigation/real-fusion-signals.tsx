@@ -4,35 +4,77 @@ import type { Verdict } from "@/lib/types";
 
 type SignalState = "fired" | "absent" | "contradicted";
 
-const SIGNAL_LABEL: Record<string, string> = {
-  metadata: "Metadata consistency",
-  c2pa: "C2PA / Provenance",
-  hashMatch: "Hash / corpus match",
-};
+export interface FusionSignalConfig {
+  key: string;
+  label: string;
+  describe: (state: SignalState) => string;
+  // Per-signal, not global — "fired" means something bad for a metadata
+  // inconsistency, but something GOOD for a document's whole-file signature
+  // coverage, so the color mapping can't be inferred from the state name
+  // alone. Defaults to the image/video/audio convention (fired=critical)
+  // when omitted.
+  statusFor?: (state: SignalState) => "critical" | "warning" | "safe" | "neutral";
+}
 
-function statusFor(state: SignalState): "critical" | "warning" | "neutral" {
+function defaultStatusFor(state: SignalState): "critical" | "warning" | "safe" | "neutral" {
   if (state === "fired") return "critical";
   if (state === "contradicted") return "warning";
   return "neutral";
 }
 
-function describe(key: string, state: SignalState): string {
-  if (key === "metadata") {
-    return state === "fired"
-      ? "Editing-software signature found on the file (e.g. professional encoder on claimed-raw footage)."
-      : "No inconsistency in the file's metadata.";
-  }
-  if (key === "c2pa") {
-    if (state === "contradicted") return "A Content Credential is present but failed validation.";
-    return "No Content Credential present — neutral, not suspicious (most real evidence has none).";
-  }
-  if (key === "hashMatch") {
-    return state === "fired"
-      ? "This file matches another item in the seeded corpus or another case."
-      : "No matching file found yet.";
-  }
-  return "";
-}
+const IMAGE_VIDEO_AUDIO_SIGNALS: FusionSignalConfig[] = [
+  {
+    key: "metadata",
+    label: "Metadata consistency",
+    describe: (state) =>
+      state === "fired"
+        ? "Editing-software signature found on the file (e.g. professional encoder on claimed-raw footage)."
+        : "No inconsistency in the file's metadata.",
+  },
+  {
+    key: "c2pa",
+    label: "C2PA / Provenance",
+    describe: (state) =>
+      state === "contradicted"
+        ? "A Content Credential is present but failed validation."
+        : "No Content Credential present — neutral, not suspicious (most real evidence has none).",
+  },
+  {
+    key: "hashMatch",
+    label: "Hash / corpus match",
+    describe: (state) =>
+      state === "fired" ? "This file matches another item in the seeded corpus or another case." : "No matching file found yet.",
+  },
+];
+
+// The documents-evidence-kind equivalent — there is no ML classifier for
+// documents (see document-fusion.ts's own docstring), so these two are
+// structural checks only: a real PKCS#7/CMS signature check and a
+// creation-vs-modification-date consistency check.
+export const DOCUMENT_FUSION_SIGNALS: FusionSignalConfig[] = [
+  {
+    key: "signature",
+    label: "Digital signature",
+    describe: (state) =>
+      state === "contradicted"
+        ? "Digitally signed, but the signature does not cover the whole file — bytes were added after signing."
+        : state === "fired"
+          ? "Digitally signed, and the signature covers the whole file — no bytes added since signing."
+          : "No digital signature found on this file.",
+    // Inverted from the default convention: "fired" here means a valid,
+    // whole-file signature was found — a good sign, not a bad one.
+    statusFor: (state) => (state === "fired" ? "safe" : state === "contradicted" ? "critical" : "neutral"),
+  },
+  {
+    key: "tamperDate",
+    label: "Modification-date consistency",
+    describe: (state) =>
+      state === "fired"
+        ? "The file's modification date is meaningfully later than its creation date — not proof of tampering on its own, but worth checking against the claimed chain of custody."
+        : "No inconsistency between creation and modification dates (or not meaningful — a valid whole-file signature already accounts for the file's last modification).",
+    statusFor: (state) => (state === "fired" ? "warning" : "neutral"),
+  },
+];
 
 /**
  * Honest real-case equivalent of FusionPanel — deliberately NOT the same
@@ -51,6 +93,9 @@ export function RealFusionSignals({
   verdict,
   confidence,
   explanation,
+  signals = IMAGE_VIDEO_AUDIO_SIGNALS,
+  totalSignals = 3,
+  introText,
 }: {
   signalBreakdownJson: string;
   coverageCount: number;
@@ -58,6 +103,15 @@ export function RealFusionSignals({
   verdict: string;
   confidence: number;
   explanation: string;
+  // Which signal set to render — defaults to the original image/video/audio
+  // three. Documents pass DOCUMENT_FUSION_SIGNALS (2 signals) instead.
+  signals?: FusionSignalConfig[];
+  totalSignals?: number;
+  // The default sentence assumes a raw classifier score being capped —
+  // doesn't apply to documents (no classifier at all, the verdict comes
+  // purely from these structural checks) — callers with no score to cap
+  // pass their own complete sentence instead of a plugged-in noun phrase.
+  introText?: string;
 }) {
   let breakdown: Record<string, SignalState> = {};
   try {
@@ -69,17 +123,21 @@ export function RealFusionSignals({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-xs text-text-secondary">
-        The classifier score is capped by how many of the three signals below actually corroborate it — not
-        averaged with fixed weights. With {coverageCount} of 3 signals corroborating, confidence is capped at{" "}
-        {confidenceCeiling}%.
+        {introText ?? (
+          <>
+            The classifier score is capped by how many of the {totalSignals} signals below actually corroborate it —
+            not averaged with fixed weights. With {coverageCount} of {totalSignals} signals corroborating, confidence
+            is capped at {confidenceCeiling}%.
+          </>
+        )}
       </p>
 
       <div className="flex flex-col gap-2">
-        {Object.entries(SIGNAL_LABEL).map(([key, label]) => {
+        {signals.map(({ key, label, describe, statusFor }) => {
           const state = breakdown[key] ?? "absent";
           return (
             <div key={key} className="flex items-start gap-3 rounded-md border border-border-subtle bg-surface px-3 py-2.5">
-              <StatusDot status={statusFor(state)} className="mt-1" />
+              <StatusDot status={(statusFor ?? defaultStatusFor)(state)} className="mt-1" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium text-text-primary">{label}</p>
@@ -87,7 +145,7 @@ export function RealFusionSignals({
                     {state}
                   </span>
                 </div>
-                <p className="mt-0.5 text-xs text-text-tertiary">{describe(key, state)}</p>
+                <p className="mt-0.5 text-xs text-text-tertiary">{describe(state)}</p>
               </div>
             </div>
           );
