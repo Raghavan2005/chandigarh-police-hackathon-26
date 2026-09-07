@@ -100,6 +100,15 @@ function MatchFrameThumb({
   box: number[] | null;
 }) {
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  // Guards against an infinite render loop: the <img> ref callback below
+  // runs on every render (inline function = new identity each time), so it
+  // must never call setState with a genuinely new object when the values
+  // are unchanged — returning the same `prev` reference makes React bail
+  // out of that update instead of re-rendering forever. Same fix already
+  // verified live in real-evidence-viewer.tsx's setNaturalSizeIfChanged.
+  const setNaturalSizeIfChanged = (w: number, h: number) => {
+    setNaturalSize((prev) => (prev && prev.w === w && prev.h === h ? prev : { w, h }));
+  };
   const containerRef = useRef<HTMLDivElement>(null);
   const CONTAINER_HEIGHT = 110;
   // Tracked via ResizeObserver into state, not read from the ref during
@@ -147,9 +156,9 @@ function MatchFrameThumb({
           alt={`Sampled frame at ${formatTimestamp(timestampSeconds)}`}
           className="h-full w-full object-contain"
           ref={(el) => {
-            if (el && el.complete && el.naturalWidth > 0) setNaturalSize({ w: el.naturalWidth, h: el.naturalHeight });
+            if (el && el.complete && el.naturalWidth > 0) setNaturalSizeIfChanged(el.naturalWidth, el.naturalHeight);
           }}
-          onLoad={(e) => setNaturalSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+          onLoad={(e) => setNaturalSizeIfChanged(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
         />
         {boxStyle && (
           <div
