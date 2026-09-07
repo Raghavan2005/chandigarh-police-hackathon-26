@@ -40,7 +40,7 @@ export default async function MindMapPage(props: PageProps<"/cases/[caseId]/mind
         <p className="font-mono text-xs text-text-tertiary">{realCase.id}</p>
         <h1 className="text-xl font-semibold text-text-primary">Cross-evidence relationship mind map</h1>
         <p className="text-sm text-text-tertiary">
-          One Gemini synthesis across every exhibit&apos;s real analyzed text on this case (transcripts,
+          One Cognition Engine synthesis across every exhibit&apos;s real analyzed text on this case (transcripts,
           translations, AI image descriptions, per-face notes, document text/summaries) — named entities, the
           relationships the text actually evidences between them, and a case-level narrative. Not automatic or
           live: run on demand, cached until you re-run it.

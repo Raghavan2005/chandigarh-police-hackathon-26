@@ -91,7 +91,7 @@ export function MindMapPanel({
     if (status === "not-configured") {
       return (
         <p className="rounded-md border border-dashed border-border-subtle px-3 py-2 text-xs text-text-tertiary">
-          Cross-evidence mind map isn&apos;t configured on this deployment (no Gemini credentials set) — a real
+          Cross-evidence mind map isn&apos;t configured on this deployment (no Cognition Engine credentials set) — a real
           capability, not built by default since it requires a billed external service.
         </p>
       );

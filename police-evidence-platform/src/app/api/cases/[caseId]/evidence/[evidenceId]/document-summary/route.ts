@@ -19,7 +19,7 @@ export async function POST(
 
   if (!isDocumentAnalysisConfigured()) {
     return NextResponse.json(
-      { error: "Document summarization isn't configured on this deployment (no Gemini credentials set)." },
+      { error: "Document summarization isn't configured on this deployment (no Cognition Engine credentials set)." },
       { status: 501 },
     );
   }

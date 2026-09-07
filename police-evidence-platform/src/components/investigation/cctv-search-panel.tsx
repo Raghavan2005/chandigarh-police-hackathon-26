@@ -361,8 +361,8 @@ export function CctvSearchPanel({
           </div>
           <p className="text-[10px] text-text-tertiary">
             Counted per sampled frame, not deduplicated — the same person/vehicle on screen across multiple frames is
-            counted once per frame it's detected in, not once overall. Plate reads (above) are the one deduplicated
-            count, since a misread of the same real plate across frames shouldn't inflate the total.{" "}
+            counted once per frame it&apos;s detected in, not once overall. Plate reads (above) are the one deduplicated
+            count, since a misread of the same real plate across frames shouldn&apos;t inflate the total.{" "}
             {summary.frameCount} frame{summary.frameCount === 1 ? "" : "s"} sampled (every 2s, up to 40).
             {Object.entries(summary.vehicleCountByClass).length > 0 && (
               <>

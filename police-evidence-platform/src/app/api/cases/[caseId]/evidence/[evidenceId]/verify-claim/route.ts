@@ -22,7 +22,7 @@ export async function POST(
 
   if (!isClaimVerificationConfigured()) {
     return NextResponse.json(
-      { error: "Claim verification isn't configured on this deployment (no Gemini credentials set)." },
+      { error: "Claim verification isn't configured on this deployment (no Cognition Engine credentials set)." },
       { status: 501 },
     );
   }

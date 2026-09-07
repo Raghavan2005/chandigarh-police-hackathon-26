@@ -913,7 +913,7 @@ export function RealEvidenceViewer({
                   onClick={handleVerifyClaim}
                   disabled={verifyingClaim}
                   className={buttonVariants({ variant: "outline", size: "xs" })}
-                  title="Real live Google Search — checks whether real news/fact-check sources confirm this was actually said, not just whether audio contains speech."
+                  title="Real live web search — checks whether real news/fact-check sources confirm this was actually said, not just whether audio contains speech."
                 >
                   {verifyingClaim ? <Loader2 className="size-3.5 animate-spin" /> : <Search className="size-3.5" />}
                   {verifyingClaim ? "Searching real sources…" : "Verify claim"}
@@ -1008,7 +1008,7 @@ export function RealEvidenceViewer({
             </div>
           )}
           <p className="text-[10px] text-text-tertiary">
-            Real live Google Search grounding, not the model&apos;s own training knowledge — sources shown are what
+            Real live web search grounding, not the model&apos;s own training knowledge — sources shown are what
             it actually found. Still an AI-produced summary of that research, not a verified legal finding.
           </p>
         </div>

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
   if (!isImageDescriptionConfigured()) {
     return NextResponse.json(
-      { error: "AI summarization isn't configured on this deployment (no Gemini credentials set)." },
+      { error: "AI summarization isn't configured on this deployment (no Cognition Engine credentials set)." },
       { status: 501 },
     );
   }

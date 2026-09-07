@@ -42,7 +42,7 @@ export function SourceFinderTab({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-text-tertiary">
-        Real search across Google (via Gemini grounding), Brave, and DuckDuckGo — one exhibit at a time, using that
+        Real search across the web (via Cognition Engine-grounded search), Brave, and DuckDuckGo — one exhibit at a time, using that
         exhibit&apos;s own captions/AI description/reverse-image-search labels as the starting query. Traces where
         this content appears on the public internet, separate from the cross-case/corpus tab&apos;s internal
         database matching.

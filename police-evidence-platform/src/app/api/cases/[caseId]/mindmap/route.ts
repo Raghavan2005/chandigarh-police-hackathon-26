@@ -23,7 +23,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ca
 
   if (!isMindMapConfigured()) {
     return NextResponse.json(
-      { error: "Cross-evidence mind map isn't configured on this deployment (no Gemini credentials set)." },
+      { error: "Cross-evidence mind map isn't configured on this deployment (no Cognition Engine credentials set)." },
       { status: 501 },
     );
   }

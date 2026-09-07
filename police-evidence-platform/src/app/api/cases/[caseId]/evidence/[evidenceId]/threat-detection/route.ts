@@ -21,7 +21,7 @@ export async function POST(
 
   if (!isThreatDetectionConfigured()) {
     return NextResponse.json(
-      { error: "Threat detection isn't configured on this deployment (no Gemini credentials set)." },
+      { error: "Threat detection isn't configured on this deployment (no Cognition Engine credentials set)." },
       { status: 501 },
     );
   }
