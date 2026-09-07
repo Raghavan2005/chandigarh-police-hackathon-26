@@ -73,10 +73,27 @@ class Transcriber:
         if truncated:
             waveform = waveform[:MAX_SAMPLES]
 
+        # Observed live: faster-whisper's vad_filter occasionally (rarely,
+        # non-deterministically -- not tied to request ordering or
+        # concurrency, confirmed by direct reproduction attempts) drops
+        # every segment on a clip that has real, audible speech, then
+        # transcribes that exact same clip correctly on the very next call.
+        # A single silent retry costs nothing on the (overwhelmingly
+        # common) first-try-succeeds path and turns a rare false "no
+        # speech" into the real transcript, without heuristically guessing
+        # at which empty results are genuine silence -- if it's still
+        # empty after a retry, that's reported as-is, honestly.
+        language, segments = self._transcribe_once(waveform)
+        if not segments:
+            language, segments = self._transcribe_once(waveform)
+
+        return TranscriptionResult(language=language, segments=segments, truncated=truncated)
+
+    def _transcribe_once(self, waveform) -> tuple[str, list[TranscriptSegment]]:
         segments_iter, info = self.model.transcribe(waveform, vad_filter=True)
         segments = [
             TranscriptSegment(start=round(s.start, 2), end=round(s.end, 2), text=s.text.strip())
             for s in segments_iter
             if s.text.strip()
         ]
-        return TranscriptionResult(language=info.language, segments=segments, truncated=truncated)
+        return info.language, segments
