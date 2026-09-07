@@ -14,7 +14,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { cn, formatTimestamp } from "@/lib/utils";
 import type { CachedReverseImageSearchResult } from "@/lib/reverse-image-search";
 import type { CachedImageDescriptionResult } from "@/lib/image-description";
 
@@ -239,7 +239,7 @@ export function FaceDetailDialog({
           ) : (
             <>
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] text-text-tertiary">As of {new Date(searchResult.ranAt).toLocaleString()}</p>
+                <p className="text-[10px] text-text-tertiary">As of {formatTimestamp(new Date(searchResult.ranAt))}</p>
                 <button
                   type="button"
                   onClick={runSearch}
@@ -296,7 +296,7 @@ export function FaceDetailDialog({
           ) : (
             <>
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] text-text-tertiary">As of {new Date(descResult.ranAt).toLocaleString()}</p>
+                <p className="text-[10px] text-text-tertiary">As of {formatTimestamp(new Date(descResult.ranAt))}</p>
                 <button
                   type="button"
                   onClick={runDescribe}

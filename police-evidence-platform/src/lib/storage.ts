@@ -10,6 +10,8 @@ const HEATMAPS_DIR = path.join(STORAGE_DIR, "heatmaps");
 const FACE_CROPS_DIR = path.join(STORAGE_DIR, "face-crops");
 const PENDING_CAPTURES_DIR = path.join(STORAGE_DIR, "pending-captures");
 const VIDEO_DIFFS_DIR = path.join(STORAGE_DIR, "video-diffs");
+const CCTV_FRAMES_DIR = path.join(STORAGE_DIR, "cctv-frames");
+const REFERENCE_PHOTOS_DIR = path.join(STORAGE_DIR, "reference-photos");
 
 const EXTENSION_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -106,6 +108,33 @@ export function writeVideoDiff(evidenceId: string, diffPngBuffer: Buffer): strin
   const filename = `${evidenceId}.png`;
   writeFileSync(path.join(VIDEO_DIFFS_DIR, filename), diffPngBuffer);
   return path.join("video-diffs", filename);
+}
+
+/** Writes one real sampled CCTV frame (JPEG bytes straight from ffmpeg, see
+ * frame-extract.ts) to storage/cctv-frames/ -- keyed by evidence ID + frame
+ * index, not content hash, since these are derived artifacts tied to one
+ * detect-cctv run, same tradeoff as writeHeatmap. Kept so a matched frame
+ * can be displayed (with a real bounding-box overlay) without re-running
+ * ffmpeg on every view. */
+export function writeCctvFrame(evidenceId: string, frameIndex: number, jpegBuffer: Buffer): string {
+  mkdirSync(CCTV_FRAMES_DIR, { recursive: true });
+  const filename = `${evidenceId}-frame${frameIndex}.jpg`;
+  writeFileSync(path.join(CCTV_FRAMES_DIR, filename), jpegBuffer);
+  return path.join("cctv-frames", filename);
+}
+
+/** Writes an investigator-uploaded reference photo (face-match, CCTV use
+ * case #1) to storage/reference-photos/ -- keyed by evidence ID like
+ * writeHeatmap, not content-addressed: a reference photo isn't case
+ * evidence to dedupe by bytes, just the input to the most recent
+ * face-match run against this exhibit, overwritten each re-run so it can
+ * be served back at a stable, predictable path ("compared against this
+ * photo"). */
+export function writeReferencePhoto(evidenceId: string, buffer: Buffer, mimeType: string): string {
+  mkdirSync(REFERENCE_PHOTOS_DIR, { recursive: true });
+  const filename = `${evidenceId}.${extensionForMime(mimeType)}`;
+  writeFileSync(path.join(REFERENCE_PHOTOS_DIR, filename), buffer);
+  return path.join("reference-photos", filename);
 }
 
 /** Decodes and writes every real detected face crop (index 0 is MTCNN's

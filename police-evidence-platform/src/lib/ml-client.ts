@@ -8,6 +8,14 @@ const ML_SERVICE_URL = process.env.ML_SERVICE_URL ?? "http://127.0.0.1:8008";
 
 export interface DetectionResponse {
   probability: number;
+  // Second, separate signal from a general (not face-swap-specific)
+  // AI-image classifier (ml-service/general_ai_detector.py) -- added
+  // because `probability`'s model is fine-tuned on face-swap seam
+  // artifacts specifically and, per this project's own live calibration
+  // testing, is effectively blind to full-synthesis content (scored a
+  // known-real StyleGAN test image 0%). Never blended server-side; the
+  // caller decides how to combine the two.
+  generalAiProbability: number;
   heatmapPngBase64: string;
   faceDetected: boolean;
   // Every detected face, each normalized [x1, y1, x2, y2] fractions (0-1)
@@ -56,6 +64,31 @@ export interface SpliceDetectionResponse {
   totalSeconds: number;
 }
 
+export interface ObjectDetection {
+  objectClass: string;
+  confidence: number;
+  box: [number, number, number, number];
+  // Set only on vehicle-class detections where EasyOCR found a plausible
+  // plate-shaped read over that box's lower region -- null otherwise,
+  // never a guessed string (see ml-service/plate_ocr.py).
+  plateText: string | null;
+  plateConfidence: number | null;
+}
+
+export interface ObjectDetectionResponse {
+  objects: ObjectDetection[];
+}
+
+export interface FaceEmbeddingEntry {
+  box: [number, number, number, number];
+  embedding: number[]; // 512-d, L2-normalized
+  detectionProbability: number | null;
+}
+
+export interface FaceEmbeddingResponse {
+  faces: FaceEmbeddingEntry[];
+}
+
 async function callDetect<T>(
   endpoint:
     | "/detect/image"
@@ -63,7 +96,9 @@ async function callDetect<T>(
     | "/detect/audio"
     | "/transcribe"
     | "/validate-speech"
-    | "/detect-splices",
+    | "/detect-splices"
+    | "/detect/objects"
+    | "/embed/face",
   buffer: Buffer,
   mimeType: string,
   filename: string,
@@ -134,6 +169,24 @@ export function validateSpeech(buffer: Buffer, mimeType: string): Promise<Speech
 // audio track) both go through here, same as transcribeMedia above.
 export function detectSplices(buffer: Buffer, mimeType: string): Promise<SpliceDetectionResponse> {
   return callDetect<SpliceDetectionResponse>("/detect-splices", buffer, mimeType, "media");
+}
+
+// CCTV use case #1 — real COCO object detection (person/car/truck/bus/
+// motorcycle) plus a real EasyOCR plate-text attempt over each detected
+// vehicle's own box. Called once per sampled frame by the detect-cctv
+// route, same "one call per frame, sampling happens on the Next.js side"
+// shape as detectVideoFrame above.
+export function detectObjects(buffer: Buffer): Promise<ObjectDetectionResponse> {
+  return callDetect<ObjectDetectionResponse>("/detect/objects", buffer, "image/jpeg", "frame.jpg");
+}
+
+// CCTV use case #1 — real 512-d face embeddings for every face MTCNN finds
+// in the image (a reference photo, or one sampled CCTV frame). A
+// similarity score against a stated threshold, never a certified
+// biometric identification — see ml-service/detector.py's embed_faces
+// docstring.
+export function embedFace(buffer: Buffer, mimeType: string): Promise<FaceEmbeddingResponse> {
+  return callDetect<FaceEmbeddingResponse>("/embed/face", buffer, mimeType, "frame.jpg");
 }
 
 export async function mlServiceHealthy(): Promise<boolean> {

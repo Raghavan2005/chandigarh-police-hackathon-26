@@ -48,6 +48,27 @@ transformers==4.57.6
 # ffmpeg install.
 imageio-ffmpeg==0.6.0
 
+# --- CCTV object/plate detection (PS4 use case #1) ---
+# EasyOCR: license-plate text extraction over detected vehicle boxes.
+# Installed --no-deps first then with deps to let pip resolve its pure-
+# Python dependencies against the pins already above (torch/torchvision/
+# opencv-python-headless/numpy/Pillow all already satisfied its
+# requirements without any version change — verified via a pip freeze
+# diff before/after, see ml-service dev notes).
+easyocr==1.7.2
+# scipy was already present transitively (grad-cam depends on it) but
+# wasn't pinned yet — now a genuine direct dependency via scikit-image
+# below, so pinning it explicitly.
+scipy==1.17.1
+scikit-image==0.26.0
+python-bidi==0.6.11
+Shapely==2.1.2
+pyclipper==1.4.0
+ninja==1.13.2
+imageio==2.37.4
+lazy-loader==0.5
+tifffile==2026.3.3
+
 # --- captions: transcription + translation ---
 # CTranslate2 reimplementation of Whisper — CPU inference speed/memory,
 # not the reference openai-whisper package. Verified against the pinned

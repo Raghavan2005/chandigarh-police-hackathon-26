@@ -8,6 +8,7 @@ import { UnlinkCaseDialog } from "@/components/investigation/unlink-case-dialog"
 import { AddActorDialog } from "@/components/investigation/add-actor-dialog";
 import { RemoveActorDialog } from "@/components/investigation/remove-actor-dialog";
 import { InvestigationTimeline } from "@/components/investigation/investigation-timeline";
+import { formatTimestamp } from "@/lib/utils";
 
 export default async function InvestigationDetailPage(props: {
   params: Promise<{ investigationId: string }>;
@@ -38,7 +39,7 @@ export default async function InvestigationDetailPage(props: {
             <h1 className="text-xl font-semibold text-text-primary">{investigation.title}</h1>
             {investigation.summary && <p className="mt-1 max-w-2xl text-sm text-text-tertiary">{investigation.summary}</p>}
             <p className="mt-1 text-xs text-text-tertiary">
-              Created by {investigation.createdBy.name} — {investigation.createdAt.toLocaleString()}
+              Created by {investigation.createdBy.name} — {formatTimestamp(investigation.createdAt)}
             </p>
           </div>
           {isAdmin && (
@@ -69,7 +70,7 @@ export default async function InvestigationDetailPage(props: {
                   <p className="mt-0.5 text-xs text-text-tertiary">FIR {link.case.firNumber}</p>
                   <p className="mt-1 text-xs text-text-secondary">{link.justification}</p>
                   <p className="mt-0.5 text-[11px] text-text-tertiary">
-                    Linked by {link.linkedBy.name} — {link.linkedAt.toLocaleString()}
+                    Linked by {link.linkedBy.name} — {formatTimestamp(link.linkedAt)}
                   </p>
                 </div>
                 {isAdmin && <UnlinkCaseDialog investigationId={investigation.id} caseId={link.caseId} />}
@@ -89,10 +90,10 @@ export default async function InvestigationDetailPage(props: {
               <div key={link.id} className="border-t border-border-subtle pt-3 text-xs text-text-tertiary first:border-t-0 first:pt-0">
                 <span className="font-mono">{link.case.id}</span> — {link.case.title}
                 <p className="mt-0.5">
-                  Linked by {link.linkedBy.name} ({link.linkedAt.toLocaleString()}): {link.justification}
+                  Linked by {link.linkedBy.name} ({formatTimestamp(link.linkedAt)}): {link.justification}
                 </p>
                 <p className="mt-0.5">
-                  Unlinked by {link.unlinkedBy?.name ?? "—"} ({link.unlinkedAt?.toLocaleString()}): {link.unlinkReason}
+                  Unlinked by {link.unlinkedBy?.name ?? "—"} ({link.unlinkedAt ? formatTimestamp(link.unlinkedAt) : "—"}): {link.unlinkReason}
                 </p>
               </div>
             ))}
@@ -122,7 +123,7 @@ export default async function InvestigationDetailPage(props: {
                   </p>
                   {actor.note && <p className="mt-0.5 text-xs text-text-secondary">{actor.note}</p>}
                   <p className="mt-0.5 text-[11px] text-text-tertiary">
-                    Added by {actor.addedBy.name} — {actor.addedAt.toLocaleString()}
+                    Added by {actor.addedBy.name} — {formatTimestamp(actor.addedAt)}
                   </p>
                 </div>
                 <RemoveActorDialog investigationId={investigation.id} actorId={actor.id} />
@@ -138,7 +139,7 @@ export default async function InvestigationDetailPage(props: {
             {removedActors.map((actor) => (
               <p key={actor.id} className="text-xs text-text-tertiary">
                 <span className="font-medium">{actor.platform}</span> — {actor.handle}: removed by{" "}
-                {actor.removedBy?.name ?? "—"} ({actor.removedAt?.toLocaleString()}): {actor.removeReason}
+                {actor.removedBy?.name ?? "—"} ({actor.removedAt ? formatTimestamp(actor.removedAt) : "—"}): {actor.removeReason}
               </p>
             ))}
           </div>

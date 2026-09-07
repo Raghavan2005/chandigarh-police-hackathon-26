@@ -19,6 +19,42 @@ export interface PdfSignatureInfo {
 
 const EMPTY: PdfSignatureInfo = { present: false, coversWholeFile: null, signerName: null };
 
+function dnKey(attributes: { type?: string; value?: unknown }[]): string {
+  return attributes.map((a) => `${a.type ?? ""}=${String(a.value ?? "")}`).join("/");
+}
+
+/**
+ * A PKCS#7 SignedData certificate bundle commonly includes the whole chain
+ * (root CA, any intermediates, and the actual signer), and — unlike what
+ * was originally assumed here — the certificates array's *order* is not
+ * guaranteed by the spec to put the signer first. Real-world tooling
+ * varies: some put the leaf first, some put the root first (confirmed live
+ * against a real signed PDF from an external signing tool, where
+ * certificates[0] was the root CA, not the signer — this is exactly the
+ * failure this function fixes). node-forge's own read path
+ * (pkcs7.js's SignedData.fromAsn1) doesn't parse each SignerInfo's
+ * issuer+serialNumber back out, so we can't match the signer that way
+ * without hand-rolling ASN.1 parsing forge itself doesn't do. Instead:
+ * the signer is the one certificate in the bundle that is never listed as
+ * another certificate's issuer — every CA in a chain issues the next link,
+ * but nothing in the bundle is signed by the end-entity cert itself.
+ * Falls back to the first certificate (the prior, incorrect-in-general
+ * behavior) only when this can't be determined unambiguously (a single
+ * cert, or a malformed/non-hierarchical bundle) — same result as before
+ * for the common single-self-signed-cert case, which is why that case's
+ * earlier test never caught this.
+ */
+function findSignerCertificate(
+  certificates: NonNullable<forge.pkcs7.PkcsSignedData["certificates"]>,
+): NonNullable<forge.pkcs7.PkcsSignedData["certificates"]>[number] | undefined {
+  if (certificates.length <= 1) return certificates[0];
+
+  const issuerKeys = new Set(certificates.map((c) => dnKey(c.issuer.attributes)));
+  const candidates = certificates.filter((c) => !issuerKeys.has(dnKey(c.subject.attributes)));
+
+  return candidates.length === 1 ? candidates[0] : certificates[0];
+}
+
 /**
  * Real, structural PDF digital-signature check — detects a signature via
  * the standard `/ByteRange` + `/Contents` pattern (regex over the raw
@@ -81,7 +117,7 @@ export function verifyPdfSignature(buffer: Buffer): PdfSignatureInfo {
         { strict: true, parseAllBytes: false, decodeBitStrings: true } as unknown as boolean,
       );
       const message = forge.pkcs7.messageFromAsn1(asn1) as forge.pkcs7.PkcsSignedData;
-      const cert = message.certificates?.[0];
+      const cert = findSignerCertificate(message.certificates ?? []);
       const cn = cert?.subject.getField("CN");
       signerName = typeof cn?.value === "string" ? cn.value : null;
     }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { GitBranch } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CustodyRollupEntry } from "@/lib/vault-server";
+import { formatTimestamp } from "@/lib/utils";
 
 /**
  * Evidence Vault Phase D (Docs/Plan for the feature) — one merged,
@@ -49,7 +50,7 @@ export function CrossCaseCustodyRollup({
                   {e.fromPerson} &rarr; {e.toPerson}
                 </span>{" "}
                 ({e.purpose}){e.location ? ` — ${e.location}` : ""} — logged by {e.recordedByName} (
-                {new Date(e.occurredAt).toLocaleString()})
+                {formatTimestamp(new Date(e.occurredAt))})
                 {e.witness1Name && `; witness: ${e.witness1Name}`}
                 {e.witness2Name && `, ${e.witness2Name}`}
                 <div className="mt-0.5">

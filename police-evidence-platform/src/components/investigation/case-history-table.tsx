@@ -6,7 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { cn, formatTimestamp } from "@/lib/utils";
 
 const ACTION_COLOR: Record<string, string> = {
   UPLOADED: "text-accent-primary",
@@ -55,7 +55,7 @@ export function CaseHistoryTable({ rows }: { rows: CaseHistoryRow[] }) {
         {rows.map((r) => (
           <TableRow key={r.id} className="border-border-subtle">
             <TableCell className="font-mono text-xs text-text-secondary">
-              {new Date(r.timestamp).toLocaleString()}
+              {formatTimestamp(new Date(r.timestamp))}
             </TableCell>
             <TableCell className="text-sm text-text-primary">{r.actorName ?? "System"}</TableCell>
             <TableCell>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, Loader2, Lock, ScanEye } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatTimestamp } from "@/lib/utils";
 import type { CachedImageDescriptionResult } from "@/lib/image-description";
 
 function formatRelativeTime(iso: string): string {
@@ -133,7 +133,7 @@ export function ImageDescriptionPanel({
           <p className="font-medium text-text-secondary">Possible identity (AI)</p>
           {result?.ranAt && (
             <p className="text-[10px] text-text-tertiary">
-              Results as of {formatRelativeTime(result.ranAt)} ({new Date(result.ranAt).toLocaleString()}) — not
+              Results as of {formatRelativeTime(result.ranAt)} ({formatTimestamp(new Date(result.ranAt))}) — not
               re-checked automatically.
             </p>
           )}

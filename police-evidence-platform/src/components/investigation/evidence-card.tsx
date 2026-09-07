@@ -5,11 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Clock3, FileDigit, GitCompareArrows, Loader2, ScanSearch, Shield, ShieldAlert, ShieldCheck } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatDateOnly, formatTimestamp } from "@/lib/utils";
 import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
 import { RealEvidenceViewer, type CachedTranscript } from "@/components/investigation/real-evidence-viewer";
 import type { CachedSpliceDetectionResult } from "@/components/investigation/splice-detection-panel";
-import { RealFusionSignals } from "@/components/investigation/real-fusion-signals";
+import { RealFusionSignals, DOCUMENT_FUSION_SIGNALS } from "@/components/investigation/real-fusion-signals";
 import { RealPipelinePanel } from "@/components/investigation/real-pipeline-panel";
 import { OverrideDialog } from "@/components/investigation/override-dialog";
 import { ForensicExpertDialog } from "@/components/investigation/forensic-expert-dialog";
@@ -18,6 +18,7 @@ import { CustodyTransferDialog } from "@/components/investigation/custody-transf
 import { ReverseImageSearchPanel } from "@/components/investigation/reverse-image-search-panel";
 import { ImageDescriptionPanel } from "@/components/investigation/image-description-panel";
 import { VideoDiffPanel, type CachedVideoDiffResult } from "@/components/investigation/video-diff-panel";
+import { CctvSearchPanel } from "@/components/investigation/cctv-search-panel";
 import {
   DocumentAnalysisPanel,
   type CachedDocumentSummary,
@@ -86,6 +87,12 @@ export function EvidenceCard({
   const isAudio = evidence.mimeType.startsWith("audio/");
   const isImage = evidence.mimeType.startsWith("image/");
   const isSensitive = sensitivityLevel !== "standard";
+  // Documents get a real verdict too (document-fusion.ts, computed
+  // automatically at upload — see evidence-ingest.ts), just not via the
+  // manual Investigate button: there's no async ML step to gate behind one,
+  // the two real signals it's based on (signature check, tamper-date
+  // consistency) are already computed synchronously at upload time.
+  const isDocumentPdf = evidence.mimeType === "application/pdf";
   // A case's evidenceKind is one value for the whole case, but individual
   // evidence items can be a different real mimeType (e.g. a document
   // uploaded onto an "audio" case) — the icon must reflect the actual file,
@@ -205,7 +212,7 @@ export function EvidenceCard({
           )}
         </div>
         <span className="shrink-0 text-[11px] text-text-tertiary">
-          {evidence.uploadedBy.name} · {new Date(evidence.uploadedAt).toLocaleString()}
+          {evidence.uploadedBy.name} · {formatTimestamp(new Date(evidence.uploadedAt))}
         </span>
       </div>
 
@@ -258,6 +265,14 @@ export function EvidenceCard({
               />
             </div>
           )}
+          {evidence.mimeType.startsWith("video/") && (
+            <CctvSearchPanel
+              caseId={caseId}
+              evidenceId={evidence.id}
+              cachedFrameSamples={evidence.cctvFrameSamples}
+              cachedMatches={parseReferenceMatchResults(evidence.referenceMatchResults)}
+            />
+          )}
           {isPdfDoc && meta?.exifJson && (
             <div id={`ev-${evidence.id}-document`} className="scroll-mt-14 flex flex-col gap-3">
               <DocumentDetails exifJson={meta.exifJson} sha256={evidence.sha256} />
@@ -273,13 +288,13 @@ export function EvidenceCard({
         </div>
 
         <div className="min-w-0 rounded-lg border border-border-subtle bg-surface-sunken p-4">
-          {canInvestigate ? (
+          {canInvestigate || isDocumentPdf ? (
             <RealPipelinePanel evidence={evidence} />
           ) : (
             <div className="flex flex-col gap-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Analysis pipeline</p>
               <p className="mt-2 text-xs text-text-tertiary">
-                Detection isn&apos;t available for this evidence type yet (image/video/audio only in this build).
+                Detection isn&apos;t available for this evidence type yet (image/video/audio/PDF only in this build).
               </p>
             </div>
           )}
@@ -416,7 +431,9 @@ export function EvidenceCard({
 
       {evidence.fusionVerdict && (
         <div className="rounded-lg border border-border-subtle bg-surface-sunken p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Evidence fusion</p>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+            {isDocumentPdf ? "Document integrity" : "Evidence fusion"}
+          </p>
           <RealFusionSignals
             signalBreakdownJson={evidence.fusionVerdict.signalBreakdownJson}
             coverageCount={evidence.fusionVerdict.coverageCount}
@@ -424,6 +441,14 @@ export function EvidenceCard({
             verdict={evidence.fusionVerdict.verdict}
             confidence={evidence.fusionVerdict.confidence}
             explanation={evidence.fusionVerdict.explanation}
+            {...(isDocumentPdf
+              ? {
+                  signals: DOCUMENT_FUSION_SIGNALS,
+                  totalSignals: 2,
+                  introText:
+                    "There is no ML classifier for documents in this build — this verdict comes purely from the two structural signals below, never a content-authenticity claim.",
+                }
+              : {})}
           />
         </div>
       )}
@@ -434,7 +459,7 @@ export function EvidenceCard({
           {evidence.overrides.map((o) => (
             <p key={o.id} className="text-[11px] text-text-tertiary">
               {o.previousVerdict.replace("_", "-")} → {o.newVerdict.replace("_", "-")} by {o.overriddenBy.name}
-              {" "}({new Date(o.timestamp).toLocaleString()}): {o.reason}
+              {" "}({formatTimestamp(new Date(o.timestamp))}): {o.reason}
             </p>
           ))}
         </div>
@@ -457,7 +482,7 @@ export function EvidenceCard({
           {evidence.custodyTransfers.map((t) => (
             <p key={t.id} className="text-[11px] text-text-tertiary">
               {t.fromPerson} → {t.toPerson} ({t.purpose}){t.location ? ` — ${t.location}` : ""} — logged by{" "}
-              {t.recordedBy.name} ({new Date(t.occurredAt).toLocaleString()})
+              {t.recordedBy.name} ({formatTimestamp(new Date(t.occurredAt))})
               {t.witness1Name && `; witness: ${t.witness1Name}`}
               {t.witness2Name && `, ${t.witness2Name}`}
             </p>
@@ -504,7 +529,7 @@ export function EvidenceCard({
           {evidence.corpusMatches.map((m) => (
             <p key={m.id} className="text-[11px] text-text-secondary">
               Matches seeded corpus item from {m.corpusItem.sourcePlatform} (first seen{" "}
-              {new Date(m.corpusItem.firstSeenAt).toLocaleDateString()}) — {Math.round(m.similarity * 100)}% similar
+              {formatDateOnly(new Date(m.corpusItem.firstSeenAt))}) — {Math.round(m.similarity * 100)}% similar
             </p>
           ))}
         </div>
@@ -698,6 +723,19 @@ function parseSpliceDetection(row: Evidence["spliceDetectionResult"]): CachedSpl
   }
 }
 
+function parseReferenceMatchResults(rows: Evidence["referenceMatchResults"]) {
+  return rows.map((row) => ({
+    id: row.id,
+    matchType: row.matchType,
+    referenceLabel: row.referenceLabel,
+    referenceImagePath: row.referenceImagePath,
+    frameIndex: row.frameIndex,
+    timestampSeconds: row.timestampSeconds,
+    similarity: row.similarity,
+    boundingBoxJson: row.boundingBoxJson,
+    ranAt: row.ranAt.toISOString(),
+  }));
+}
 
 function parseVideoDiffResult(row: Evidence["videoDiffResult"]): CachedVideoDiffResult | null {
   if (!row) return null;
@@ -785,8 +823,8 @@ function DocumentDetails({ exifJson, sha256 }: { exifJson: string; sha256: strin
     <div className="flex flex-col gap-2 border-t border-border-subtle pt-3 text-xs">
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
         <Field label="Pages" value={String(info.pageCount)} />
-        {info.creationDate && <Field label="Created" value={new Date(info.creationDate).toLocaleString()} />}
-        {info.modDate && <Field label="Modified" value={new Date(info.modDate).toLocaleString()} />}
+        {info.creationDate && <Field label="Created" value={formatTimestamp(new Date(info.creationDate))} />}
+        {info.modDate && <Field label="Modified" value={formatTimestamp(new Date(info.modDate))} />}
         {info.producer && <Field label="Producer" value={info.producer} />}
         {info.creator && <Field label="Creator" value={info.creator} />}
         <Field label="SHA-256" value={sha256} className="col-span-2 sm:col-span-4 truncate" />

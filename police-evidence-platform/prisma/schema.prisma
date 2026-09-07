@@ -99,6 +99,7 @@ model Case {
   captureLinks      CaptureLink[]
   investigationLinks InvestigationCase[]
   alerts            Alert[]
+  mindMap           CaseMindMap?
 
   @@index([investigatorId])
   @@index([firNumber])
@@ -224,6 +225,13 @@ model Evidence {
   faceAnnotations     FaceAnnotation[]
   alerts              Alert[]
 
+  // CCTV object/plate/face-reference matching (PS4 use case #1) — see the
+  // models' own doc comments below.
+  cctvFrameSamples      CctvFrameSample[]
+  videoObjectDetections VideoObjectDetection[]
+  cctvFrameFaces        CctvFrameFace[]
+  referenceMatchResults ReferenceMatchResult[]
+
   @@unique([caseId, sha256])
   @@index([caseId])
   @@index([sha256])
@@ -278,6 +286,13 @@ model DetectionResult {
   evidenceId             String   @unique
   evidence               Evidence @relation(fields: [evidenceId], references: [id])
   manipulationProbability Float
+  // Second, separate signal from a general (not face-swap-specific)
+  // AI-image classifier -- see ml-service/general_ai_detector.py's own
+  // docstring for why this exists (manipulationProbability's model is
+  // blind to full-synthesis content) and this project's real, disclosed
+  // calibration numbers for both models. Null for audio evidence, which
+  // has no image-classifier equivalent at all.
+  generalAiProbability   Float?
   heatmapPath            String?
   // Every real MTCNN detection box, JSON array of [x1,y1,x2,y2] (0-1
   // fractions of the source image's width/height), sorted by detection
@@ -563,6 +578,127 @@ model VideoDiffResult {
   ranAt             DateTime @default(now())
 }
 
+// Real Gemini synthesis across every real per-exhibit text already
+// gathered for a case (transcripts/translations, AI image descriptions,
+// per-face labels/notes, document text/summaries) — a single case-level
+// entity/relationship graph + narrative, distinct from every other AI
+// result above (all scoped to one exhibit). PS4_USE_CASES.md #6. Cached
+// per case, manually re-run on demand (same philosophy as
+// ImageDescriptionResult/DocumentSummaryResult) — never recomputed
+// automatically as new evidence is added.
+model CaseMindMap {
+  id                String   @id @default(cuid())
+  caseId            String   @unique
+  case              Case     @relation(fields: [caseId], references: [id])
+  entitiesJson      String // JSON array of {name, type, note}
+  relationshipsJson String // JSON array of {from, to, label, evidence}
+  summary           String
+  exhibitCount      Int // how many exhibits actually contributed real text to this run — shown so a stale re-run against more evidence later is honestly comparable
+  ranAt             DateTime @default(now())
+}
+
+// --- CCTV object/plate/face-reference matching (PS4 use case #1) --------
+// "An investigator uploads long CCTV footage. The system detects every
+// human, car, and license plate visible in it. The investigator can then
+// upload a reference (a face or a plate) and get it matched against what's
+// in the footage." See Docs/Plan/PS4_USE_CASES.md item #1.
+
+// One row per real sampled video frame (see frame-extract.ts's
+// sampleVideoFrames — CCTV needs denser coverage than the deepfake
+// pipeline's 6-frame sample, so this runs with a much higher maxFrames).
+// The parent record VideoObjectDetection/CctvFrameFace key off: the only
+// place a frame's own extracted JPEG is written to disk, so a matched
+// frame can be displayed later (with a real bounding-box overlay) without
+// re-running ffmpeg for every view.
+model CctvFrameSample {
+  id               String   @id @default(cuid())
+  evidenceId       String
+  evidence         Evidence @relation(fields: [evidenceId], references: [id])
+  frameIndex       Int
+  timestampSeconds Float
+  imagePath        String
+  ranAt            DateTime @default(now())
+
+  objectDetections VideoObjectDetection[]
+  faces            CctvFrameFace[]
+
+  @@unique([evidenceId, frameIndex])
+  @@index([evidenceId])
+}
+
+// Real per-object detection within one sampled frame — torchvision's
+// pretrained COCO detector (person/car/truck/bus/motorcycle; ml-service/
+// object_detector.py), never fabricated: a frame with nothing above the
+// model's own confidence threshold simply has no rows here. Distinct from
+// DetectionResult.frameScoresJson, which only ever stores a single
+// deepfake probability per frame, not object boxes.
+model VideoObjectDetection {
+  id              String          @id @default(cuid())
+  frameSampleId   String
+  frameSample     CctvFrameSample @relation(fields: [frameSampleId], references: [id])
+  evidenceId      String // denormalized for evidence-scoped queries without a join through frameSample, same tradeoff EvidenceMatch.matchedCaseId already makes
+  evidence        Evidence        @relation(fields: [evidenceId], references: [id])
+  objectClass     String // "person" | "car" | "truck" | "bus" | "motorcycle"
+  confidence      Float
+  boundingBoxJson String // [x1,y1,x2,y2], 0-1 fractions of that frame
+  // Real EasyOCR read over this vehicle's own box (ml-service/plate_ocr.py)
+  // -- always null on a person detection, and null on a vehicle whenever
+  // OCR found nothing plate-shaped, never a guessed string.
+  plateText       String?
+  plateConfidence Float?
+
+  @@index([frameSampleId])
+  @@index([evidenceId])
+  @@index([evidenceId, objectClass])
+}
+
+// Real 512-d face embedding for one face MTCNN found in one sampled frame
+// (ml-service/detector.py embed_faces) — cached here so reference-face
+// matching (ReferenceMatchResult below) is a fast cosine-similarity pass
+// over already-computed embeddings instead of re-calling the ML service
+// for every sampled frame on every match attempt. See embed_faces'
+// docstring for exactly which model computes this and the real
+// discrimination numbers verified before this shipped -- a similarity
+// score against a stated threshold, never a certified biometric identity.
+model CctvFrameFace {
+  id                   String          @id @default(cuid())
+  frameSampleId        String
+  frameSample          CctvFrameSample @relation(fields: [frameSampleId], references: [id])
+  evidenceId           String
+  evidence             Evidence        @relation(fields: [evidenceId], references: [id])
+  boundingBoxJson      String
+  embeddingJson        String // JSON array of 512 floats, L2-normalized
+  detectionProbability Float?
+
+  @@index([frameSampleId])
+  @@index([evidenceId])
+}
+
+// One real matched frame against an investigator-provided reference (a
+// face photo or a plate string) -- two independent match mechanisms
+// sharing one table since both answer the same question ("does this
+// reference appear in this footage, and where"): face compares the
+// reference photo's own embedding (via the same embed_faces call) against
+// every CctvFrameFace row by cosine similarity; plate fuzzy-matches the
+// investigator's typed string against VideoObjectDetection.plateText (see
+// src/lib/plate-match.ts). A query that finds nothing above threshold
+// simply produces no rows -- never a fabricated match.
+model ReferenceMatchResult {
+  id                 String   @id @default(cuid())
+  evidenceId         String
+  evidence           Evidence @relation(fields: [evidenceId], references: [id])
+  matchType          String // "face" | "plate"
+  referenceLabel     String // investigator-provided plate string, or the reference photo's original filename
+  referenceImagePath String? // stored reference face photo, relative to storage/ -- null for plate matches
+  frameIndex         Int
+  timestampSeconds   Float
+  similarity         Float // face: real cosine similarity 0-1; plate: normalized string-similarity 0-1 -- never fabricated
+  boundingBoxJson    String? // the matched face/plate's own box in that frame, null if not resolvable
+  ranAt              DateTime @default(now())
+
+  @@index([evidenceId])
+}
+
 // --- Cross-case & seeded-corpus matching ---------------------------------
 
 model CorpusItem {
@@ -633,7 +769,7 @@ model FusionVerdict {
   evidence           Evidence @relation(fields: [evidenceId], references: [id])
   verdict            String // "AUTHENTIC" | "MANIPULATED" | "AI_GENERATED" | "INCONCLUSIVE"
   confidence         Int // 0-100, post-cap displayed confidence
-  coverageCount      Int // 0-3 corroborating signals that fired
+  coverageCount      Int // 0-3 (image/video/audio, fuseEvidence) or 0-2 (documents, fuseDocumentEvidence) corroborating signals that fired
   confidenceCeiling  Int // 60 + coverageCount*13, per the fusion algorithm spec
   explanation        String
   signalBreakdownJson String // each corroborating check recorded as fired/absent/contradicted — never omitted

@@ -13,7 +13,18 @@ export type Verdict = "AUTHENTIC" | "MANIPULATED" | "AI_GENERATED" | "INCONCLUSI
 export type SignalState = "fired" | "absent" | "contradicted";
 
 export interface FusionInput {
-  classifierScore: number; // 0-100, Stage 2's raw manipulation probability
+  // Stage 2's raw face-manipulation ("deepfake") classifier score, 0-100 —
+  // trained on face-swap seam artifacts specifically, per detector.py.
+  faceSwapScore: number;
+  // A second, separate signal from a general (not face-swap-specific)
+  // AI-image classifier (general_ai_detector.py) — null when not
+  // applicable to this evidence type (audio has no image classifier at
+  // all). Added because faceSwapScore's model is documented (this
+  // project's own live calibration testing) to be effectively blind to
+  // full-synthesis content — this is what lets the MANIPULATED vs
+  // AI_GENERATED distinction below be real instead of an unused enum
+  // value, closing the gap this file's own prior comment named directly.
+  generalAiScore: number | null;
   metadataInconsistent: boolean; // e.g. editing-software encoder signature on the file
   c2paPresent: boolean;
   c2paValid: boolean; // only meaningful if c2paPresent — absent is neutral, never counted as corroborating
@@ -43,7 +54,17 @@ export function fuseEvidence(input: FusionInput): FusionResult {
 
   const coverageCount = [metadataState, c2paState, hashState].filter((s) => s === "fired" || s === "contradicted").length;
   const confidenceCeiling = 60 + coverageCount * 13;
-  const displayedConfidence = Math.min(input.classifierScore, confidenceCeiling);
+  // Fusion sees whichever of the two classifiers is more alarming — that's
+  // the coverage improvement itself (a full-synthesis image the face-swap
+  // model completely misses is no longer silently waved through just
+  // because that one model's score was low).
+  const classifierScore = Math.max(input.faceSwapScore, input.generalAiScore ?? 0);
+  const displayedConfidence = Math.min(classifierScore, confidenceCeiling);
+  // Which model actually produced the higher score decides MANIPULATED
+  // (face-swap) vs AI_GENERATED (full synthesis) below — a real
+  // distinction now, not a guess, but still only as reliable as whichever
+  // model fired (see both models' own honesty notes).
+  const generalAiIsDominant = input.generalAiScore !== null && input.generalAiScore > input.faceSwapScore;
 
   const c2paValidAndClean = input.c2paPresent && input.c2paValid;
 
@@ -55,7 +76,7 @@ export function fuseEvidence(input: FusionInput): FusionResult {
   // displayedConfidence in the sentence and would have said "flagged 60%"
   // for a classifier that actually flagged 91%.
   const rawScoreNote =
-    input.classifierScore > confidenceCeiling
+    classifierScore > confidenceCeiling
       ? ` (capped to ${displayedConfidence.toFixed(0)}% given only ${coverageCount} corroborating signal(s))`
       : "";
 
@@ -67,25 +88,32 @@ export function fuseEvidence(input: FusionInput): FusionResult {
     explanation = "Valid Content Credentials present and no significant manipulation signal — strongest signal in the pipeline supports authenticity.";
   } else if (c2paValidAndClean && displayedConfidence >= 50) {
     verdict = "INCONCLUSIVE";
-    explanation = `Valid Content Credentials present, but the classifier flagged elevated manipulation probability (${input.classifierScore.toFixed(0)}%) — conflicting strong signals, not silently resolved either way.`;
+    explanation = `Valid Content Credentials present, but the classifier flagged elevated manipulation probability (${classifierScore.toFixed(0)}%) — conflicting strong signals, not silently resolved either way.`;
   } else if (coverageCount === 0) {
     verdict = "INCONCLUSIVE";
-    explanation = `Classifier flagged ${input.classifierScore.toFixed(0)}% manipulation probability, but no corroborating signal (metadata, provenance, or hash match) — a single uncorroborated signal is never treated as a firm verdict, regardless of how high the raw score is. Confidence capped to ${displayedConfidence.toFixed(0)}%.`;
+    explanation = `Classifier flagged ${classifierScore.toFixed(0)}% manipulation probability, but no corroborating signal (metadata, provenance, or hash match) — a single uncorroborated signal is never treated as a firm verdict, regardless of how high the raw score is. Confidence capped to ${displayedConfidence.toFixed(0)}%.`;
   } else if (displayedConfidence >= 80) {
-    // The current detector (ml-service) is specifically a face-manipulation
-    // ("deepfake") classifier, not a general AI-image-generation detector —
-    // its positive signal means manipulated/face-swapped content, so that's
-    // the verdict this fusion produces. A real AI-GENERATED path (fully
-    // synthetic, no manipulated-real-face signal) would need a distinct
-    // detector this MVP doesn't have — don't claim that distinction here.
-    verdict = "MANIPULATED";
-    explanation = `Classifier flagged ${input.classifierScore.toFixed(0)}% manipulation probability${rawScoreNote} with ${coverageCount} corroborating signal(s) (${[metadataState === "fired" && "metadata inconsistency", c2paState === "contradicted" && "invalid C2PA credential", hashState === "fired" && "hash match to prior content"].filter(Boolean).join(", ")}).`;
+    // Which model actually produced the higher score decides the verdict:
+    // the face-swap classifier (detector.py) is trained on face-swap seam
+    // artifacts specifically, while the general AI-image classifier
+    // (general_ai_detector.py) targets full-synthesis content the former
+    // is documented to be blind to. Corroboration (coverageCount > 0,
+    // guaranteed by the branch above) still gates this the same as the
+    // MANIPULATED case — the distinction is only which detector fired.
+    const corroborationList = [metadataState === "fired" && "metadata inconsistency", c2paState === "contradicted" && "invalid C2PA credential", hashState === "fired" && "hash match to prior content"].filter(Boolean).join(", ");
+    if (generalAiIsDominant) {
+      verdict = "AI_GENERATED";
+      explanation = `General AI-image classifier flagged ${(input.generalAiScore ?? 0).toFixed(0)}% synthetic-content probability${rawScoreNote} (face-swap classifier scored lower, ${input.faceSwapScore.toFixed(0)}%) with ${coverageCount} corroborating signal(s) (${corroborationList}).`;
+    } else {
+      verdict = "MANIPULATED";
+      explanation = `Face-swap classifier flagged ${input.faceSwapScore.toFixed(0)}% manipulation probability${rawScoreNote} with ${coverageCount} corroborating signal(s) (${corroborationList}).`;
+    }
   } else if (displayedConfidence < 50) {
     verdict = "AUTHENTIC";
-    explanation = `Low manipulation probability (${input.classifierScore.toFixed(0)}%) with no contradicting signal.`;
+    explanation = `Low manipulation probability (${classifierScore.toFixed(0)}%) with no contradicting signal.`;
   } else {
     verdict = "INCONCLUSIVE";
-    explanation = `Manipulation probability (${input.classifierScore.toFixed(0)}%${rawScoreNote}) falls in the ambiguous band even with corroboration — treated as inconclusive rather than forced to a side.`;
+    explanation = `Manipulation probability (${classifierScore.toFixed(0)}%${rawScoreNote}) falls in the ambiguous band even with corroboration — treated as inconclusive rather than forced to a side.`;
   }
 
   return {

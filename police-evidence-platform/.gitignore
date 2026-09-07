@@ -50,11 +50,15 @@ yarn-error.log*
 /storage/heatmaps/*
 /storage/face-crops/*
 /storage/video-diffs/*
+/storage/cctv-frames/*
+/storage/reference-photos/*
 !/storage/uploads/.gitkeep
 !/storage/reports/.gitkeep
 !/storage/heatmaps/.gitkeep
 !/storage/face-crops/.gitkeep
 !/storage/video-diffs/.gitkeep
+!/storage/cctv-frames/.gitkeep
+!/storage/reference-photos/.gitkeep
 
 # vercel
 .vercel

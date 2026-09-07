@@ -1,6 +1,6 @@
 import "server-only";
 import { SchemaType } from "@google-cloud/vertexai";
-import { buildClient } from "@/lib/image-description";
+import { buildClient, isGeminiConfigured } from "@/lib/image-description";
 
 export interface DocumentSummaryResult {
   summary: string;
@@ -49,7 +49,7 @@ export async function summarizeDocument(text: string): Promise<DocumentSummaryRe
 /** Whether document AI analysis (summary + threat detection) is actually
  * configured — same credential as every other Vertex AI Gemini caller. */
 export function isDocumentAnalysisConfigured(): boolean {
-  return Boolean(process.env.GEMINI_APPLICATION_CREDENTIALS && process.env.GEMINI_GCP_PROJECT_ID);
+  return isGeminiConfigured();
 }
 
 /** Pulls the real extracted text (metadata.ts's textPreview, up to 2000

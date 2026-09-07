@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, ExternalLink, Loader2, Lock, Newspaper, SearchCheck, Sparkles } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatTimestamp } from "@/lib/utils";
 import type { CachedMergedReverseImageSearchResult, MergedMatch } from "@/lib/reverse-image-search-merge";
 import type { CachedPageSummaryResult } from "@/lib/news-summary";
 
@@ -140,7 +140,7 @@ export function ReverseImageSearchPanel({
           </p>
           {result?.ranAt && (
             <p className="text-[10px] text-text-tertiary">
-              Results as of {formatRelativeTime(result.ranAt)} ({new Date(result.ranAt).toLocaleString()}) — not
+              Results as of {formatRelativeTime(result.ranAt)} ({formatTimestamp(new Date(result.ranAt))}) — not
               re-checked automatically.
             </p>
           )}

@@ -80,6 +80,23 @@ export async function getRealCase(caseId: string) {
           matchesFrom: true,
           corpusMatches: { include: { corpusItem: true } },
           custodyTransfers: { orderBy: { occurredAt: "asc" }, include: { recordedBy: { select: { name: true } } } },
+          // CCTV object/plate/face-reference matching (PS4 use case #1) —
+          // per-frame samples with their detections, selected explicitly
+          // (not `include`) so raw 512-d face embeddings never leave the
+          // server for a client component to receive uselessly.
+          cctvFrameSamples: {
+            orderBy: { frameIndex: "asc" },
+            select: {
+              id: true,
+              frameIndex: true,
+              timestampSeconds: true,
+              objectDetections: {
+                select: { objectClass: true, confidence: true, boundingBoxJson: true, plateText: true, plateConfidence: true },
+              },
+              faces: { select: { boundingBoxJson: true, detectionProbability: true } },
+            },
+          },
+          referenceMatchResults: { orderBy: { similarity: "desc" } },
         },
       },
     },

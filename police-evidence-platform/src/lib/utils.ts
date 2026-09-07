@@ -33,3 +33,7 @@ export function formatTimestamp(date: Date): string {
 export function formatDateOnly(date: Date): string {
   return date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
 }
+
+export function formatTimeOnly(date: Date): string {
+  return date.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" });
+}

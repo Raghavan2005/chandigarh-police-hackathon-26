@@ -10,7 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getSession } from "@/lib/session";
 import { getAuditLog } from "@/lib/audit-server";
-import { cn } from "@/lib/utils";
+import { cn, formatTimestamp } from "@/lib/utils";
 
 const ACTION_COLOR: Record<string, string> = {
   UPLOADED: "text-accent-primary",
@@ -125,7 +125,7 @@ export default async function AuditLogPage() {
                 {entries.map((a) => (
                   <TableRow key={a.id} className="border-border-subtle">
                     <TableCell className="font-mono text-xs text-text-secondary">
-                      {a.timestamp.toLocaleString()}
+                      {formatTimestamp(a.timestamp)}
                     </TableCell>
                     <TableCell className="text-sm text-text-primary">{a.actor?.name ?? "System"}</TableCell>
                     <TableCell>

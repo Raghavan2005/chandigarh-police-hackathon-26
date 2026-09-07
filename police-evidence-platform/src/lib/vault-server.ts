@@ -164,6 +164,22 @@ export async function getVaultEvidenceDetail(evidenceId: string) {
       matchesFrom: true,
       corpusMatches: { include: { corpusItem: true } },
       custodyTransfers: { orderBy: { occurredAt: "asc" }, include: { recordedBy: { select: { name: true } } } },
+      // CCTV object/plate/face-reference matching (PS4 use case #1) — same
+      // shape as cases-server.ts's getRealCase, select (not include) so
+      // raw face embeddings never leave the server.
+      cctvFrameSamples: {
+        orderBy: { frameIndex: "asc" },
+        select: {
+          id: true,
+          frameIndex: true,
+          timestampSeconds: true,
+          objectDetections: {
+            select: { objectClass: true, confidence: true, boundingBoxJson: true, plateText: true, plateConfidence: true },
+          },
+          faces: { select: { boundingBoxJson: true, detectionProbability: true } },
+        },
+      },
+      referenceMatchResults: { orderBy: { similarity: "desc" } },
     },
   });
   if (!evidence) return null;

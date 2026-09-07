@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { buttonVariants } from "@/components/ui/button";
 import { getSession } from "@/lib/session";
 import { listInvestigations } from "@/lib/investigations-server";
+import { formatTimestamp } from "@/lib/utils";
 
 /**
  * Investigations — groups cases believed connected to the same real-world
@@ -84,7 +85,7 @@ export default async function InvestigationsPage() {
                     </TableCell>
                     <TableCell className="text-sm text-text-secondary">{inv.createdByName}</TableCell>
                     <TableCell className="text-right text-xs text-text-tertiary">
-                      {inv.createdAt.toLocaleString()}
+                      {formatTimestamp(inv.createdAt)}
                     </TableCell>
                   </TableRow>
                 ))}
