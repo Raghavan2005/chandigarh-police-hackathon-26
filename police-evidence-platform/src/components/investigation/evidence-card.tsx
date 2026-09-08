@@ -269,6 +269,7 @@ export function EvidenceCard({
             <CctvSearchPanel
               caseId={caseId}
               evidenceId={evidence.id}
+              evidenceDurationSeconds={meta?.duration ? parseFloat(meta.duration) : null}
               cachedFrameSamples={evidence.cctvFrameSamples}
               cachedMatches={parseReferenceMatchResults(evidence.referenceMatchResults)}
             />

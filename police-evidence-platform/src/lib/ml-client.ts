@@ -97,6 +97,9 @@ export interface ObjectDetection {
   // never a guessed string (see ml-service/plate_ocr.py).
   plateText: string | null;
   plateConfidence: number | null;
+  // The plate text's OWN box (EasyOCR's per-read polygon) -- distinct from
+  // `box` above, which is the whole vehicle. Null whenever plateText is null.
+  plateBox: [number, number, number, number] | null;
 }
 
 export interface ObjectDetectionResponse {

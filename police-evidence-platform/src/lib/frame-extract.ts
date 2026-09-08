@@ -76,9 +76,19 @@ export async function sampleVideoFrames(
     // black/blank opening frame, same reasoning as the 5% margin below)
     // and steps every intervalSeconds up to the cap — disclosed sampling
     // strategy for CCTV use case #1, not an attempt to sample every frame.
-    const count = Math.max(1, Math.min(maxFrames, Math.floor(durationSeconds / intervalSeconds)));
+    //
+    // When the clip is long enough that intervalSeconds would need more
+    // than maxFrames steps to reach the end, widen the effective interval
+    // so the capped frame count still spans the *entire* clip instead of
+    // silently stopping at maxFrames * intervalSeconds and never sampling
+    // anything past that point — a real bug found live: a 122s clip capped
+    // at 40 frames * 2s only ever examined its first 79s, missing the last
+    // third of the footage with no indication to the investigator.
+    const rawCount = Math.floor(durationSeconds / intervalSeconds);
+    const count = Math.max(1, Math.min(maxFrames, rawCount));
+    const effectiveInterval = rawCount > maxFrames ? durationSeconds / maxFrames : intervalSeconds;
     timestamps = Array.from({ length: count }, (_, i) =>
-      Math.min(durationSeconds - 0.05, intervalSeconds / 2 + i * intervalSeconds),
+      Math.min(durationSeconds - 0.05, effectiveInterval / 2 + i * effectiveInterval),
     );
   } else {
     const frameCount = Math.max(1, Math.min(maxFrames, Math.floor(durationSeconds)));

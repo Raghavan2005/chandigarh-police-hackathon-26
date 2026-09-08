@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Car, Loader2, ScanSearch, Search, UserRound } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, Car, ChevronDown, ChevronUp, Loader2, ScanSearch, Search, UserRound } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { plateSimilarity } from "@/lib/plate-match";
 import { cn } from "@/lib/utils";
 
 export interface CachedCctvFrameSample {
@@ -34,6 +36,8 @@ export interface CachedReferenceMatchResult {
 
 interface Summary {
   frameCount: number;
+  durationSeconds: number | null;
+  coverageEndSeconds: number;
   personCount: number;
   vehicleCountByClass: Record<string, number>;
   faceCount: number;
@@ -49,13 +53,86 @@ interface MatchEntry {
 
 const VEHICLE_CLASSES = new Set(["car", "truck", "bus", "motorcycle"]);
 
+// Deliberately distinct from reference-match's PLATE_MATCH_THRESHOLD
+// (0.7, tolerant of an investigator's own typo/transcription slip against
+// a real plate). This one only clusters OCR reads together when they're
+// close enough to plausibly be repeated reads of the SAME physical plate
+// across frames — set higher so two genuinely different plates that merely
+// share several characters don't get merged into one.
+const PLATE_DEDUPE_SIMILARITY = 0.75;
+
+/** Clusters near-duplicate OCR reads of the same real plate (EasyOCR
+ * misreading one character differently frame to frame, e.g. "CH01AB1234"
+ * vs "CH0IAB1234") into one entry instead of showing each raw string as
+ * its own chip — exact-string dedup was leaving obviously-the-same plate
+ * looking like several different ones. */
+function clusterPlateReads(
+  candidates: Summary["plateCandidates"],
+): (Summary["plateCandidates"][number] & { occurrences: number })[] {
+  const clusters: (Summary["plateCandidates"][number] & { occurrences: number })[] = [];
+  // Highest-confidence read first, so a clean read becomes each cluster's
+  // displayed text rather than whichever noisy read happened to come first.
+  for (const candidate of [...candidates].sort((a, b) => b.confidence - a.confidence)) {
+    const existing = clusters.find((c) => plateSimilarity(c.text, candidate.text) >= PLATE_DEDUPE_SIMILARITY);
+    if (existing) existing.occurrences += 1;
+    else clusters.push({ ...candidate, occurrences: 1 });
+  }
+  return clusters;
+}
+
 function formatTimestamp(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-function deriveSummary(samples: CachedCctvFrameSample[]): Summary {
+const DETECTION_PREVIEW_LIMIT = 24;
+
+interface DetectionPreviewEntry {
+  frameIndex: number;
+  timestampSeconds: number;
+  box: number[];
+  label: string;
+}
+
+/** Flattens the real per-frame detections already sent to this panel
+ * (cachedFrameSamples) into one list per class, for the "view" preview
+ * grid — the same real boxes/confidences persisted by /detect-cctv, not
+ * recomputed or approximated. One entry per detection, not per frame: a
+ * person visible across 5 sampled frames produces 5 entries, same
+ * per-frame (not deduplicated) counting the summary tiles already use. */
+function flattenDetections(
+  samples: CachedCctvFrameSample[],
+  targetClass: "person" | "vehicle" | "face",
+): DetectionPreviewEntry[] {
+  const entries: DetectionPreviewEntry[] = [];
+  for (const sample of samples) {
+    if (targetClass === "face") {
+      for (const face of sample.faces) {
+        entries.push({
+          frameIndex: sample.frameIndex,
+          timestampSeconds: sample.timestampSeconds,
+          box: JSON.parse(face.boundingBoxJson) as number[],
+          label: face.detectionProbability != null ? `face, ${(face.detectionProbability * 100).toFixed(0)}%` : "face",
+        });
+      }
+      continue;
+    }
+    for (const obj of sample.objectDetections) {
+      const isMatch = targetClass === "person" ? obj.objectClass === "person" : VEHICLE_CLASSES.has(obj.objectClass);
+      if (!isMatch) continue;
+      entries.push({
+        frameIndex: sample.frameIndex,
+        timestampSeconds: sample.timestampSeconds,
+        box: JSON.parse(obj.boundingBoxJson) as number[],
+        label: `${obj.objectClass}, ${(obj.confidence * 100).toFixed(0)}%`,
+      });
+    }
+  }
+  return entries;
+}
+
+function deriveSummary(samples: CachedCctvFrameSample[], durationSeconds: number | null): Summary {
   let personCount = 0;
   const vehicleCountByClass: Record<string, number> = {};
   let faceCount = 0;
@@ -76,7 +153,8 @@ function deriveSummary(samples: CachedCctvFrameSample[]): Summary {
     }
     faceCount += sample.faces.length;
   }
-  return { frameCount: samples.length, personCount, vehicleCountByClass, faceCount, plateCandidates };
+  const coverageEndSeconds = samples.reduce((max, s) => Math.max(max, s.timestampSeconds), 0);
+  return { frameCount: samples.length, durationSeconds, coverageEndSeconds, personCount, vehicleCountByClass, faceCount, plateCandidates };
 }
 
 /** One matched frame's real thumbnail with a real bounding-box overlay —
@@ -193,19 +271,23 @@ function MatchFrameThumb({
 export function CctvSearchPanel({
   caseId,
   evidenceId,
+  evidenceDurationSeconds,
   cachedFrameSamples,
   cachedMatches,
 }: {
   caseId: string;
   evidenceId: string;
+  evidenceDurationSeconds: number | null;
   cachedFrameSamples: CachedCctvFrameSample[];
   cachedMatches: CachedReferenceMatchResult[];
 }) {
+  const router = useRouter();
   const [summary, setSummary] = useState<Summary | null>(
-    cachedFrameSamples.length > 0 ? deriveSummary(cachedFrameSamples) : null,
+    cachedFrameSamples.length > 0 ? deriveSummary(cachedFrameSamples, evidenceDurationSeconds) : null,
   );
   const [detectStatus, setDetectStatus] = useState<"idle" | "running" | "error">("idle");
   const [detectError, setDetectError] = useState("");
+  const [expandedClass, setExpandedClass] = useState<"person" | "vehicle" | "face" | null>(null);
 
   const [plateText, setPlateText] = useState("");
   const [plateMatches, setPlateMatches] = useState<MatchEntry[]>(
@@ -256,6 +338,11 @@ export function CctvSearchPanel({
     // images/boxes, so clear them rather than leave a misleading display.
     setPlateMatches([]);
     setFaceMatches([]);
+    // The "browse detections" grid below reads cachedFrameSamples straight
+    // from props (real per-frame boxes), not from this POST response's
+    // bare counts — without a refresh it would still show whatever was
+    // there before this run (or nothing, on a first-ever run).
+    router.refresh();
   }
 
   async function handlePlateMatch() {
@@ -304,17 +391,8 @@ export function CctvSearchPanel({
     setFaceStatus("idle");
   }
 
-  const dedupedPlates = summary
-    ? Array.from(
-        summary.plateCandidates
-          .reduce((map, p) => {
-            const existing = map.get(p.text);
-            if (!existing || p.confidence > existing.confidence) map.set(p.text, p);
-            return map;
-          }, new Map<string, Summary["plateCandidates"][number]>())
-          .values(),
-      )
-    : [];
+  const dedupedPlates = summary ? clusterPlateReads(summary.plateCandidates) : [];
+  const expandedEntries = expandedClass ? flattenDetections(cachedFrameSamples, expandedClass) : [];
 
   return (
     <div className="flex flex-col gap-3 rounded-md border border-border-subtle bg-surface p-3 text-xs">
@@ -343,27 +421,47 @@ export function CctvSearchPanel({
 
       {!summary ? (
         <p className="text-[10px] text-text-tertiary">
-          Samples this video every 2 seconds (up to 40 frames) and runs a real COCO object detector
-          (person/car/truck/bus/motorcycle) plus EasyOCR plate reading and real face detection on each frame — not
-          run yet.
+          Samples this video every 2 seconds (up to 40 frames spread across the whole clip, however long it is) and
+          runs a real COCO object detector (person/car/truck/bus/motorcycle) plus EasyOCR plate reading and real face
+          detection on each frame — not run yet.
         </p>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <SummaryTile icon={<UserRound className="size-3.5" />} label="Person detections" value={summary.personCount} />
+            <SummaryTile
+              icon={<UserRound className="size-3.5" />}
+              label="Person detections"
+              value={summary.personCount}
+              active={expandedClass === "person"}
+              onClick={() => setExpandedClass((c) => (c === "person" ? null : "person"))}
+            />
             <SummaryTile
               icon={<Car className="size-3.5" />}
               label="Vehicle detections"
               value={Object.values(summary.vehicleCountByClass).reduce((a, b) => a + b, 0)}
+              active={expandedClass === "vehicle"}
+              onClick={() => setExpandedClass((c) => (c === "vehicle" ? null : "vehicle"))}
             />
             <SummaryTile icon={<Search className="size-3.5" />} label="Plate reads" value={dedupedPlates.length} />
-            <SummaryTile icon={<UserRound className="size-3.5" />} label="Face detections" value={summary.faceCount} />
+            <SummaryTile
+              icon={<UserRound className="size-3.5" />}
+              label="Face detections"
+              value={summary.faceCount}
+              active={expandedClass === "face"}
+              onClick={() => setExpandedClass((c) => (c === "face" ? null : "face"))}
+            />
           </div>
           <p className="text-[10px] text-text-tertiary">
             Counted per sampled frame, not deduplicated — the same person/vehicle on screen across multiple frames is
             counted once per frame it&apos;s detected in, not once overall. Plate reads (above) are the one deduplicated
             count, since a misread of the same real plate across frames shouldn&apos;t inflate the total.{" "}
-            {summary.frameCount} frame{summary.frameCount === 1 ? "" : "s"} sampled (every 2s, up to 40).
+            {summary.frameCount} frame{summary.frameCount === 1 ? "" : "s"} sampled, covering{" "}
+            {formatTimestamp(summary.coverageEndSeconds)}
+            {summary.durationSeconds ? ` of ${formatTimestamp(summary.durationSeconds)}` : ""} of footage
+            {summary.durationSeconds && summary.durationSeconds > 80
+              ? ` (a clip this long gets its 40 frames spread across the whole thing, not just the first 80s)`
+              : ""}
+            .
             {Object.entries(summary.vehicleCountByClass).length > 0 && (
               <>
                 {" "}
@@ -375,15 +473,53 @@ export function CctvSearchPanel({
               </>
             )}
           </p>
+
+          {expandedClass && (
+            <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-surface-sunken p-2.5">
+              <p className="font-medium text-text-secondary">
+                {expandedClass === "person" ? "Detected people" : expandedClass === "vehicle" ? "Detected vehicles" : "Detected faces"}{" "}
+                ({expandedEntries.length})
+              </p>
+              {expandedEntries.length === 0 ? (
+                <p className="text-text-tertiary">
+                  Counted at detection time, but no per-frame data is available to preview yet — re-run detection to
+                  refresh it.
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-6">
+                  {expandedEntries.slice(0, DETECTION_PREVIEW_LIMIT).map((d, i) => (
+                    <div key={i} className="flex flex-col items-center gap-0.5">
+                      <MatchFrameThumb
+                        caseId={caseId}
+                        evidenceId={evidenceId}
+                        frameIndex={d.frameIndex}
+                        timestampSeconds={d.timestampSeconds}
+                        box={d.box}
+                      />
+                      <p className="text-center text-[9px] text-text-tertiary">{d.label}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {expandedEntries.length > DETECTION_PREVIEW_LIMIT && (
+                <p className="text-text-tertiary">
+                  Showing the first {DETECTION_PREVIEW_LIMIT} of {expandedEntries.length} detections — one entry per
+                  sampled frame it appeared in, not deduplicated across frames.
+                </p>
+              )}
+            </div>
+          )}
+
           {dedupedPlates.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {dedupedPlates.map((p) => (
                 <span
                   key={p.text}
                   className="rounded border border-border-subtle bg-surface-sunken px-1.5 py-0.5 font-mono text-[10px] text-text-secondary"
-                  title={`OCR confidence ${(p.confidence * 100).toFixed(0)}% at ${formatTimestamp(p.timestampSeconds)}`}
+                  title={`OCR confidence ${(p.confidence * 100).toFixed(0)}% at ${formatTimestamp(p.timestampSeconds)}${p.occurrences > 1 ? ` — similar reads clustered from ${p.occurrences} frames` : ""}`}
                 >
                   {p.text}
+                  {p.occurrences > 1 && <span className="text-text-tertiary">×{p.occurrences}</span>}
                 </span>
               ))}
             </div>
@@ -485,12 +621,59 @@ export function CctvSearchPanel({
   );
 }
 
-function SummaryTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
-  return (
-    <div className="flex flex-col items-center gap-0.5 rounded-md border border-border-subtle bg-surface-sunken py-2">
+function SummaryTile({
+  icon,
+  label,
+  value,
+  onClick,
+  active,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  onClick?: () => void;
+  active?: boolean;
+}) {
+  const content = (
+    <>
       <div className="flex items-center gap-1 text-text-tertiary">{icon}</div>
       <p className="text-sm font-semibold text-text-primary">{value}</p>
       <p className="text-[10px] text-text-tertiary">{label}</p>
-    </div>
+    </>
+  );
+  if (!onClick) {
+    return (
+      <div className="flex flex-col items-center gap-0.5 rounded-md border border-border-subtle bg-surface-sunken py-2">
+        {content}
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={value === 0}
+      className={cn(
+        "flex flex-col items-center gap-1 rounded-md border-2 py-2 transition-colors",
+        value === 0 && "cursor-default border-border-subtle bg-surface-sunken opacity-60",
+        value > 0 && !active && "cursor-pointer border-accent-primary/40 bg-surface-sunken hover:border-accent-primary hover:bg-accent-primary/5",
+        value > 0 && active && "cursor-pointer border-accent-primary bg-accent-primary/10",
+      )}
+    >
+      {content}
+      {value > 0 && (
+        <span className="flex items-center gap-0.5 rounded-full bg-accent-primary px-2 py-0.5 text-[9px] font-semibold text-white">
+          {active ? (
+            <>
+              Hide <ChevronUp className="size-2.5" />
+            </>
+          ) : (
+            <>
+              View <ChevronDown className="size-2.5" />
+            </>
+          )}
+        </span>
+      )}
+    </button>
   );
 }

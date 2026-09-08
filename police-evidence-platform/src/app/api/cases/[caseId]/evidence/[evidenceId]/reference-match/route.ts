@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { writeAuditEntry } from "@/lib/audit";
-import { writeReferencePhoto } from "@/lib/storage";
+import { writeReferencePhoto, deleteReferencePhoto } from "@/lib/storage";
 import { embedFace } from "@/lib/ml-client";
 import { cosineSimilarity, FACE_MATCH_THRESHOLD } from "@/lib/face-match";
 import { plateSimilarity, PLATE_MATCH_THRESHOLD } from "@/lib/plate-match";
@@ -90,6 +90,7 @@ async function handlePlateMatch(
     select: {
       plateText: true,
       boundingBoxJson: true,
+      plateBoundingBoxJson: true,
       frameSample: { select: { frameIndex: true, timestampSeconds: true } },
     },
   });
@@ -99,7 +100,12 @@ async function handlePlateMatch(
       frameIndex: d.frameSample.frameIndex,
       timestampSeconds: d.frameSample.timestampSeconds,
       similarity: plateSimilarity(plateText, d.plateText!),
-      boundingBoxJson: d.boundingBoxJson,
+      // The plate's own box, when this detection has one (a fresh re-run
+      // of /detect-cctv after this field was added) -- highlights the
+      // plate itself rather than the whole vehicle. Older rows from before
+      // plateBoundingBoxJson existed fall back to the vehicle box, same as
+      // this feature behaved previously, rather than showing no box at all.
+      boundingBoxJson: d.plateBoundingBoxJson ?? d.boundingBoxJson,
     }))
     .filter((m) => m.similarity >= PLATE_MATCH_THRESHOLD)
     .sort((a, b) => b.similarity - a.similarity);
@@ -214,6 +220,10 @@ async function handleFaceMatch(
         boundingBoxJson: m.boundingBoxJson,
       })),
     });
+  } else {
+    // No match row will carry this run's referenceImagePath — clean it up
+    // rather than leave an unreferenced file at this evidence's photo path.
+    deleteReferencePhoto(referenceImagePath);
   }
 
   await writeAuditEntry({
@@ -227,7 +237,7 @@ async function handleFaceMatch(
   return NextResponse.json({
     matchType: "face",
     referenceLabel: file.name || "reference-photo",
-    referenceImagePath,
+    referenceImagePath: matches.length > 0 ? referenceImagePath : null,
     threshold: FACE_MATCH_THRESHOLD,
     facesCompared: storedFaces.length,
     matches: matches.map((m) => ({

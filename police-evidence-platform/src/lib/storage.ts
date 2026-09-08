@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { mkdirSync, writeFileSync, existsSync } from "fs";
+import { mkdirSync, writeFileSync, existsSync, unlinkSync } from "fs";
 import path from "path";
 
 // storage/ lives inside police-evidence-platform/ (alongside package.json),
@@ -135,6 +135,21 @@ export function writeReferencePhoto(evidenceId: string, buffer: Buffer, mimeType
   const filename = `${evidenceId}.${extensionForMime(mimeType)}`;
   writeFileSync(path.join(REFERENCE_PHOTOS_DIR, filename), buffer);
   return path.join("reference-photos", filename);
+}
+
+/** Cleans up a reference photo written by a face-match run that found zero
+ * matches — no ReferenceMatchResult row gets created for a zero-match
+ * search (there's nothing to attach referenceImagePath to), so leaving the
+ * file in place would orphan it: unreferenced by any DB row, yet still
+ * sitting at this evidence's fixed reference-photo path. Best-effort — a
+ * failed cleanup shouldn't turn an honest "no matches found" response into
+ * an error. */
+export function deleteReferencePhoto(relativeFilePath: string): void {
+  try {
+    unlinkSync(resolveEvidencePath(relativeFilePath));
+  } catch {
+    // Already gone, or a transient FS issue — not worth failing the request over.
+  }
 }
 
 /** Decodes and writes every real detected face crop (index 0 is MTCNN's
