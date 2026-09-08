@@ -250,7 +250,27 @@ export function RealEvidenceViewer({
     setPrevCachedTranscript(cachedTranscript);
     if (!transcript && cachedTranscript) setTranscript(cachedTranscript);
   }
-  const [translateTarget, setTranslateTarget] = useState("hi");
+  const [translateTarget, setTranslateTarget] = useState(
+    () => TRANSLATION_LANGUAGES.find((l) => l.code !== cachedTranscript?.language)?.code ?? "en"
+  );
+  // If the selected target ever collides with the transcript's own detected
+  // language (e.g. transcript loads/changes after this state's initial
+  // value was picked), the option is filtered out of the <select> below but
+  // the controlled `value` still holds the stale code, so the browser falls
+  // back to displaying its first rendered option ("English") without ever
+  // firing onChange — translateTarget silently stays wrong and a translate
+  // click sends a no-op source===target request. Keep it in sync instead.
+  // Same "adjusting state during render, gated on identity comparison"
+  // pattern as prevCachedTranscript above, not a useEffect — setState
+  // directly inside an effect body triggers an extra cascading render
+  // React's own lint rules flag for exactly this reason.
+  const [prevTranscriptLanguage, setPrevTranscriptLanguage] = useState(transcript?.language ?? null);
+  if ((transcript?.language ?? null) !== prevTranscriptLanguage) {
+    setPrevTranscriptLanguage(transcript?.language ?? null);
+    if (transcript && translateTarget === transcript.language) {
+      setTranslateTarget(TRANSLATION_LANGUAGES.find((l) => l.code !== transcript.language)?.code ?? "en");
+    }
+  }
   const [translatingLang, setTranslatingLang] = useState<string | null>(null);
   const [translateError, setTranslateError] = useState("");
   const [validatingSpeech, setValidatingSpeech] = useState(false);

@@ -39,7 +39,10 @@ requests==2.34.2
 # Pinned to the 4.x line, not the newer 5.x major (already on PyPI at time
 # of writing) — 5.x is a fresh major bump with less field experience behind
 # it; 4.x's AutoModelForAudioClassification/AutoFeatureExtractor interface
-# is the one actually verified working here.
+# is the one actually verified working here. Also the same dependency
+# general_ai_detector.py and sdxl_detector.py load their image classifiers
+# through (AutoImageProcessor/AutoModelForImageClassification) — no
+# separate pin needed for either.
 transformers==4.57.6
 # Downloads and caches a real static ffmpeg binary on first use — the
 # Python-side equivalent of the Next.js side's @ffmpeg-installer/ffmpeg,

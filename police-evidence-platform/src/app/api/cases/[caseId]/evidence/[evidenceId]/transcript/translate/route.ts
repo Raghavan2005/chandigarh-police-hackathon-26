@@ -42,6 +42,13 @@ export async function POST(
     );
   }
 
+  if (targetLang === transcript.language) {
+    return NextResponse.json(
+      { error: `This transcript is already in ${targetLang} — pick a different target language.` },
+      { status: 422 },
+    );
+  }
+
   const existing = await db.transcriptTranslation.findUnique({
     where: { transcriptResultId_targetLang: { transcriptResultId: transcript.id, targetLang } },
   });

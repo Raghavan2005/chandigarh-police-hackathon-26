@@ -44,11 +44,13 @@ export async function extractFrameAt(filePath: string, timestampSeconds: number)
 /**
  * Samples frames from a video for a detection model — either evenly spaced
  * across the whole clip (default, PS4_MVP_BUILD_PLAN.md §3 — "reuse the
- * image model via frame sampling," used by the deepfake classifier) or, if
- * `intervalSeconds` is given, at a fixed interval up to `maxFrames` — the
- * denser coverage CCTV-style scanning needs (use case #1: a person/
- * vehicle/plate may only be on-screen for a couple of seconds, which a
- * 6-frame whole-clip sample would very likely miss entirely). Returns each
+ * image model via frame sampling," used by the deepfake classifier, which
+ * scales its own `maxFrames` with clip duration — see
+ * investigate/route.ts's deepfakeSampleFrameCount) or, if `intervalSeconds`
+ * is given, at a fixed interval up to `maxFrames` — the denser coverage
+ * CCTV-style scanning needs (use case #1: a person/vehicle/plate may only
+ * be on-screen for a couple of seconds, which a sparse whole-clip sample
+ * would very likely miss entirely). Returns each
  * frame's real timestamp alongside its bytes — previously discarded after
  * picking the worst-scoring frame in the deepfake path, now also the basis
  * for the real per-frame timeline surfaced in the investigator UI

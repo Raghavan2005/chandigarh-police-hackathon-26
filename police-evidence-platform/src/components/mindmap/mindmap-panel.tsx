@@ -4,12 +4,12 @@ import { useState } from "react";
 import { AlertTriangle, Loader2, Lock, Network } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn, formatTimestamp } from "@/lib/utils";
-import type { MindMapEntity, MindMapRelationship } from "@/lib/mindmap-server";
-import { MindMapGraph } from "@/components/mindmap/mindmap-graph";
+import type { MindMapNode, MindMapEdge } from "@/lib/mindmap-server";
+import { MindMapGraph, MindMapTimeline } from "@/components/mindmap/mindmap-graph";
 
 export interface CachedCaseMindMap {
-  entities: MindMapEntity[];
-  relationships: MindMapRelationship[];
+  nodes: MindMapNode[];
+  edges: MindMapEdge[];
   summary: string;
   exhibitCount: number;
   ranAt: string;
@@ -27,20 +27,27 @@ function formatRelativeTime(iso: string): string {
 }
 
 /**
- * Real cross-evidence mind map (PS4_USE_CASES.md #6) — a real, billed
- * Gemini call across every real per-exhibit text already gathered on this
- * case, shown "as of <time>" with an always-available "Re-run", same
- * cached-and-re-runnable UX as ImageDescriptionPanel/DocumentAnalysisPanel.
+ * Real cross-evidence case graph (PS4_USE_CASES.md #6), redefined from a
+ * single flat AI-entity-extraction call into two layers: a `structural`
+ * graph (exhibits, verdicts, corpus/cross-case matches, web-search
+ * sources) computed server-side with zero cost and shown immediately —
+ * real and useful even with no Gemini credentials configured and before
+ * any AI call ever runs — plus an opt-in AI-inferred entity/relationship
+ * layer merged on top and cached once run. This is the fix for "looks
+ * like a name-sake": the graph is never empty just because no external
+ * service has been called yet.
  */
 export function MindMapPanel({
   caseId,
   cached,
+  structural,
   sensitivityLevel,
   exhibitsWithTextCount,
   totalEvidenceCount,
 }: {
   caseId: string;
   cached: CachedCaseMindMap | null;
+  structural: { nodes: MindMapNode[]; edges: MindMapEdge[] };
   sensitivityLevel: string;
   exhibitsWithTextCount: number;
   totalEvidenceCount: number;
@@ -51,15 +58,7 @@ export function MindMapPanel({
   const [result, setResult] = useState<CachedCaseMindMap | null>(cached);
   const [errorMessage, setErrorMessage] = useState("");
 
-  if (sensitivityLevel !== "standard") {
-    return (
-      <p className="flex items-center gap-1.5 rounded-md border border-status-warning/30 bg-status-warning-bg px-3 py-2 text-xs text-status-warning">
-        <Lock className="size-3.5 shrink-0" />
-        This case is flagged {sensitivityLevel === "ncii" ? "NCII" : "minor-sensitivity"} — the cross-evidence mind
-        map is blocked to avoid sending its evidence text to an external service.
-      </p>
-    );
-  }
+  const sensitive = sensitivityLevel !== "standard";
 
   async function handleRun() {
     setStatus("running");
@@ -87,103 +86,91 @@ export function MindMapPanel({
     setStatus("done");
   }
 
-  if (!result) {
-    if (status === "not-configured") {
-      return (
-        <p className="rounded-md border border-dashed border-border-subtle px-3 py-2 text-xs text-text-tertiary">
-          Cross-evidence mind map isn&apos;t configured on this deployment (no Cognition Engine credentials set) — a real
-          capability, not built by default since it requires a billed external service.
-        </p>
-      );
-    }
-
-    if (exhibitsWithTextCount === 0) {
-      return (
-        <p className="rounded-md border border-dashed border-border-subtle px-3 py-2 text-xs text-text-tertiary">
-          None of this case&apos;s {totalEvidenceCount} exhibit{totalEvidenceCount === 1 ? "" : "s"} have any
-          analyzed text yet (a transcript, an AI image description, a face note, or document text/summary) — there
-          is nothing to synthesize a mind map from. Run one of those exhibit-level analyses first, then come back
-          here.
-        </p>
-      );
-    }
-
-    if (status === "error") {
-      return (
-        <div className="flex flex-col gap-1.5">
-          <p role="alert" className="flex items-center gap-1.5 rounded-md border border-status-critical/30 bg-status-critical-bg px-2.5 py-1.5 text-xs text-status-critical">
-            <AlertTriangle className="size-3.5 shrink-0" />
-            {errorMessage}
-          </p>
-          <button type="button" onClick={handleRun} className={cn(buttonVariants({ variant: "outline", size: "xs" }), "w-fit")}>
-            Retry
-          </button>
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex flex-col gap-2">
-        <p className="text-xs text-text-tertiary">
-          {exhibitsWithTextCount} of {totalEvidenceCount} exhibit{totalEvidenceCount === 1 ? "" : "s"} on this case
-          have analyzed text available to synthesize across.
-        </p>
-        <button
-          type="button"
-          onClick={handleRun}
-          disabled={status === "running"}
-          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit")}
-        >
-          {status === "running" ? <Loader2 className="size-3.5 animate-spin" /> : <Network className="size-3.5" />}
-          {status === "running" ? "Synthesizing across exhibits…" : "Generate mind map (AI)"}
-        </button>
-      </div>
-    );
-  }
+  // A cached AI-inferred result generated before this case was flagged
+  // sensitive must not still display once it is — the sensitivity gate has
+  // to apply to what's shown, not just to whether a new call can be made.
+  // Falls back to the (always-safe, never-externally-sent) structural
+  // graph exactly as if no AI run had ever happened.
+  const activeResult = sensitive ? null : result;
+  const activeNodes = activeResult?.nodes ?? structural.nodes;
+  const activeEdges = activeResult?.edges ?? structural.edges;
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-xs text-text-tertiary">
-            Synthesized from {result.exhibitCount} of {totalEvidenceCount} exhibit{totalEvidenceCount === 1 ? "" : "s"}{" "}
-            — results as of {formatRelativeTime(result.ranAt)} ({formatTimestamp(new Date(result.ranAt))}), not
-            re-checked automatically as new evidence is added.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={handleRun}
-          disabled={status === "running"}
-          className={cn(buttonVariants({ variant: "outline", size: "xs" }), "shrink-0")}
-        >
-          {status === "running" && <Loader2 className="size-3 animate-spin" />}
-          Re-run
-        </button>
+        <p className="text-xs text-text-tertiary">
+          {activeResult ? (
+            <>
+              Includes AI-inferred entities — synthesized from {activeResult.exhibitCount} of {totalEvidenceCount} exhibit
+              {totalEvidenceCount === 1 ? "" : "s"}, as of {formatRelativeTime(activeResult.ranAt)} (
+              {formatTimestamp(new Date(activeResult.ranAt))}). The structural half (exhibits, verdicts, matches, web
+              sources) is recomputed fresh on re-run; the AI-inferred half is not re-checked automatically as new
+              evidence is added.
+            </>
+          ) : (
+            <>
+              Real, structural graph — {totalEvidenceCount} exhibit{totalEvidenceCount === 1 ? "" : "s"}, their
+              verdicts, and every corpus/cross-case/web-search match, always current, no external call involved.
+            </>
+          )}
+        </p>
+        {!sensitive && (
+          <button
+            type="button"
+            onClick={handleRun}
+            disabled={status === "running"}
+            className={cn(buttonVariants({ variant: "outline", size: "xs" }), "shrink-0")}
+          >
+            {status === "running" ? <Loader2 className="size-3 animate-spin" /> : <Network className="size-3" />}
+            {status === "running" ? "Synthesizing…" : result ? "Re-run AI layer" : "Add AI-inferred entities"}
+          </button>
+        )}
       </div>
 
+      {sensitive && (
+        <p className="flex items-center gap-1.5 rounded-md border border-status-warning/30 bg-status-warning-bg px-3 py-2 text-xs text-status-warning">
+          <Lock className="size-3.5 shrink-0" />
+          This case is flagged {sensitivityLevel === "ncii" ? "NCII" : "minor-sensitivity"} — the AI-inferred entity
+          layer is blocked to avoid sending its evidence text to an external service. The structural graph below
+          never leaves this platform, so it&apos;s still shown in full.
+        </p>
+      )}
+
+      {status === "not-configured" && (
+        <p className="rounded-md border border-dashed border-border-subtle px-2.5 py-1.5 text-xs text-text-tertiary">
+          AI entity/relationship extraction isn&apos;t configured on this deployment (no Cognition Engine credentials set) —
+          the structural graph below is real and unaffected.
+        </p>
+      )}
       {status === "error" && (
         <p role="alert" className="flex items-center gap-1.5 rounded-md border border-status-critical/30 bg-status-critical-bg px-2.5 py-1.5 text-xs text-status-critical">
           <AlertTriangle className="size-3.5 shrink-0" />
-          Re-run failed: {errorMessage} (showing the last successful result below.)
+          {errorMessage}
         </p>
       )}
-      {status === "not-configured" && (
+      {!sensitive && !result && exhibitsWithTextCount === 0 && (
         <p className="rounded-md border border-dashed border-border-subtle px-2.5 py-1.5 text-xs text-text-tertiary">
-          Re-run unavailable — credentials were removed since the cached result below was fetched.
+          None of this case&apos;s {totalEvidenceCount} exhibit{totalEvidenceCount === 1 ? "" : "s"} have analyzed
+          text yet (a transcript, AI image description, face note, or document text/summary), so there&apos;s
+          nothing for the AI layer to extract entities from — run one of those exhibit-level analyses first if you
+          want named-entity extraction, or just use the structural graph below as-is.
         </p>
       )}
 
-      <div className="rounded-md border border-border-subtle bg-surface p-3 text-xs">
-        <p className="mb-1.5 font-medium text-text-secondary">Case summary (AI)</p>
-        <p className="text-text-secondary">{result.summary}</p>
-        <p className="mt-2 text-[10px] text-text-tertiary">
-          A best-effort synthesis grounded only in this case&apos;s already-analyzed exhibit text, not independent
-          research — treat named entities/relationships as investigative leads to verify, never as confirmed fact.
-        </p>
-      </div>
+      {activeResult && (
+        <div className="rounded-md border border-border-subtle bg-surface p-3 text-xs">
+          <p className="mb-1.5 font-medium text-text-secondary">Case summary (AI)</p>
+          <p className="text-text-secondary">{activeResult.summary}</p>
+          <p className="mt-2 text-[10px] text-text-tertiary">
+            A best-effort synthesis grounded only in this case&apos;s already-analyzed exhibit text plus its real
+            verdicts/match counts, not independent research — treat named entities/relationships as investigative
+            leads to verify, never as confirmed fact.
+          </p>
+        </div>
+      )}
 
-      <MindMapGraph entities={result.entities} relationships={result.relationships} />
+      <MindMapGraph nodes={activeNodes} edges={activeEdges} />
+      <MindMapTimeline nodes={activeNodes} />
     </div>
   );
 }

@@ -6,16 +6,17 @@ import { getRealCase } from "@/lib/cases-server";
 import { aggregateCaseText, isMindMapConfigured, synthesizeCaseMindMap } from "@/lib/mindmap-server";
 
 /**
- * Real cross-evidence mind map (PS4_USE_CASES.md #6) — gathers every real
- * per-exhibit text already visible elsewhere on this case (transcripts/
- * translations, AI image descriptions, per-face notes, document text/
- * summaries) and makes one Gemini structured-JSON call to extract named
- * entities, text-evidenced relationships between them, and a narrative
- * summary. Same cache-and-manually-re-run philosophy, same NCII/minor
- * sensitivity gate, and same 501-when-unconfigured pattern as every other
- * Gemini caller in this app (describe-image, document-summary) — this
- * call sends the case's aggregated text to an external service, so the
- * gate applies at the case level rather than per exhibit.
+ * Real cross-evidence mind map (PS4_USE_CASES.md #6) — computes the full
+ * unified graph (real structural facts: exhibits, verdicts, corpus/cross-
+ * case matches, web-search sources — plus the AI-inferred entity/
+ * relationship layer tied back into it) and persists it. The structural
+ * half is also available with zero cost via GET (see below) or directly
+ * from buildStructuralGraph on the page — this POST is specifically for
+ * the part that costs a real, billed Gemini call: named-entity/
+ * relationship extraction over the case's aggregated exhibit text. Same
+ * cache-and-manually-re-run philosophy, same NCII/minor sensitivity gate,
+ * and same 501-when-unconfigured pattern as every other Gemini caller in
+ * this app (describe-image, document-summary).
  */
 export async function POST(_request: Request, { params }: { params: Promise<{ caseId: string }> }) {
   const session = await requireSession();
@@ -23,7 +24,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ca
 
   if (!isMindMapConfigured()) {
     return NextResponse.json(
-      { error: "Cross-evidence mind map isn't configured on this deployment (no Cognition Engine credentials set)." },
+      { error: "AI entity/relationship extraction isn't configured on this deployment (no Cognition Engine credentials set) — the structural graph above is still real and available." },
       { status: 501 },
     );
   }
@@ -49,13 +50,13 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ca
     return NextResponse.json(
       {
         error:
-          "No analyzed exhibits on this case have any real text yet (no transcript, AI image description, face note, or document text/summary) — nothing to synthesize a mind map from.",
+          "No analyzed exhibits on this case have any real text yet (no transcript, AI image description, face note, or document text/summary) — nothing for the AI layer to extract entities from. The structural graph above is still real and available.",
       },
       { status: 422 },
     );
   }
 
-  const result = await synthesizeCaseMindMap(aggregation.combinedText).catch((error: unknown) => {
+  const result = await synthesizeCaseMindMap(realCase).catch((error: unknown) => {
     console.error("[mindmap] Gemini call failed:", error);
     return null;
   });
@@ -70,14 +71,14 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ca
     where: { caseId },
     create: {
       caseId,
-      entitiesJson: JSON.stringify(result.entities),
-      relationshipsJson: JSON.stringify(result.relationships),
+      nodesJson: JSON.stringify(result.nodes),
+      edgesJson: JSON.stringify(result.edges),
       summary: result.summary,
       exhibitCount: aggregation.exhibits.length,
     },
     update: {
-      entitiesJson: JSON.stringify(result.entities),
-      relationshipsJson: JSON.stringify(result.relationships),
+      nodesJson: JSON.stringify(result.nodes),
+      edgesJson: JSON.stringify(result.edges),
       summary: result.summary,
       exhibitCount: aggregation.exhibits.length,
       ranAt: new Date(),
@@ -92,8 +93,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ca
   });
 
   return NextResponse.json({
-    entities: result.entities,
-    relationships: result.relationships,
+    nodes: result.nodes,
+    edges: result.edges,
     summary: result.summary,
     exhibitCount: saved.exhibitCount,
     ranAt: saved.ranAt,

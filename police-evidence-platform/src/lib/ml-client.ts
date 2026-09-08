@@ -16,6 +16,13 @@ export interface DetectionResponse {
   // known-real StyleGAN test image 0%). Never blended server-side; the
   // caller decides how to combine the two.
   generalAiProbability: number;
+  // Third, separate signal from a modern-diffusion-focused AI-image
+  // classifier (ml-service/sdxl_detector.py) -- added because
+  // generalAiProbability's own model card admits ~2-year-old training data
+  // and "significant concept drift" since, i.e. it's documented (not
+  // assumed) to be stale against modern SDXL/diffusion-era output. Never
+  // blended server-side; the caller decides how to combine all three.
+  sdxlProbability: number;
   heatmapPngBase64: string;
   faceDetected: boolean;
   // Every detected face, each normalized [x1, y1, x2, y2] fractions (0-1)

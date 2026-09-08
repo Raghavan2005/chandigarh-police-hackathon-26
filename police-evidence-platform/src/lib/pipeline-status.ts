@@ -12,6 +12,7 @@ export interface PipelineEvidenceInput {
   detectionResult: {
     manipulationProbability: number;
     generalAiProbability: number | null;
+    sdxlProbability: number | null;
     modelName: string;
     modelVersion: string;
   } | null;
@@ -151,6 +152,11 @@ export function computePipelineStatus(evidence: PipelineEvidenceInput): Pipeline
             // all — omit the row rather than show a fabricated 0%.
             ...(evidence.detectionResult.generalAiProbability !== null
               ? [{ label: "General AI-image classifier score", value: `${Math.round(evidence.detectionResult.generalAiProbability)}%` }]
+              : []),
+            // Third, modern-diffusion-focused signal (sdxl_detector.py) —
+            // same null-for-audio guard as the general AI-image row above.
+            ...(evidence.detectionResult.sdxlProbability !== null
+              ? [{ label: "SDXL/modern-diffusion classifier score", value: `${Math.round(evidence.detectionResult.sdxlProbability)}%` }]
               : []),
             { label: "Model", value: `${evidence.detectionResult.modelName} ${evidence.detectionResult.modelVersion}` },
           ]

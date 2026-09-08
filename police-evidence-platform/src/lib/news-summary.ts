@@ -1,5 +1,5 @@
 import "server-only";
-import { SchemaType } from "@google-cloud/vertexai";
+import { Type } from "@google/genai";
 import { buildClient } from "@/lib/image-description";
 
 export interface PageSummaryResult {
@@ -60,16 +60,16 @@ export async function fetchPageText(url: string): Promise<string | null> {
 }
 
 const RESPONSE_SCHEMA = {
-  type: SchemaType.OBJECT,
+  type: Type.OBJECT,
   properties: {
     isNewsArticle: {
-      type: SchemaType.BOOLEAN,
+      type: Type.BOOLEAN,
       description: "True only if this page is genuinely a news article (not a forum post, social media post, homepage, or unrelated content).",
     },
-    headline: { type: SchemaType.STRING, nullable: true },
-    outlet: { type: SchemaType.STRING, nullable: true, description: "The publication/outlet name, if identifiable." },
-    publishedDate: { type: SchemaType.STRING, nullable: true, description: "Publication date as stated on the page, if present." },
-    summary: { type: SchemaType.STRING, nullable: true, description: "Two to four plain, factual sentences summarizing the article's actual content." },
+    headline: { type: Type.STRING, nullable: true },
+    outlet: { type: Type.STRING, nullable: true, description: "The publication/outlet name, if identifiable." },
+    publishedDate: { type: Type.STRING, nullable: true, description: "Publication date as stated on the page, if present." },
+    summary: { type: Type.STRING, nullable: true, description: "Two to four plain, factual sentences summarizing the article's actual content." },
   },
   required: ["isNewsArticle", "headline", "outlet", "publishedDate", "summary"],
 };
@@ -79,20 +79,17 @@ const PROMPT = `You are assisting a police investigator reviewing a web page tha
 /**
  * Real Gemini judgment of whether a matched page is news, and a real
  * summary from the real fetched text when it is — never inferred from the
- * URL alone. Same Vertex AI auth path as image-description.ts.
+ * URL alone. Same shared client (buildClient()) as image-description.ts.
  */
 export async function summarizeArticle(url: string, pageText: string): Promise<PageSummaryResult> {
-  const vertexAI = buildClient();
-  const model = vertexAI.getGenerativeModel({
+  const genAI = buildClient();
+  const result = await genAI.models.generateContent({
     model: "gemini-2.5-flash",
-    generationConfig: { responseMimeType: "application/json", responseSchema: RESPONSE_SCHEMA },
-  });
-
-  const result = await model.generateContent({
     contents: [{ role: "user", parts: [{ text: `${PROMPT}\n\nURL: ${url}\n\nPage text:\n${pageText}` }] }],
+    config: { responseMimeType: "application/json", responseSchema: RESPONSE_SCHEMA },
   });
 
-  const text = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
+  const text = result.text;
   if (!text) throw new Error("Gemini returned no content.");
 
   const parsed: unknown = JSON.parse(text);

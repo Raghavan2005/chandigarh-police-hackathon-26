@@ -21,6 +21,28 @@ import { raiseVerdictAlerts } from "@/lib/alerts";
  * audit entry for the whole run. Stage 1 (metadata) already ran at upload
  * time — see the evidence route — so it isn't repeated here.
  */
+
+const MIN_DEEPFAKE_SAMPLE_FRAMES = 6;
+const MAX_DEEPFAKE_SAMPLE_FRAMES = 20;
+const DEEPFAKE_SECONDS_PER_FRAME = 3;
+
+/**
+ * Deepfake-detection frame count now scales with clip duration instead of
+ * a flat 6 regardless of length — a real gap this project's own video
+ * calibration testing surfaced directly: a 6-frame sample gives reasonable
+ * coverage on a short clip, but the exact same 6 frames spread across a
+ * multi-minute video leave long gaps a brief manipulated segment could
+ * fall entirely between. Scales at roughly one frame per 3 seconds of
+ * footage, floored at the original 6 (no regression for short clips,
+ * which already had adequate coverage relative to their length) and
+ * capped at 20 (keeps a live /investigate call from taking minutes on a
+ * long upload — each added frame costs three more classifier passes, not
+ * a cheap operation).
+ */
+function deepfakeSampleFrameCount(durationSeconds: number): number {
+  const scaled = Math.round(durationSeconds / DEEPFAKE_SECONDS_PER_FRAME);
+  return Math.min(MAX_DEEPFAKE_SAMPLE_FRAMES, Math.max(MIN_DEEPFAKE_SAMPLE_FRAMES, scaled));
+}
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ caseId: string; evidenceId: string }> },
@@ -84,6 +106,13 @@ export async function POST(
   // different axes entirely). Null for audio, which has no image
   // classifier at all.
   let generalAiProbability: number | null = null;
+  // Worst (highest) modern-diffusion-focused classifier score across all
+  // sampled frames — same "worst, not averaged" treatment as
+  // generalAiProbability above, tracked independently since sdxl_detector.py
+  // is trained on a different axis again (see its own docstring: it targets
+  // the staleness gap general_ai_detector.py's own model card admits
+  // having). Null for audio, same as generalAiProbability.
+  let sdxlProbability: number | null = null;
   let heatmapPngBase64: string | null = null;
   let faceBoxes: [number, number, number, number][] = [];
   let faceCropsPngBase64: string[] = [];
@@ -104,7 +133,7 @@ export async function POST(
 
   if (isVideo) {
     const durationSeconds = evidence.metadataResult?.duration ? parseFloat(evidence.metadataResult.duration) : 0;
-    const frames = await sampleVideoFrames(absolutePath, durationSeconds);
+    const frames = await sampleVideoFrames(absolutePath, durationSeconds, deepfakeSampleFrameCount(durationSeconds));
     if (frames.length === 0) {
       return NextResponse.json(
         { error: "Could not extract any frames from this video — check the file isn't corrupt." },
@@ -122,6 +151,7 @@ export async function POST(
     const worst = frameResults[worstIndex];
     primaryModelProbability = worst.probability;
     generalAiProbability = Math.max(...frameResults.map((r) => r.generalAiProbability));
+    sdxlProbability = Math.max(...frameResults.map((r) => r.sdxlProbability));
     heatmapPngBase64 = worst.heatmapPngBase64;
     // Face boxes/crops are relative to that same worst-scoring frame — the
     // one still image actually shown for the heatmap, not the whole video.
@@ -174,6 +204,7 @@ export async function POST(
         evidenceId: evidence.id,
         manipulationProbability: primaryModelProbability,
         generalAiProbability,
+        sdxlProbability,
         heatmapPath,
         faceBoxesJson,
         faceCropPathsJson,
@@ -185,6 +216,7 @@ export async function POST(
       update: {
         manipulationProbability: primaryModelProbability,
         generalAiProbability,
+        sdxlProbability,
         heatmapPath,
         faceBoxesJson,
         faceCropPathsJson,
@@ -211,6 +243,7 @@ export async function POST(
     const fusion = fuseEvidence({
       faceSwapScore: primaryModelProbability,
       generalAiScore: generalAiProbability,
+      sdxlScore: sdxlProbability,
       metadataInconsistent,
       c2paPresent: provenance.c2paPresent,
       c2paValid: provenance.c2paValid,

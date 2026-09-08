@@ -5,25 +5,30 @@ Called over localhost HTTP by the Next.js backend (never from the browser
 directly). Endpoints:
   - GET  /health              liveness check
   - POST /detect/image        image -> { probability, generalAiProbability,
-                               heatmapPngBase64, faceDetected, faceBoxes,
-                               faceCropsPngBase64 }. `probability` is the
-                               face-swap classifier's score (detector.py);
-                               `generalAiProbability` is a second, separate
-                               signal from a general (not face-swap-
-                               specific) AI-image classifier
-                               (general_ai_detector.py) — added because the
-                               first model is effectively blind to full-
-                               synthesis content (see that module's
-                               docstring for the real calibration numbers
-                               behind this). Neither score is blended into
-                               the other here; the Next.js side decides how
-                               to combine them for Evidence Fusion.
-                               faceBoxes/faceCropsPngBase64 are parallel
-                               arrays, one entry per detected face (both
-                               empty if none); faceCropsPngBase64[0] is the
-                               literal input the classifier scored, the
-                               rest are plain crops for display only —
-                               never a fabricated position or crop.
+                               sdxlProbability, heatmapPngBase64,
+                               faceDetected, faceBoxes, faceCropsPngBase64 }.
+                               `probability` is the face-swap classifier's
+                               score (detector.py); `generalAiProbability`
+                               and `sdxlProbability` are two further,
+                               separate signals from general (not face-swap-
+                               specific) AI-image classifiers
+                               (general_ai_detector.py, sdxl_detector.py) —
+                               added because the first model is effectively
+                               blind to full-synthesis content, and because
+                               general_ai_detector.py's own checkpoint is
+                               documented (its own model card) to be stale
+                               against modern diffusion output (see each
+                               module's docstring for the real calibration
+                               numbers behind this). None of the three
+                               scores is blended into another here; the
+                               Next.js side decides how to combine them for
+                               Evidence Fusion. faceBoxes/faceCropsPngBase64
+                               are parallel arrays, one entry per detected
+                               face (both empty if none);
+                               faceCropsPngBase64[0] is the literal input
+                               the classifier scored, the rest are plain
+                               crops for display only — never a fabricated
+                               position or crop.
   - POST /detect/video-frame  same contract, same models; the Next.js side
                                samples frames from video and calls this once
                                per sampled frame (frame extraction happens on
@@ -69,9 +74,10 @@ directly). Endpoints:
                                stated threshold, never a certified
                                biometric identification.
 
-See detector.py / audio_detector.py / transcriber.py / translator.py /
-speech_validator.py / splice_detector.py / object_detector.py / plate_ocr.py
-for model/algorithm choice and README.md for how this was verified.
+See detector.py / general_ai_detector.py / sdxl_detector.py /
+audio_detector.py / transcriber.py / translator.py / speech_validator.py /
+splice_detector.py / object_detector.py / plate_ocr.py for model/algorithm
+choice and README.md for how this was verified.
 """
 
 from __future__ import annotations
@@ -88,6 +94,7 @@ from detector import DeepfakeDetector
 from general_ai_detector import GeneralAiDetector
 from object_detector import ObjectDetector
 from plate_ocr import read_plate
+from sdxl_detector import SdxlDetector
 from speech_validator import validate_speech
 from splice_detector import detect_splices
 from transcriber import Transcriber
@@ -104,6 +111,7 @@ _transcriber: Transcriber | None = None
 _translator: Translator | None = None
 _object_detector: ObjectDetector | None = None
 _general_ai_detector: GeneralAiDetector | None = None
+_sdxl_detector: SdxlDetector | None = None
 
 
 class DetectionResponse(BaseModel):
@@ -113,6 +121,12 @@ class DetectionResponse(BaseModel):
     # and its own honestly-disclosed limitations. Never blended into
     # `probability` here; the Next.js side decides how to combine them.
     generalAiProbability: float
+    # Third, complementary signal from a modern-diffusion-focused AI-image
+    # classifier -- see sdxl_detector.py for why this exists (closes a
+    # documented staleness gap in generalAiProbability's own checkpoint)
+    # and its own honestly-disclosed limitations. Also never blended into
+    # either score above here.
+    sdxlProbability: float
     heatmapPngBase64: str
     faceDetected: bool
     # Every detected face, each normalized [x1, y1, x2, y2] fractions (0-1)
@@ -257,6 +271,15 @@ def get_general_ai_detector() -> GeneralAiDetector:
     return _general_ai_detector
 
 
+def get_sdxl_detector() -> SdxlDetector:
+    global _sdxl_detector
+    if _sdxl_detector is None:
+        logger.info("Loading SDXL/modern-diffusion detection model on first use (downloads weights on first run, then cached)...")
+        _sdxl_detector = SdxlDetector()
+        logger.info("SDXL/modern-diffusion detection model loaded.")
+    return _sdxl_detector
+
+
 async def _run_detection(file: UploadFile) -> DetectionResponse:
     if file.content_type is not None and not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail=f"Expected an image file, got content-type {file.content_type!r}")
@@ -285,9 +308,17 @@ async def _run_detection(file: UploadFile) -> DetectionResponse:
         logger.exception("General AI-image detection failed")
         raise HTTPException(status_code=500, detail=f"General AI-image detection failed: {exc}") from exc
 
+    sdxl_detector = get_sdxl_detector()
+    try:
+        sdxl_result = sdxl_detector.detect(image)
+    except Exception as exc:  # noqa: BLE001 - same "surface, don't crash" rule as the other two classifiers above
+        logger.exception("SDXL/modern-diffusion detection failed")
+        raise HTTPException(status_code=500, detail=f"SDXL/modern-diffusion detection failed: {exc}") from exc
+
     return DetectionResponse(
         probability=result.probability,
         generalAiProbability=general_result.probability,
+        sdxlProbability=sdxl_result.probability,
         heatmapPngBase64=result.heatmap_png_base64,
         faceDetected=result.face_detected,
         faceBoxes=result.face_boxes,
@@ -536,4 +567,5 @@ def health() -> dict:
         "translatorLoaded": _translator is not None,
         "objectDetectorLoaded": _object_detector is not None,
         "generalAiDetectorLoaded": _general_ai_detector is not None,
+        "sdxlDetectorLoaded": _sdxl_detector is not None,
     }

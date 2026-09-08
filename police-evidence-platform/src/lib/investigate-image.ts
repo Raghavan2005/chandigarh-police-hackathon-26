@@ -82,6 +82,7 @@ export async function runImageInvestigation(
         evidenceId: evidence.id,
         manipulationProbability: detection.probability,
         generalAiProbability: detection.generalAiProbability,
+        sdxlProbability: detection.sdxlProbability,
         heatmapPath,
         faceBoxesJson,
         faceCropPathsJson,
@@ -92,6 +93,7 @@ export async function runImageInvestigation(
       update: {
         manipulationProbability: detection.probability,
         generalAiProbability: detection.generalAiProbability,
+        sdxlProbability: detection.sdxlProbability,
         heatmapPath,
         faceBoxesJson,
         faceCropPathsJson,
@@ -124,6 +126,7 @@ export async function runImageInvestigation(
     const fusion = fuseEvidence({
       faceSwapScore: detection.probability,
       generalAiScore: detection.generalAiProbability,
+      sdxlScore: detection.sdxlProbability,
       metadataInconsistent,
       c2paPresent: provenance.c2paPresent,
       c2paValid: provenance.c2paValid,

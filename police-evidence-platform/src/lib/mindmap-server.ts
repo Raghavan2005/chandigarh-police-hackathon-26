@@ -1,5 +1,5 @@
 import "server-only";
-import { SchemaType } from "@google-cloud/vertexai";
+import { Type } from "@google/genai";
 import { buildClient, isGeminiConfigured } from "@/lib/image-description";
 import { extractDocumentText } from "@/lib/document-analysis";
 import type { getRealCase } from "@/lib/cases-server";
@@ -16,13 +16,221 @@ function safeParse<T>(json: string | null | undefined): T | null {
   }
 }
 
+// --- Unified graph model -------------------------------------------------
+//
+// One graph, two trust levels — never two disconnected views. "structural"
+// nodes/edges are derived directly from this platform's own database (no
+// LLM call, so they're free, instant, and available even without Gemini
+// configured or any analyzable text on the case). "ai_inferred" nodes/edges
+// come from Gemini's free-text entity/relationship extraction over already-
+// analyzed exhibit text. Every ai_inferred entity is tied back into the
+// structural graph via a "mentions" edge from the exhibit that named it
+// (see MENTION_SCHEMA_FIELD below) — this is what makes the result an
+// actual connected case graph instead of a handful of floating names with
+// nothing tying them to the case's real evidence.
+
+export type MindMapNodeKind = "case" | "exhibit" | "match" | "web_source" | "person" | "organization" | "location" | "other";
+export type MindMapOrigin = "structural" | "ai_inferred";
+
+export interface MindMapNode {
+  id: string;
+  kind: MindMapNodeKind;
+  label: string;
+  /** Short subtitle shown under the node / in its tooltip — e.g. a verdict,
+   * a match similarity, a domain's page title. Never fabricated: empty
+   * string when there's genuinely nothing more to say. */
+  detail: string;
+  /** ISO timestamp when this node has a real one (upload time, match's
+   * first-seen date, search-result time) — null for AI-inferred entities,
+   * which have no inherent timestamp of their own. Powers the timeline. */
+  timestamp: string | null;
+  origin: MindMapOrigin;
+  /** In-app or external link to navigate to on click — null when there's
+   * nowhere real to send the investigator (e.g. an AI-inferred entity). */
+  href: string | null;
+}
+
+export interface MindMapEdge {
+  from: string;
+  to: string;
+  label: string;
+  /** Grounding quote/paraphrase from the source text — ai_inferred edges
+   * only; structural edges are self-evident from the database fact they
+   * represent and need no quote. */
+  evidence: string | null;
+  origin: MindMapOrigin;
+}
+
+export interface CaseMindMapResult {
+  nodes: MindMapNode[];
+  edges: MindMapEdge[];
+  summary: string;
+}
+
+function exhibitNodeId(evidenceId: string): string {
+  return `exhibit:${evidenceId}`;
+}
+
+function verdictDetail(ev: RealEvidence): string {
+  if (!ev.fusionVerdict) return `${ev.mimeType} · not yet investigated`;
+  return `${ev.mimeType} · ${ev.fusionVerdict.verdict} · ${ev.fusionVerdict.confidence}% confidence`;
+}
+
+function domainOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * The real, deterministic half of the graph — built entirely from this
+ * platform's own already-loaded database relations (getRealCase's include
+ * tree already has everything used here; no extra query). No LLM call, no
+ * hallucination risk, always available: this is what makes the mind-map
+ * page show something genuinely useful the instant it's opened, even on a
+ * case with zero analyzable text or no Gemini credentials configured —
+ * the previous version had nothing to show until an external AI call
+ * succeeded, which is exactly why it read as decorative rather than real.
+ */
+export function buildStructuralGraph(realCase: RealCase): { nodes: MindMapNode[]; edges: MindMapEdge[] } {
+  const nodes: MindMapNode[] = [];
+  const edges: MindMapEdge[] = [];
+
+  const caseNodeId = `case:${realCase.id}`;
+  nodes.push({
+    id: caseNodeId,
+    kind: "case",
+    label: realCase.id,
+    detail: `FIR ${realCase.firNumber} · ${realCase.policeStation}`,
+    timestamp: realCase.openedAt.toISOString(),
+    origin: "structural",
+    href: null,
+  });
+
+  realCase.evidence.forEach((ev, index) => {
+    const exId = exhibitNodeId(ev.id);
+    nodes.push({
+      id: exId,
+      kind: "exhibit",
+      label: `Exhibit ${index + 1}`,
+      detail: verdictDetail(ev),
+      timestamp: ev.uploadedAt.toISOString(),
+      origin: "structural",
+      href: `/cases/${realCase.id}`,
+    });
+    edges.push({ from: caseNodeId, to: exId, label: "contains", evidence: null, origin: "structural" });
+
+    // Seeded-corpus matches — this platform's own "have we seen this file
+    // before" database, previously invisible to the mind map entirely.
+    for (const match of ev.corpusMatches) {
+      const matchId = `match:corpus:${match.corpusItemId}`;
+      if (!nodes.some((n) => n.id === matchId)) {
+        nodes.push({
+          id: matchId,
+          kind: "match",
+          label: "Corpus match",
+          detail: `${match.corpusItem.sourcePlatform} · ${match.similarity.toFixed(0)}% similar · first seen ${match.corpusItem.firstSeenAt.toISOString().slice(0, 10)}`,
+          timestamp: match.corpusItem.firstSeenAt.toISOString(),
+          origin: "structural",
+          href: null,
+        });
+      }
+      edges.push({ from: exId, to: matchId, label: "matches seeded corpus item", evidence: null, origin: "structural" });
+    }
+
+    // Cross-case matches — a real link to another actual case in this
+    // system, not a demo asset. href genuinely navigates there.
+    for (const match of ev.matchesFrom) {
+      const matchId = `match:case:${match.matchedCaseId}`;
+      if (!nodes.some((n) => n.id === matchId)) {
+        nodes.push({
+          id: matchId,
+          kind: "match",
+          label: `Case ${match.matchedCaseId}`,
+          detail: `${match.matchType === "sha256_exact" ? "exact file match" : "near-duplicate match"} · ${match.similarity.toFixed(0)}% similar`,
+          timestamp: null,
+          origin: "structural",
+          href: `/cases/${match.matchedCaseId}`,
+        });
+      }
+      edges.push({ from: exId, to: matchId, label: "matches evidence in another case", evidence: null, origin: "structural" });
+    }
+
+    // CCTV reference-face/plate matches (PS4 use case #1) — real cosine-
+    // similarity/fuzzy-plate results, folded into the same "match" kind
+    // rather than a separate one to keep the legend small.
+    for (const match of ev.referenceMatchResults) {
+      const matchId = `match:ref:${match.id}`;
+      nodes.push({
+        id: matchId,
+        kind: "match",
+        label: `Reference ${match.matchType} match: ${match.referenceLabel}`,
+        detail: `${(match.similarity * 100).toFixed(0)}% similarity at ${match.timestampSeconds.toFixed(1)}s`,
+        timestamp: match.ranAt.toISOString(),
+        origin: "structural",
+        href: null,
+      });
+      edges.push({ from: exId, to: matchId, label: "reference match found", evidence: null, origin: "structural" });
+    }
+
+    // Web/reverse-image search sources — the actual "cross-platform origin
+    // tracing" half of PS4, previously not fed into the mind map at all.
+    // Deduped by domain across both mechanisms and capped per exhibit so
+    // the graph stays legible rather than exploding into dozens of nodes.
+    const webNodesForExhibit = new Map<string, { url: string; title: string; timestamp: string }>();
+    if (ev.webSearchResult) {
+      const results = safeParse<{ title: string; url: string; domain: string }[]>(ev.webSearchResult.resultsJson) ?? [];
+      for (const r of results) {
+        if (!webNodesForExhibit.has(r.domain)) {
+          webNodesForExhibit.set(r.domain, { url: r.url, title: r.title, timestamp: ev.webSearchResult.ranAt.toISOString() });
+        }
+      }
+    }
+    for (const rev of ev.reverseImageSearchResults) {
+      const pages = safeParse<{ url: string; pageTitle?: string }[]>(rev.pagesWithMatchesJson) ?? [];
+      for (const p of pages) {
+        const domain = domainOf(p.url);
+        if (!webNodesForExhibit.has(domain)) {
+          webNodesForExhibit.set(domain, { url: p.url, title: p.pageTitle ?? domain, timestamp: rev.ranAt.toISOString() });
+        }
+      }
+    }
+    const cappedWebEntries = [...webNodesForExhibit.entries()].slice(0, 8);
+    for (const [domain, info] of cappedWebEntries) {
+      const webId = `web:${domain}`;
+      if (!nodes.some((n) => n.id === webId)) {
+        nodes.push({
+          id: webId,
+          kind: "web_source",
+          label: domain,
+          detail: info.title,
+          timestamp: info.timestamp,
+          origin: "structural",
+          href: info.url,
+        });
+      }
+      edges.push({ from: exId, to: webId, label: "found via web/reverse-image search", evidence: null, origin: "structural" });
+    }
+  });
+
+  return { nodes, edges };
+}
+
+// --- AI-inferred layer -----------------------------------------------------
+
 /** One real per-exhibit text block gathered for the mind-map synthesis —
  * only ever the text an investigator can already see elsewhere on this
  * exhibit (transcript/translation text, AI image descriptions, per-face
  * labels/notes, document text/summaries), never anything computed fresh
- * here. */
+ * here. `tag` is a short, stable identifier (e.g. "EXHIBIT_1") Gemini is
+ * asked to echo back exactly when it names which exhibit(s) mention an
+ * entity — far more reliable to parse than matching its own verbose label
+ * string back out of free-form model output. */
 export interface CaseMindMapExhibitText {
   evidenceId: string;
+  tag: string;
   label: string;
   textBlock: string;
 }
@@ -100,33 +308,73 @@ function gatherExhibitSections(ev: RealEvidence): string[] {
  * PS4_USE_CASES.md #6 named as "the raw material [that] already exists":
  * transcript text (+ translations), AI image-description text, per-face
  * labels/notes, document text previews/summaries. Deliberately does NOT
- * touch cross-case/corpus matches or classifier scores — those aren't
- * "text about who/what/where," they're a different kind of signal already
- * surfaced elsewhere (propagation view). Takes the already-loaded
- * `getRealCase()` result rather than re-querying the DB — every relation
- * this needs is already `include`d there.
+ * touch cross-case/corpus matches or classifier scores as *text* here —
+ * those are real structural facts, handled by buildStructuralGraph above
+ * instead, and are also summarized in one line for the prompt's "case
+ * facts" preamble below so the AI summary can be genuinely case-aware.
+ * Takes the already-loaded `getRealCase()` result rather than re-querying
+ * the DB — every relation this needs is already `include`d there.
  */
 export function aggregateCaseText(realCase: RealCase): CaseTextAggregation {
   const exhibits: CaseMindMapExhibitText[] = [];
 
-  for (const ev of realCase.evidence) {
+  realCase.evidence.forEach((ev, index) => {
     const sections = gatherExhibitSections(ev);
-    if (sections.length === 0) continue;
+    if (sections.length === 0) return;
+    const tag = `EXHIBIT_${index + 1}`;
     exhibits.push({
       evidenceId: ev.id,
-      label: `Exhibit ${ev.id} (${ev.mimeType}, uploaded ${ev.uploadedAt.toISOString().slice(0, 10)})`,
+      tag,
+      label: `Exhibit ${index + 1} (${ev.mimeType}, uploaded ${ev.uploadedAt.toISOString().slice(0, 10)})`,
       textBlock: sections.join("\n"),
     });
-  }
+  });
 
-  const combinedText = exhibits.map((e) => `### ${e.label}\n${e.textBlock}`).join("\n\n");
+  const combinedText = exhibits.map((e) => `### ${e.tag} — ${e.label}\n${e.textBlock}`).join("\n\n");
   return { exhibits, combinedText, totalEvidenceCount: realCase.evidence.length };
+}
+
+/** One-line, real, structured summary of the case's non-text signals
+ * (verdicts, match counts, particulars) — handed to Gemini as context it
+ * may reference in the narrative `summary` field, but is explicitly told
+ * not to extract entities/relationships from (those still come only from
+ * the actual exhibit text, same anti-hallucination discipline as before).
+ * This is what lets the summary say something like "the exhibit flagged
+ * MANIPULATED at 86% confidence also shows a possible identification of…"
+ * instead of blindly restating one caption with no case-level awareness. */
+function buildCaseFactsPreamble(realCase: RealCase): string {
+  const verdictCounts = new Map<string, number>();
+  let corpusMatchCount = 0;
+  let crossCaseMatchCount = 0;
+  for (const ev of realCase.evidence) {
+    if (ev.fusionVerdict) {
+      const key = `${ev.fusionVerdict.verdict} (${ev.fusionVerdict.confidence}%)`;
+      verdictCounts.set(key, (verdictCounts.get(key) ?? 0) + 1);
+    }
+    corpusMatchCount += ev.corpusMatches.length;
+    crossCaseMatchCount += ev.matchesFrom.length;
+  }
+  const verdictLine =
+    verdictCounts.size > 0
+      ? [...verdictCounts.entries()].map(([k, count]) => `${count}× ${k}`).join(", ")
+      : "no exhibits investigated yet";
+
+  return [
+    `FIR ${realCase.firNumber}, ${realCase.policeStation}, ${realCase.district}.`,
+    `${realCase.evidence.length} exhibit(s) total. Verdicts so far: ${verdictLine}.`,
+    `${corpusMatchCount} match(es) against the seeded demo corpus, ${crossCaseMatchCount} match(es) against other real cases in this system.`,
+  ].join(" ");
 }
 
 export interface MindMapEntity {
   name: string;
   type: "person" | "organization" | "location" | "other";
   note: string;
+  /** Which exhibit tag(s) (e.g. "EXHIBIT_1") actually named/showed this
+   * entity — must exactly match a tag from the prompt's exhibit headers.
+   * This is what ties an AI-inferred entity back into the real exhibit
+   * structure instead of leaving it a floating, disconnected name. */
+  mentionedInExhibits: string[];
 }
 
 export interface MindMapRelationship {
@@ -136,44 +384,49 @@ export interface MindMapRelationship {
   evidence: string;
 }
 
-export interface CaseMindMapResult {
+interface RawAiResult {
   entities: MindMapEntity[];
   relationships: MindMapRelationship[];
   summary: string;
 }
 
 const RESPONSE_SCHEMA = {
-  type: SchemaType.OBJECT,
+  type: Type.OBJECT,
   properties: {
     entities: {
-      type: SchemaType.ARRAY,
+      type: Type.ARRAY,
       items: {
-        type: SchemaType.OBJECT,
+        type: Type.OBJECT,
         properties: {
-          name: { type: SchemaType.STRING },
-          type: { type: SchemaType.STRING, enum: ["person", "organization", "location", "other"] },
+          name: { type: Type.STRING },
+          type: { type: Type.STRING, enum: ["person", "organization", "location", "other"] },
           note: {
-            type: SchemaType.STRING,
+            type: Type.STRING,
             description: "One brief, grounded note on why this entity appears — based only on the provided text, never outside knowledge.",
           },
+          mentionedInExhibits: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "Every exhibit tag (e.g. 'EXHIBIT_1') whose text actually named or showed this entity. Must exactly match a tag from the section headers below. At least one required.",
+          },
         },
-        required: ["name", "type", "note"],
+        required: ["name", "type", "note", "mentionedInExhibits"],
       },
       description: "Every named person, organization, or location actually mentioned in the provided exhibit text. Empty array if none.",
     },
     relationships: {
-      type: SchemaType.ARRAY,
+      type: Type.ARRAY,
       items: {
-        type: SchemaType.OBJECT,
+        type: Type.OBJECT,
         properties: {
-          from: { type: SchemaType.STRING, description: "Must exactly match a name in entities." },
-          to: { type: SchemaType.STRING, description: "Must exactly match a name in entities." },
+          from: { type: Type.STRING, description: "Must exactly match a name in entities." },
+          to: { type: Type.STRING, description: "Must exactly match a name in entities." },
           label: {
-            type: SchemaType.STRING,
+            type: Type.STRING,
             description: "A short, real relationship phrase grounded in the text, e.g. 'spoke to', 'sent document to', 'mentioned in'.",
           },
           evidence: {
-            type: SchemaType.STRING,
+            type: Type.STRING,
             description: "A brief quote or close paraphrase from the provided exhibit text that actually supports this relationship.",
           },
         },
@@ -182,42 +435,38 @@ const RESPONSE_SCHEMA = {
       description: "Only relationships directly evidenced by the provided text. Empty array if none can be grounded.",
     },
     summary: {
-      type: SchemaType.STRING,
-      description: "A short, plain-language, factual narrative tying the case's exhibits together, or a plain statement that there isn't enough to synthesize.",
+      type: Type.STRING,
+      description: "A short, plain-language, factual narrative tying the case's exhibits together, informed by both the case facts and the exhibit text below, or a plain statement that there isn't enough to synthesize.",
     },
   },
   required: ["entities", "relationships", "summary"],
 };
 
-const PROMPT = `You are assisting a police investigator studying a case built from several pieces of evidence (call/video transcripts, translations, AI image descriptions, per-face notes, and document text/summaries). Below is the real, already-extracted text gathered from each exhibit on this case, one exhibit per section.
+function buildPrompt(casefacts: string): string {
+  return `You are assisting a police investigator studying a case built from several pieces of evidence (call/video transcripts, translations, AI image descriptions, per-face notes, and document text/summaries).
 
-From this text alone:
-1. List every named person, organization, or place actually mentioned.
+Case facts (real, from the system's own records — you may reference these in your summary for context, but do NOT extract entities or relationships from this section; entities/relationships must come only from the exhibit text below):
+${casefacts}
+
+Below is the real, already-extracted text gathered from each exhibit on this case, one exhibit per section, each headed by a short tag like "EXHIBIT_1".
+
+From the exhibit text alone:
+1. List every named person, organization, or place actually mentioned, and for each one list exactly which exhibit tag(s) named or showed it (mentionedInExhibits).
 2. List relationships between those entities that the text actually, directly evidences (e.g. "X called Y", "X sent a document to Y", "X is mentioned inside Y's transcript"). Never invent a relationship that isn't directly supported by a specific piece of the text below — if you cannot point to the exact text that shows it, do not include it.
-3. Write a short, plain narrative summary connecting what these exhibits show together as a case.
+3. Write a short, plain narrative summary connecting what these exhibits show together as a case, informed by both the case facts above and the exhibit text below.
 
-If the text is too sparse, vague, or the exhibits don't actually reference each other or common entities, return empty (or near-empty) arrays and say so plainly in the summary rather than guessing or inventing connections just to produce a fuller-looking result.`;
+If the exhibit text is too sparse, vague, or the exhibits don't actually reference each other or common entities, return empty (or near-empty) arrays and say so plainly in the summary rather than guessing or inventing connections just to produce a fuller-looking result.`;
+}
 
-/**
- * Real Gemini structured-JSON-schema synthesis across a case's aggregated
- * exhibit text — same Vertex AI auth path (buildClient()) and single-call
- * pattern as document-analysis.ts/image-description.ts. Unlike
- * claim-verification.ts this makes no live search call; it only reasons
- * over the real text already gathered by aggregateCaseText(), which is
- * itself only ever text already visible elsewhere in this app.
- */
-export async function synthesizeCaseMindMap(combinedText: string): Promise<CaseMindMapResult> {
-  const vertexAI = buildClient();
-  const model = vertexAI.getGenerativeModel({
+async function callGeminiForEntities(combinedText: string, casefacts: string): Promise<RawAiResult> {
+  const genAI = buildClient();
+  const result = await genAI.models.generateContent({
     model: "gemini-2.5-flash",
-    generationConfig: { responseMimeType: "application/json", responseSchema: RESPONSE_SCHEMA },
+    contents: [{ role: "user", parts: [{ text: `${buildPrompt(casefacts)}\n\nCase exhibits:\n${combinedText}` }] }],
+    config: { responseMimeType: "application/json", responseSchema: RESPONSE_SCHEMA },
   });
 
-  const result = await model.generateContent({
-    contents: [{ role: "user", parts: [{ text: `${PROMPT}\n\nCase exhibits:\n${combinedText}` }] }],
-  });
-
-  const text = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
+  const text = result.text;
   if (!text) throw new Error("Gemini returned no content.");
 
   const parsed: unknown = JSON.parse(text);
@@ -239,7 +488,8 @@ export async function synthesizeCaseMindMap(combinedText: string): Promise<CaseM
       e !== null &&
       typeof (e as MindMapEntity).name === "string" &&
       ["person", "organization", "location", "other"].includes((e as MindMapEntity).type) &&
-      typeof (e as MindMapEntity).note === "string",
+      typeof (e as MindMapEntity).note === "string" &&
+      Array.isArray((e as MindMapEntity).mentionedInExhibits),
   );
 
   const relationships: MindMapRelationship[] = raw.relationships.filter(
@@ -255,8 +505,58 @@ export async function synthesizeCaseMindMap(combinedText: string): Promise<CaseM
   return { entities, relationships, summary: raw.summary };
 }
 
+/**
+ * Full mind-map synthesis for a case: the real structural graph (always
+ * computed, no LLM) plus the AI-inferred entity/relationship layer merged
+ * on top, connected back into the structural graph via each entity's
+ * mentionedInExhibits. This is the one function that produces the complete
+ * graph the UI renders — buildStructuralGraph alone is also exported for
+ * the zero-cost "show something real immediately" path before any AI run.
+ */
+export async function synthesizeCaseMindMap(realCase: RealCase): Promise<CaseMindMapResult> {
+  const structural = buildStructuralGraph(realCase);
+  const aggregation = aggregateCaseText(realCase);
+  const casefacts = buildCaseFactsPreamble(realCase);
+  const ai = await callGeminiForEntities(aggregation.combinedText, casefacts);
+
+  const tagToExhibitNodeId = new Map(aggregation.exhibits.map((e) => [e.tag, exhibitNodeId(e.evidenceId)]));
+
+  const nodes: MindMapNode[] = [...structural.nodes];
+  const edges: MindMapEdge[] = [...structural.edges];
+
+  for (const entity of ai.entities) {
+    const entityId = `${entity.type}:${entity.name}`;
+    if (!nodes.some((n) => n.id === entityId)) {
+      nodes.push({
+        id: entityId,
+        kind: entity.type,
+        label: entity.name,
+        detail: entity.note,
+        timestamp: null,
+        origin: "ai_inferred",
+        href: null,
+      });
+    }
+    for (const tag of entity.mentionedInExhibits) {
+      const exId = tagToExhibitNodeId.get(tag);
+      if (!exId) continue; // model echoed back a tag that doesn't exist — drop rather than fabricate a link
+      edges.push({ from: exId, to: entityId, label: "mentions", evidence: null, origin: "ai_inferred" });
+    }
+  }
+
+  for (const rel of ai.relationships) {
+    const fromId = `${ai.entities.find((e) => e.name === rel.from)?.type ?? "other"}:${rel.from}`;
+    const toId = `${ai.entities.find((e) => e.name === rel.to)?.type ?? "other"}:${rel.to}`;
+    if (!nodes.some((n) => n.id === fromId) || !nodes.some((n) => n.id === toId)) continue; // only connect entities we actually created a node for
+    edges.push({ from: fromId, to: toId, label: rel.label, evidence: rel.evidence, origin: "ai_inferred" });
+  }
+
+  return { nodes, edges, summary: ai.summary };
+}
+
 /** Whether the mind-map synthesis is actually configured — same Gemini
- * credential as every other Vertex AI caller in this app. */
+ * credential as every other Vertex AI caller in this app. The structural
+ * graph above never needs this; only the AI-inferred layer does. */
 export function isMindMapConfigured(): boolean {
   return isGeminiConfigured();
 }

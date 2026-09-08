@@ -1,5 +1,5 @@
 import "server-only";
-import { SchemaType } from "@google-cloud/vertexai";
+import { Type } from "@google/genai";
 import { buildClient, isGeminiConfigured } from "@/lib/image-description";
 
 export interface DocumentSummaryResult {
@@ -7,10 +7,10 @@ export interface DocumentSummaryResult {
 }
 
 const RESPONSE_SCHEMA = {
-  type: SchemaType.OBJECT,
+  type: Type.OBJECT,
   properties: {
     summary: {
-      type: SchemaType.STRING,
+      type: Type.STRING,
       description: "Two to four plain, factual, neutral sentences summarizing what this document actually says.",
     },
   },
@@ -21,21 +21,19 @@ const PROMPT = `You are assisting a police investigator reviewing a document exh
 
 /**
  * Real Gemini plain-language summary of a document's actual extracted
- * text (MetadataResult.exifJson's textPreview) — same Vertex AI auth path
- * and structured-JSON-schema pattern as image-description.ts/news-summary.ts.
+ * text (MetadataResult.exifJson's textPreview) — same shared client
+ * (buildClient()) and structured-JSON-schema pattern as
+ * image-description.ts/news-summary.ts.
  */
 export async function summarizeDocument(text: string): Promise<DocumentSummaryResult> {
-  const vertexAI = buildClient();
-  const model = vertexAI.getGenerativeModel({
+  const genAI = buildClient();
+  const result = await genAI.models.generateContent({
     model: "gemini-2.5-flash",
-    generationConfig: { responseMimeType: "application/json", responseSchema: RESPONSE_SCHEMA },
-  });
-
-  const result = await model.generateContent({
     contents: [{ role: "user", parts: [{ text: `${PROMPT}\n\nDocument text:\n${text}` }] }],
+    config: { responseMimeType: "application/json", responseSchema: RESPONSE_SCHEMA },
   });
 
-  const responseText = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
+  const responseText = result.text;
   if (!responseText) throw new Error("Gemini returned no content.");
 
   const parsed: unknown = JSON.parse(responseText);

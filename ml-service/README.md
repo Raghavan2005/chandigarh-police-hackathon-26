@@ -16,13 +16,14 @@ Every real model this service loads, pretrained and used as-is (no training/fine
 |---|---|---|---|
 | `not-lain/deepfake` | Image/video deepfake (face-swap) classification | [Hugging Face](https://huggingface.co/not-lain/deepfake) | Apache-2.0 |
 | `dima806/ai_vs_real_image_detection` | General (not face-swap-specific) AI-generated-image classification — second, complementary signal | [Hugging Face](https://huggingface.co/dima806/ai_vs_real_image_detection) | Apache-2.0 |
+| `Organika/sdxl-detector` | Modern-diffusion (SDXL-era) AI-generated-image classification — third, complementary signal, closing a staleness gap the model above admits on its own model card | [Hugging Face](https://huggingface.co/Organika/sdxl-detector) | **CC-BY-NC-3.0 (non-commercial)** — the one non-Apache/MIT model in this table, disclosed here explicitly |
 | `Gustking/wav2vec2-large-xlsr-deepfake-audio-classification` | Audio deepfake/voice-spoofing classification | [Hugging Face](https://huggingface.co/Gustking/wav2vec2-large-xlsr-deepfake-audio-classification) | Apache-2.0 |
 | `facenet_pytorch.MTCNN` | Face detection/alignment (feeds the image/video classifier) | [facenet-pytorch](https://github.com/timesler/facenet-pytorch) | MIT |
 | faster-whisper (CTranslate2 reimplementation of OpenAI Whisper) | Live-caption transcription | [GitHub](https://github.com/SYSTRAN/faster-whisper) | MIT |
 | `facebook/nllb-200-distilled-600M` ("No Language Left Behind") | Caption translation | [Hugging Face](https://huggingface.co/facebook/nllb-200-distilled-600M) | CC-BY-NC-4.0 (non-commercial) |
 | Silero VAD (bundled inside faster-whisper) | Independent speech-presence validation | [GitHub](https://github.com/snakers4/silero-vad) | MIT |
 
-Detail on each below (image/video and audio — the two models behind the actual AUTHENTIC/MANIPULATED/AI_GENERATED verdict — get the fullest writeup since that's the core problem-statement work; the transcription/translation/VAD models are supporting features and get a shorter one).
+Detail on each below (image/video and audio — the models behind the actual AUTHENTIC/MANIPULATED/AI_GENERATED verdict — get the fullest writeup since that's the core problem-statement work; the transcription/translation/VAD models are supporting features and get a shorter one).
 
 ## Image/video model
 
@@ -121,16 +122,195 @@ roughly the expected direction, not a calibrated accuracy claim — the same
 "real calibration against a labeled validation set is a separate follow-up
 task" caveat from the section below applies here too.
 
-**How fusion uses the two scores** (`src/lib/fusion.ts`,
-`FusionInput.faceSwapScore`/`generalAiScore`): the coverage-aware cap applies
-to `Math.max(faceSwapScore, generalAiScore ?? 0)`, so a high score from either
-model is still subject to the same "zero corroboration → INCONCLUSIVE
-regardless of raw score" rule — adding a second model does not weaken that
-safety net. Which model produced the higher score also decides the verdict
-between `MANIPULATED` (face-swap classifier dominant) and `AI_GENERATED`
-(general classifier dominant) when corroborated and above threshold — the
+**How fusion uses these scores** (`src/lib/fusion.ts`,
+`FusionInput.faceSwapScore`/`generalAiScore`/`sdxlScore` — the third,
+`sdxlScore`, is covered in full in the next section below): the
+coverage-aware cap applies to
+`Math.max(faceSwapScore, generalAiScore ?? 0, sdxlScore ?? 0)`, so a high
+score from any one model is still subject to the same "zero corroboration →
+INCONCLUSIVE regardless of raw score" rule — adding more models does not
+weaken that safety net. Whichever model produced the higher score also
+decides the verdict between `MANIPULATED` (face-swap classifier dominant)
+and `AI_GENERATED` (general or SDXL classifier dominant, named explicitly in
+the stored explanation text) when corroborated and above threshold — the
 first real use of the `AI_GENERATED` enum value in this codebase, previously
 unreachable because there was no second detector to justify the distinction.
+
+## Modern-diffusion (SDXL) AI-image model (third signal)
+
+**`Organika/sdxl-detector`** on Hugging Face —
+https://huggingface.co/Organika/sdxl-detector — **CC-BY-NC-3.0
+(non-commercial)** — the one model in this service under a non-commercial
+license; every other model above is Apache-2.0 or MIT.
+
+Architecture: Swin Transformer, fine-tuned via AutoTrain on Wikimedia ↔ SDXL
+image pairs (a real photo paired with an SDXL image generated from a
+BLIP-captioned description of it) — a third architecture family entirely,
+distinct from `not-lain/deepfake`'s InceptionResnetV1 (CNN) and
+`dima806/ai_vs_real_image_detection`'s ViT. Loaded via the same
+`transformers.AutoImageProcessor`/`AutoModelForImageClassification`
+interface as `general_ai_detector.py` — zero new pip dependency. Lazily
+loaded, matching that module's own pattern.
+
+**Why this was added — a real, documented gap, not a hypothetical one.**
+`dima806/ai_vs_real_image_detection`'s own model card states it was trained
+on a dataset "collected about 2 years ago" and explicitly warns of
+"significant concept drift" in AI image generation since, urging users to
+retrain it. That is the checkpoint's own author naming the exact limitation
+this addition targets: modern diffusion (SDXL-era) output the older
+checkpoint was never trained to recognize. This is not a duplicate of the
+second signal — it is a different architecture, trained on a different,
+more recent generation era, closing a gap the earlier model discloses about
+itself.
+
+**Phase 1 standalone smoke test, run before wiring this in (same discipline
+as `dima806`'s own calibration above — real model, real images, results
+reported as-is):**
+
+| Test image | Source & provenance | Expected | Result |
+|---|---|---|---|
+| Genuine unmodified camera photo, real EXIF (Canon 40D) | `ianare/exif-samples` (MIT) — the same source repo already used for `dima806`'s own calibration | REAL | **96.48% human** |
+| Official SDXL showcase image (`01.png`) | Published directly by Stability AI on the `stabilityai/stable-diffusion-xl-base-1.0` model card — unambiguously genuine SDXL output, from the model's own authors | FAKE | **99.98% artificial** |
+
+Both landed on the correct side with high confidence — a cleaner result
+than `dima806`'s own calibration produced (which misfired 97.77% "FAKE" on
+a known-real photo). One honest caveat, not smoothed over: the SDXL test
+image is a wide (2432×1440) multi-panel showcase image, likely an
+easier/less realistic input than a single compressed evidence photo. This
+remains a two-image smoke test confirming the model loads correctly and
+responds in the right direction — not a calibrated accuracy claim, the same
+caveat this project applies to every other model here.
+
+Verified live through the real running service after wiring in
+(`main.py`'s `/detect/image`, `sdxl_detector.py`): the same two test images
+through the actual HTTP endpoint returned identical scores to the
+standalone script (3.52% / 99.98%), confirming the FastAPI wrapper isn't
+altering the score — same check already applied to the audio path below.
+Also confirmed live end-to-end through the full Next.js `/investigate`
+pipeline against real uploaded evidence: `DetectionResult.sdxlProbability`
+stored correctly alongside the other two scores, and the pipeline-status
+UI's "Manipulation detection" step renders a third "SDXL/modern-diffusion
+classifier score" row (null-guarded for audio, same pattern as the general
+AI-image row).
+
+**Honesty note on scope:** like `dima806`, this is a general full-synthesis
+detector, not a face-swap/deepfake-specific one — it targets modern
+diffusion art/photo generation, not manipulated-video seams. Its own model
+card also states it "underperforms ... for images generated using models
+other than SDXL" and older-generator images specifically — it complements
+`dima806`'s coverage, it does not replace or definitively out-perform it
+across every generator type.
+
+## Video path — real calibration finding and what changed
+
+Video has no dedicated model of its own — `/detect/video-frame` runs the
+identical three image classifiers above on each of the Next.js side's
+sampled still frames (`frame-extract.ts`), and the worst-scoring frame
+becomes the video's reported score. This section documents a real
+calibration pass run against that approach, not a claim that video gets
+temporal-aware detection.
+
+**Test material** (both real, independently sourced, provenance checked
+before use — same discipline as every other calibration test in this
+README):
+- **Known-real**: an unedited 63-second CC-licensed interview clip from
+  Wikimedia Commons ("Walking interview with Ted Cruz at CPAC 2018"),
+  trimmed to 8s and separately to 60s for two test runs.
+- **Known-fake**: the official face-reenactment demo GIF from
+  `AliaksandrSiarohin/first-order-model` (MIT-licensed academic research
+  repo) — real synthetic facial reenactment output, converted to mp4 for
+  this pipeline.
+
+**Finding #1 — the fusion output currently cannot tell these apart.** Both
+scored effectively the same: the real video's worst-frame score hit 100%
+(face-swap classifier), the fake video's hit 99.86% (SDXL classifier
+dominant). Both landed on `INCONCLUSIVE` at the same capped 73% confidence
+— the coverage-aware cap did its job (neither got a false firm verdict),
+but the raw classifier signal itself showed zero separation in this test.
+
+**Finding #2 — real signal exists underneath, but `max()` throws it away.**
+Per-model breakdown on the known-real video: face-swap 100% (wrong),
+general-AI 96.18% (wrong), **SDXL 0.22% (correct — genuinely low, as it
+should be for real footage)**. Because fusion takes the max across all
+three models and all sampled frames, one wrong spike from any single
+model/frame fully masks a different model's correct read elsewhere. This
+is a real, disclosed limitation of the current fusion strategy for video
+specifically, not present to the same degree for a single-image call.
+
+**Finding #3 — a single frame-level classifier is unstable across a real,
+unedited, continuous video.** Face-swap scores across 6 frames of the
+known-real clip: 100%, 58.6%, 99.6%, 57.6%, 98.0%, 99.9% — the same
+continuous person's face, scored by the same model, swinging by over 40
+points between adjacent samples.
+
+**Fix shipped as a result: duration-scaled frame sampling.** Previously
+every video got a flat 6 sampled frames regardless of length —
+reasonable for an 8-second clip, but a 6-frame sample spread across a
+multi-minute video leaves long gaps a brief manipulated segment could fall
+entirely between. `investigate/route.ts`'s `deepfakeSampleFrameCount` now
+scales at roughly one frame per 3 seconds, floored at 6 (no regression for
+short clips) and capped at 20 (bounds the added compute cost — each extra
+frame costs three more classifier passes). Verified live: a real 60-second
+test video now samples 20 frames instead of 6, confirmed via the stored
+`frameScoresJson`, with total `/investigate` latency still 9.4s — an
+acceptable cost for a live demo, not a regression into unusable territory.
+
+**Attempted and explicitly NOT shipped: a frame-to-frame face-embedding
+consistency check.** The idea — reuse the 512-d embeddings `detector.py`'s
+`embed_faces` already computes (for CCTV reference-matching) to flag a
+sudden identity/consistency jump between a video's sampled frames as an
+investigator lead, never blended into the fusion score. Built, wired into
+`/detect/video-frame`, and tested against both calibration videos before
+any threshold was chosen. Real result: on the known-real video, consecutive-
+frame similarity ranged from 0.97 down to **0.40** — far below even the
+"two different real people" baseline (~0.83) `embed_faces`'s own docstring
+established. Root cause identified, not just insufficient data: the source
+video is a moving-camera interview at a crowded event, and the code (both
+here and in the original design) picks whichever face MTCNN ranks most
+probable in *each* frame independently, with no tracking that it's the
+same individual across frames — in a crowd, that assumption is simply
+false. A trustworthy version of this check would need real face-tracking
+(matching each frame's face against the specific identity carried forward
+from the previous frame), which is a real feature addition, not a cheap
+heuristic — out of scope for this pass. The `/detect/video-frame` embedding
+plumbing that was added to test this was fully reverted afterward (not
+left as unused dead weight computing an embedding nobody reads) rather
+than kept half-wired; the finding above is preserved here instead.
+
+**Attempted, shipped briefly, and reverted after real testing: "multiple
+classifiers agree" as a corroborating signal.** Re-checking the retest
+data above with more sampled frames (Finding #2's numbers, extended) found
+that on a genuinely fake clip all three classifiers tended to agree, while
+on the real clip only one (wrongly) fired — a real, measurable separation
+the median showed that `max()` alone doesn't. The natural next step looked
+like: count how many of the three classifiers independently score above a
+threshold, and treat 2-of-3 agreement as a fourth corroborating signal
+alongside metadata/C2PA/hash-match, feeding the confidence ceiling the
+same way those three already do.
+
+**This was implemented, and real testing immediately showed it was
+wrong, not just under-calibrated — reverted the same session.** Re-running
+the known-real calibration video with this signal live: the face-swap and
+general-AI classifiers *both* scored it high on this content (a moving-
+camera crowd interview both models apparently struggle with), so "2 of 3
+agree" fired — and that pushed a genuine, unedited video to a **false firm
+`MANIPULATED` verdict at 86% confidence**. That is exactly the failure the
+entire coverage-cap system exists to prevent, produced by the fix meant to
+improve it.
+
+**Why, precisely — worth stating plainly rather than filed as "needs
+tuning":** metadata inconsistency, C2PA validity, and hash matches are
+valid corroboration because each comes from a mechanism *genuinely
+independent* of the ML classifiers' own failure modes. "The three
+classifiers agree with each other" is not independent evidence — if they
+share a correlated blind spot (as this real test showed they do, on this
+content type), their agreement is the same underlying weakness counted
+three times, not three separate confirmations. Treating correlated signals
+as independent corroboration is a real statistical error, and it surfaced
+a real harm on the very first real test, not a hypothetical one. Reverted
+in full (`fusion.ts`, the signal-breakdown UI, the printed-report label)
+rather than left in with a caveat — a signal that produces false positives
+on real evidence doesn't belong in this pipeline at any confidence level.
 
 ## Audio model
 

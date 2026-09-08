@@ -1,5 +1,5 @@
 import "server-only";
-import { SchemaType } from "@google-cloud/vertexai";
+import { Type } from "@google/genai";
 import { buildClient, isGeminiConfigured } from "@/lib/image-description";
 
 export interface ThreatAssessmentResult {
@@ -14,20 +14,20 @@ export interface CachedThreatAssessmentResult extends ThreatAssessmentResult {
 }
 
 const RESPONSE_SCHEMA = {
-  type: SchemaType.OBJECT,
+  type: Type.OBJECT,
   properties: {
     containsThreat: {
-      type: SchemaType.BOOLEAN,
+      type: Type.BOOLEAN,
       description: "True only if the conversation genuinely contains a real threat of harm, violence, or intimidation — not sarcasm, fiction, hypotheticals, or ordinary heated language.",
     },
     severity: {
-      type: SchemaType.STRING,
+      type: Type.STRING,
       enum: ["low", "medium", "high"],
       nullable: true,
       description: "How serious the threat is, only when containsThreat is true.",
     },
-    reasoning: { type: SchemaType.STRING, nullable: true, description: "Brief, specific basis for the judgment." },
-    quote: { type: SchemaType.STRING, nullable: true, description: "The exact concerning excerpt from the transcript, if any." },
+    reasoning: { type: Type.STRING, nullable: true, description: "Brief, specific basis for the judgment." },
+    quote: { type: Type.STRING, nullable: true, description: "The exact concerning excerpt from the transcript, if any." },
   },
   required: ["containsThreat", "severity", "reasoning", "quote"],
 };
@@ -37,21 +37,18 @@ const PROMPT = `You are assisting a police investigator reviewing a call recordi
 /**
  * Real Gemini judgment of whether a call-recording transcript contains a
  * genuine threat — never inferred from keywords alone, and never invents a
- * threat when asked to judge a benign conversation. Same Vertex AI auth
- * path and structured-JSON-schema pattern as news-summary.ts.
+ * threat when asked to judge a benign conversation. Same shared client
+ * (buildClient()) and structured-JSON-schema pattern as news-summary.ts.
  */
 export async function analyzeThreat(transcriptText: string): Promise<ThreatAssessmentResult> {
-  const vertexAI = buildClient();
-  const model = vertexAI.getGenerativeModel({
+  const genAI = buildClient();
+  const result = await genAI.models.generateContent({
     model: "gemini-2.5-flash",
-    generationConfig: { responseMimeType: "application/json", responseSchema: RESPONSE_SCHEMA },
-  });
-
-  const result = await model.generateContent({
     contents: [{ role: "user", parts: [{ text: `${PROMPT}\n\nTranscript:\n${transcriptText}` }] }],
+    config: { responseMimeType: "application/json", responseSchema: RESPONSE_SCHEMA },
   });
 
-  const text = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
+  const text = result.text;
   if (!text) throw new Error("Gemini returned no content.");
 
   const parsed: unknown = JSON.parse(text);

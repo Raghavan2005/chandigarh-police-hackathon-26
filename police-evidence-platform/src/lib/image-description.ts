@@ -1,6 +1,6 @@
 import "server-only";
 import { existsSync } from "fs";
-import { SchemaType, VertexAI } from "@google-cloud/vertexai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 export interface PossibleIdentity {
   name: string;
@@ -18,21 +18,21 @@ export interface CachedImageDescriptionResult extends ImageDescriptionResult {
 }
 
 const RESPONSE_SCHEMA = {
-  type: SchemaType.OBJECT,
+  type: Type.OBJECT,
   properties: {
     description: {
-      type: SchemaType.STRING,
+      type: Type.STRING,
       description: "One or two plain sentences describing what is visible in the image overall.",
     },
     possibleIdentities: {
-      type: SchemaType.ARRAY,
+      type: Type.ARRAY,
       items: {
-        type: SchemaType.OBJECT,
+        type: Type.OBJECT,
         properties: {
-          name: { type: SchemaType.STRING },
-          confidence: { type: SchemaType.STRING, enum: ["high", "medium", "low"] },
+          name: { type: Type.STRING },
+          confidence: { type: Type.STRING, enum: ["high", "medium", "low"] },
           reasoning: {
-            type: SchemaType.STRING,
+            type: Type.STRING,
             description: "Brief, specific visual basis for the guess (e.g. distinctive attire, setting, other people present).",
           },
         },
@@ -49,15 +49,32 @@ const PROMPT = `You are assisting a police forensic evidence review. Describe th
 
 If any well-known public figure (politician, celebrity, other widely-recognized public person) appears to be depicted, list them in possibleIdentities with your honest confidence. Only include a name if you have a real, specific visual basis for it (distinctive, well-known appearance/attire/context) — do not guess a plausible-sounding name just to fill the field. If the person(s) shown are ordinary/private individuals, or you are not genuinely confident, leave possibleIdentities empty rather than speculating. Never fabricate a name.`;
 
-/** Shared Vertex AI client builder — exported so other Gemini callers
- * (news-summary.ts) reuse the exact same auth path instead of duplicating
- * credential logic. */
-export function buildClient(): VertexAI {
+/** Shared Gemini client builder — exported so every other Gemini caller
+ * (threat-detection.ts, document-analysis.ts, mindmap-server.ts,
+ * news-summary.ts, claim-verification.ts) reuses the exact same auth path
+ * instead of duplicating credential logic. Two real auth modes, tried in
+ * this order:
+ * 1. GEMINI_API_KEY — a plain Gemini Developer API key from
+ *    aistudio.google.com/apikey. No GCP project, billing, or service
+ *    account needed — the quick, free, personal route.
+ * 2. GEMINI_APPLICATION_CREDENTIALS + GEMINI_GCP_PROJECT_ID — a GCP
+ *    service-account key with the Vertex AI User role (see
+ *    secrets/README.md). What this app originally shipped with; still
+ *    supported for whoever already has one.
+ * Both go through the same @google/genai SDK and the same
+ * models.generateContent() call shape below — the SDK itself abstracts
+ * the difference, this file only decides which credential to hand it. */
+export function buildClient(): GoogleGenAI {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey) {
+    return new GoogleGenAI({ apiKey });
+  }
   const projectId = process.env.GEMINI_GCP_PROJECT_ID;
   if (!projectId) {
-    throw new Error("GEMINI_GCP_PROJECT_ID is not set.");
+    throw new Error("Neither GEMINI_API_KEY nor GEMINI_GCP_PROJECT_ID is set.");
   }
-  return new VertexAI({
+  return new GoogleGenAI({
+    vertexai: true,
     project: projectId,
     location: "us-central1",
     googleAuthOptions: {
@@ -79,16 +96,9 @@ export function buildClient(): VertexAI {
  * confirmed identification.
  */
 export async function describeImage(imageBuffer: Buffer, mimeType: string): Promise<ImageDescriptionResult> {
-  const vertexAI = buildClient();
-  const model = vertexAI.getGenerativeModel({
+  const genAI = buildClient();
+  const result = await genAI.models.generateContent({
     model: "gemini-2.5-flash",
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: RESPONSE_SCHEMA,
-    },
-  });
-
-  const result = await model.generateContent({
     contents: [
       {
         role: "user",
@@ -98,9 +108,13 @@ export async function describeImage(imageBuffer: Buffer, mimeType: string): Prom
         ],
       },
     ],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: RESPONSE_SCHEMA,
+    },
   });
 
-  const text = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
+  const text = result.text;
   if (!text) {
     throw new Error("Gemini returned no content.");
   }
@@ -130,16 +144,18 @@ export async function describeImage(imageBuffer: Buffer, mimeType: string): Prom
   };
 }
 
-/** Shared Gemini/Vertex AI configuration check — every Gemini-backed
- * feature (image description, threat detection, document analysis, claim
- * verification, mind map) imports this instead of duplicating it. Checks
- * that the credential file actually exists on disk, not just that the env
- * var pointing at it is set — a missing key file (see secrets/README.md;
- * never committed, must be copied in per-machine) previously passed this
- * check and only failed later as a confusing runtime error instead of the
- * honest "not configured" response every caller is already designed to
- * give when this returns false. */
+/** Shared Gemini configuration check — every Gemini-backed feature (image
+ * description, threat detection, document analysis, claim verification,
+ * mind map) imports this instead of duplicating it. True if either real
+ * auth mode buildClient() accepts is actually usable: a plain
+ * GEMINI_API_KEY, or a GEMINI_APPLICATION_CREDENTIALS file that actually
+ * exists on disk (not just an env var pointing at a path — a missing key
+ * file, see secrets/README.md, never committed, must be copied in per
+ * machine) plus GEMINI_GCP_PROJECT_ID. Checking real usability here, not
+ * just "is some env var set," is what lets every caller give an honest
+ * "not configured" response instead of a confusing runtime error. */
 export function isGeminiConfigured(): boolean {
+  if (process.env.GEMINI_API_KEY) return true;
   const keyPath = process.env.GEMINI_APPLICATION_CREDENTIALS;
   return Boolean(keyPath && process.env.GEMINI_GCP_PROJECT_ID && existsSync(keyPath));
 }

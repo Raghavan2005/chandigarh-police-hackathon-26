@@ -293,6 +293,13 @@ model DetectionResult {
   // calibration numbers for both models. Null for audio evidence, which
   // has no image-classifier equivalent at all.
   generalAiProbability   Float?
+  // Third, separate signal from a modern-diffusion-focused AI-image
+  // classifier -- see ml-service/sdxl_detector.py's own docstring for why
+  // this exists (generalAiProbability's own model card admits ~2-year-old
+  // training data and "significant concept drift" since) and this
+  // project's real, disclosed calibration numbers. Null for audio evidence
+  // and for any DetectionResult predating this signal's addition.
+  sdxlProbability        Float?
   heatmapPath            String?
   // Every real MTCNN detection box, JSON array of [x1,y1,x2,y2] (0-1
   // fractions of the source image's width/height), sorted by detection
@@ -586,15 +593,25 @@ model VideoDiffResult {
 // per case, manually re-run on demand (same philosophy as
 // ImageDescriptionResult/DocumentSummaryResult) — never recomputed
 // automatically as new evidence is added.
+// Redefined from a flat AI-entity-extraction result into one unified graph:
+// `nodesJson`/`edgesJson` hold BOTH the real structural facts (case,
+// exhibits with their verdicts, corpus/cross-case matches, web-search
+// sources — see buildStructuralGraph in mindmap-server.ts, no LLM involved)
+// and the AI-inferred entities/relationships layered on top and tied back
+// into the structural graph via "mentions" edges. Each node/edge carries
+// its own `origin: "structural" | "ai_inferred"` so the UI can render/trust
+// them differently — see MindMapNode/MindMapEdge in mindmap-server.ts for
+// the full shape (not modeled as separate columns since it's one cohesive
+// graph, not two).
 model CaseMindMap {
-  id                String   @id @default(cuid())
-  caseId            String   @unique
-  case              Case     @relation(fields: [caseId], references: [id])
-  entitiesJson      String // JSON array of {name, type, note}
-  relationshipsJson String // JSON array of {from, to, label, evidence}
-  summary           String
-  exhibitCount      Int // how many exhibits actually contributed real text to this run — shown so a stale re-run against more evidence later is honestly comparable
-  ranAt             DateTime @default(now())
+  id           String   @id @default(cuid())
+  caseId       String   @unique
+  case         Case     @relation(fields: [caseId], references: [id])
+  nodesJson    String
+  edgesJson    String
+  summary      String
+  exhibitCount Int // how many exhibits actually contributed real text to the AI-inferred layer of this run — shown so a stale re-run against more evidence later is honestly comparable
+  ranAt        DateTime @default(now())
 }
 
 // --- CCTV object/plate/face-reference matching (PS4 use case #1) --------
