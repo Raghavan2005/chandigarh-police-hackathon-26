@@ -1,5 +1,3 @@
-import "server-only";
-
 /**
  * Fuzzy license-plate string matching — CCTV reference-plate matching, PS4
  * use case #1. Real edit-distance-based similarity against OCR'd plate
@@ -8,6 +6,12 @@ import "server-only";
  * (O/0, I/1, B/8), and an investigator's typed reference plate is exactly
  * as likely to have a transcription slip — a fuzzy match surfaces those as
  * real, honestly-scored near-matches instead of silently missing them.
+ *
+ * Deliberately isomorphic (no "server-only") — pure string math, no server
+ * dependency, and cctv-search-panel.tsx (a client component) reuses
+ * `plateSimilarity` to cluster near-duplicate OCR reads of the same
+ * physical plate across frames, same reasoning as reference-match's own
+ * fuzzy matching.
  */
 export function normalizePlate(text: string): string {
   return text.toUpperCase().replace(/[^A-Z0-9]/g, "");

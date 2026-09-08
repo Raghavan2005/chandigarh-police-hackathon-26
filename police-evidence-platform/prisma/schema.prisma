@@ -684,6 +684,10 @@ model VideoObjectDetection {
   // OCR found nothing plate-shaped, never a guessed string.
   plateText       String?
   plateConfidence Float?
+  // The plate text's OWN box (EasyOCR's per-read polygon, re-expressed as
+  // [x1,y1,x2,y2] frame fractions) -- distinct from boundingBoxJson above,
+  // which is the whole vehicle. Null whenever plateText is null.
+  plateBoundingBoxJson String?
 
   @@index([frameSampleId])
   @@index([evidenceId])

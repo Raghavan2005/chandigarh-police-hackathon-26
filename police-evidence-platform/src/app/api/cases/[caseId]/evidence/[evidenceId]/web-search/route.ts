@@ -5,16 +5,20 @@ import { writeAuditEntry } from "@/lib/audit";
 import { getConfiguredWebSearchProviders } from "@/lib/web-search";
 import { deriveSearchQuery, mergeWebSearchResults, type MergedWebSearchResult } from "@/lib/web-search-merge";
 import { resolveDomainLocation } from "@/lib/domain-geo";
+import { resolvePageTimestamp } from "@/lib/page-timestamp";
 import { extractDocumentText } from "@/lib/document-analysis";
 
 /**
  * Real multi-engine web search — Google (via Gemini grounding), Brave, and
- * DuckDuckGo, real merge/dedup, real domain-server geolocation. The query
- * defaults to this exhibit's own extracted text (transcript > document
- * text > AI description > reverse-image-search labels, whichever exists
- * first) but is always investigator-editable — a full transcript makes a
- * poor literal search query, this is a starting point, not a final answer.
- * Same NCII/minor gate as every other external-call route: the query text
+ * DuckDuckGo, real merge/dedup, real per-page "first seen" timestamps
+ * (JSON-LD/meta/Last-Modified, see page-timestamp.ts), plus a best-effort
+ * domain-server geolocation (informational only — see domain-geo.ts on why
+ * this is CDN-edge location, not plotted on the map). The query defaults to
+ * this exhibit's own extracted text (transcript > document text > AI
+ * description > reverse-image-search labels, whichever exists first) but is
+ * always investigator-editable — a full transcript makes a poor literal
+ * search query, this is a starting point, not a final answer. Same
+ * NCII/minor gate as every other external-call route: the query text
  * (derived from evidence content) leaves the platform to three external
  * services.
  */
@@ -94,13 +98,19 @@ export async function POST(
   }
 
   const uniqueDomains = [...new Set(merged.map((r) => r.domain).filter(Boolean))];
-  const locationEntries = await Promise.all(
-    uniqueDomains.map(async (domain) => [domain, await resolveDomainLocation(domain)] as const),
-  );
+  const [locationEntries, timestampEntries] = await Promise.all([
+    Promise.all(uniqueDomains.map(async (domain) => [domain, await resolveDomainLocation(domain)] as const)),
+    // Per-URL, not per-domain — unlike server location, publish date is
+    // specific to the individual page, not shared across a whole domain.
+    Promise.all(merged.map(async (r) => [r.url, await resolvePageTimestamp(r.url)] as const)),
+  ]);
   const locationByDomain = new Map(locationEntries);
-  const withLocations: MergedWebSearchResult[] = merged.map((r) => ({
+  const timestampByUrl = new Map(timestampEntries);
+  const enriched: MergedWebSearchResult[] = merged.map((r) => ({
     ...r,
     location: locationByDomain.get(r.domain) ?? null,
+    publishedAt: timestampByUrl.get(r.url)?.publishedAt ?? null,
+    publishedAtSource: timestampByUrl.get(r.url)?.source ?? null,
   }));
 
   const saved = await db.webSearchResult.upsert({
@@ -108,12 +118,12 @@ export async function POST(
     create: {
       evidenceId,
       query,
-      resultsJson: JSON.stringify(withLocations),
+      resultsJson: JSON.stringify(enriched),
       providersRun: JSON.stringify(perProviderResults.map((p) => p.label)),
     },
     update: {
       query,
-      resultsJson: JSON.stringify(withLocations),
+      resultsJson: JSON.stringify(enriched),
       providersRun: JSON.stringify(perProviderResults.map((p) => p.label)),
       ranAt: new Date(),
     },

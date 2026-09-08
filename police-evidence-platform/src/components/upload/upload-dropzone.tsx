@@ -6,7 +6,7 @@ import { CheckCircle2, Loader2, UploadCloud } from "lucide-react";
 
 type UploadState = "idle" | "hashing" | "done";
 
-function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB"];
   let value = bytes / 1024;

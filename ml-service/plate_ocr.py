@@ -53,6 +53,13 @@ MIN_OCR_CONFIDENCE = 0.3
 class PlateReadResult:
     text: str
     confidence: float
+    # Normalized [x1,y1,x2,y2], 0-1 fractions of the FULL frame (not the
+    # vehicle crop) -- EasyOCR already returns a per-read polygon over the
+    # crop it was given; this just re-expresses that polygon's bounding
+    # rect in the same frame-relative coordinate space every other box in
+    # this service uses, so a plate match can highlight the plate itself
+    # instead of the whole vehicle.
+    box: list[float]
 
 
 def _get_reader():
@@ -80,8 +87,10 @@ def read_plate(image: Image.Image, vehicle_box: list[float]) -> PlateReadResult 
     img_w, img_h = image.size
     x1, y1, x2, y2 = vehicle_box
     box_h = (y2 - y1) * img_h
+    crop_left = int(x1 * img_w)
     crop_top = y1 * img_h + box_h * 0.45  # skip the top 45% (windshield/roof)
-    crop = image.convert("RGB").crop((int(x1 * img_w), int(crop_top), int(x2 * img_w), int(y2 * img_h)))
+    crop_top_int = int(crop_top)
+    crop = image.convert("RGB").crop((crop_left, crop_top_int, int(x2 * img_w), int(y2 * img_h)))
     if crop.width < 4 or crop.height < 4:
         return None
 
@@ -89,12 +98,23 @@ def read_plate(image: Image.Image, vehicle_box: list[float]) -> PlateReadResult 
     raw_results = reader.readtext(np.array(crop))
 
     best: PlateReadResult | None = None
-    for _bbox, text, confidence in raw_results:
+    for bbox, text, confidence in raw_results:
         normalized = re.sub(r"[^A-Z0-9]", "", text.upper())
         if not _PLATE_CANDIDATE_RE.match(normalized):
             continue
         if confidence < MIN_OCR_CONFIDENCE:
             continue
         if best is None or confidence > best.confidence:
-            best = PlateReadResult(text=normalized, confidence=round(float(confidence), 4))
+            # bbox is 4 (x, y) corner points in crop-pixel space -- take
+            # their bounding rect, shift by the crop's own offset within the
+            # full frame, then normalize back to 0-1 frame fractions.
+            xs = [p[0] for p in bbox]
+            ys = [p[1] for p in bbox]
+            frame_box = [
+                max(0.0, (crop_left + min(xs)) / img_w),
+                max(0.0, (crop_top_int + min(ys)) / img_h),
+                min(1.0, (crop_left + max(xs)) / img_w),
+                min(1.0, (crop_top_int + max(ys)) / img_h),
+            ]
+            best = PlateReadResult(text=normalized, confidence=round(float(confidence), 4), box=frame_box)
     return best

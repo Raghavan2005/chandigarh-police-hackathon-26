@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Globe2, MapPinOff } from "lucide-react";
 import { GlobeMapSvg } from "@/components/shared/globe-map";
-import { projectLatLon, WorldMapSvg } from "@/components/shared/world-map";
+import { MarkerPreview } from "@/components/shared/marker-preview";
+import { projectLatLon, WorldMapSvg, WORLD_MAP_WIDTH, WORLD_MAP_HEIGHT } from "@/components/shared/world-map";
 import { declusterMarkers, sphericalCentroid, type GlobeMarker } from "@/lib/globe-projection";
 import { parseWebSearchResult } from "@/lib/web-search-merge";
 import type { Evidence } from "@/components/investigation/evidence-card";
@@ -21,36 +22,25 @@ function flatArcPath(p1: { x: number; y: number }, p2: { x: number; y: number })
   return `M ${p1.x},${p1.y} Q ${midX},${cy} ${p2.x},${p2.y}`;
 }
 
-interface MarkerHoverCard {
-  x: number;
-  y: number;
-  title: string;
-}
-
-/** Same fix as the globe map (globe-map.tsx) and the case mind-map graph
- * (mindmap-graph.tsx) — a native SVG `<title>` tooltip on a marker here had
- * the same real, confirmed-live problem: an investigator hovering a
- * place-mention diamond got no popup at all. Replaced with a real floating
- * card keyed off the hover event's own coordinates. */
-function MarkerHoverTooltip({ card }: { card: MarkerHoverCard }) {
-  return (
-    <div
-      className="pointer-events-none fixed z-50 max-w-[280px] rounded-md border border-border-subtle bg-surface-raised px-3 py-2 text-xs text-text-primary shadow-lg"
-      style={{ left: card.x + 14, top: card.y + 14 }}
-    >
-      {card.title}
-    </div>
-  );
-}
-
 /**
  * One shared globe for the whole case, instead of a separate map per
  * exhibit — plots every exhibit's own origin (where its file was actually
- * uploaded from, per the Geographic trace data) and every exhibit's web-
- * search result locations, each exhibit in its own color so they stay
- * distinguishable on one view. Origins are numbered in upload-timestamp
- * order and connected by a dashed timeline path — "where it started, and
- * in what sequence" across the whole case, not just per file.
+ * uploaded from, per the Geographic trace data), each exhibit in its own
+ * color so they stay distinguishable on one view. Origins are numbered in
+ * upload-timestamp order and connected by a dashed timeline path — "where
+ * it started, and in what sequence" across the whole case, not just per
+ * file.
+ *
+ * Fallback, for exhibits with no verified origin (no EXIF GPS, uploaded
+ * from a private/local IP): plots that exhibit's web-search results'
+ * server locations instead, so the map isn't just empty. This is a weaker
+ * signal — a DNS lookup of the result's domain, which for CDN-fronted
+ * sites (nearly everything on the open web) resolves to a CDN edge, not
+ * the publisher's real location or anything about content spread — so
+ * these render as hollow/dashed "unverified" pins, distinct from the solid
+ * numbered origin pins, with that caveat spelled out in their own tooltip
+ * and in the caption below the map. Never used to override or outrank a
+ * real origin when one exists.
  */
 export function CombinedSourceMap({
   evidence,
@@ -59,24 +49,24 @@ export function CombinedSourceMap({
   evidence: Evidence[];
   propagation: EvidencePropagation[];
 }) {
-  const [hover, setHover] = useState<MarkerHoverCard | null>(null);
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
   const originsByEvidenceId = new Map(
     propagation.map((p) => [p.evidenceId, p.sightings.find((s) => s.kind === "origin")] as const),
   );
 
-  const exhibitsWithOrigin = evidence
-    .map((ev, i) => ({ ev, exhibitNumber: i + 1, origin: originsByEvidenceId.get(ev.id) }))
+  const withOrigin = evidence
+    .map((ev, i) => ({ ev, exhibitNumber: i + 1, color: EXHIBIT_COLORS[i % EXHIBIT_COLORS.length], origin: originsByEvidenceId.get(ev.id) }))
     .filter((x) => x.origin?.location);
   // Chronological, not upload-array order — "where it started" means
   // ordered by when each exhibit's own sighting actually happened.
-  exhibitsWithOrigin.sort((a, b) => a.origin!.timestamp.getTime() - b.origin!.timestamp.getTime());
+  withOrigin.sort((a, b) => a.origin!.timestamp.getTime() - b.origin!.timestamp.getTime());
+  const originExhibitIds = new Set(withOrigin.map((x) => x.ev.id));
 
   const markers: GlobeMarker[] = [];
-  const legend: { exhibitNumber: number; mimeType: string; color: string; order: number }[] = [];
+  const legend: { exhibitNumber: number; mimeType: string; color: string; order: number | null }[] = [];
 
-  exhibitsWithOrigin.forEach(({ ev, exhibitNumber, origin }, idx) => {
-    const color = EXHIBIT_COLORS[idx % EXHIBIT_COLORS.length];
+  withOrigin.forEach(({ ev, exhibitNumber, color, origin }, idx) => {
     const order = idx + 1;
     const loc = origin!.location!;
     legend.push({ exhibitNumber, mimeType: ev.mimeType, color, order });
@@ -90,20 +80,37 @@ export function CombinedSourceMap({
       color,
       groupId: ev.id,
       order,
+      preview: {
+        heading: `#${order} Exhibit ${exhibitNumber} — verified origin`,
+        lines: [loc.label, loc.source === "exif" ? "EXIF GPS (exact)" : "IP geolocation (approx.)"],
+      },
     });
+  });
 
-    const searchResult = parseWebSearchResult(ev.webSearchResult);
-    for (const r of searchResult?.results ?? []) {
-      if (!r.location) continue;
+  evidence.forEach((ev, i) => {
+    if (originExhibitIds.has(ev.id)) return;
+    const color = EXHIBIT_COLORS[i % EXHIBIT_COLORS.length];
+    const located = (parseWebSearchResult(ev.webSearchResult)?.results ?? []).filter((r) => r.location);
+    if (located.length === 0) return;
+    legend.push({ exhibitNumber: i + 1, mimeType: ev.mimeType, color, order: null });
+    for (const r of located) {
       markers.push({
-        key: `result-${ev.id}-${r.url}`,
-        lat: r.location.lat,
-        lon: r.location.lon,
+        key: `fallback-${ev.id}-${r.url}`,
+        lat: r.location!.lat,
+        lon: r.location!.lon,
         href: r.url,
-        title: `Exhibit ${exhibitNumber} — ${r.domain} (${r.location.label}, approx. server location)`,
+        title: `Exhibit ${i + 1} — no verified upload origin. Nearest available signal: ${r.domain}'s server location (${r.location!.label}) — approximate CDN/hosting location only, not a confirmed origin or spread point.`,
         variant: "result",
         color,
         groupId: ev.id,
+        preview: {
+          heading: r.title,
+          lines: [
+            r.domain,
+            r.publishedAt ? `Published/modified: ${new Date(r.publishedAt).toLocaleDateString()}` : "No declared publish date",
+            `${r.location!.label} — approx. server location, unverified`,
+          ],
+        },
       });
     }
   });
@@ -114,7 +121,7 @@ export function CombinedSourceMap({
         <MapPinOff className="size-6 text-text-tertiary" />
         <p className="max-w-md text-xs text-text-tertiary">
           Nothing to plot yet — needs a resolvable upload location (EXIF GPS or IP geolocation) for at least one
-          exhibit. Run a web search on an exhibit to add its results here too.
+          exhibit, or a web-search result with a resolvable server location as a fallback.
         </p>
       </div>
     );
@@ -133,14 +140,28 @@ export function CombinedSourceMap({
         <div className="flex flex-wrap items-center gap-3 text-[10px] text-text-tertiary">
           {legend.map((l) => (
             <span key={l.exhibitNumber} className="flex items-center gap-1">
-              <span className="flex size-4 items-center justify-center rounded-full text-[8px] font-bold text-surface" style={{ backgroundColor: l.color }}>
-                {l.order}
-              </span>
-              Exhibit {l.exhibitNumber} ({l.mimeType})
+              {l.order != null ? (
+                <span className="flex size-4 items-center justify-center rounded-full text-[8px] font-bold text-surface" style={{ backgroundColor: l.color }}>
+                  {l.order}
+                </span>
+              ) : (
+                <span
+                  className="flex size-4 items-center justify-center rounded-full border border-dashed text-[8px] font-bold"
+                  style={{ borderColor: l.color, color: l.color }}
+                >
+                  ~
+                </span>
+              )}
+              Exhibit {l.exhibitNumber} ({l.mimeType}){l.order == null && " — unverified"}
             </span>
           ))}
         </div>
       </div>
+      <p className="text-[10px] text-text-tertiary">
+        Filled numbered pins are verified upload origins (EXIF GPS or IP geolocation). Hollow dashed &ldquo;~&rdquo;
+        pins mean that exhibit had no verified origin — shown instead is the nearest available signal, a linked
+        page&apos;s approximate server/CDN location, which is not a confirmed origin or spread point.
+      </p>
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <p className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">3D globe (drag to rotate)</p>
@@ -149,22 +170,6 @@ export function CombinedSourceMap({
         <div className="flex flex-col gap-1.5">
           <p className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">2D map (whole world at once, nothing hidden)</p>
           <WorldMapSvg idPrefix="combined-source-map-flat" heightClassName="h-[320px]">
-            {/* Per-exhibit arcs: origin -> its own results only. */}
-            {[...new Set(renderedMarkers.map((m) => m.groupId))].flatMap((groupId) => {
-              const group = renderedMarkers.filter((m) => m.groupId === groupId);
-              const origin = group.find((m) => m.variant === "origin");
-              if (!origin) return [];
-              const originPoint = projectLatLon(origin.lat, origin.lon);
-              return group
-                .filter((m) => m.variant === "result")
-                .map((m) => {
-                  const p = projectLatLon(m.lat, m.lon);
-                  return (
-                    <path key={`flat-arc-${m.key}`} d={flatArcPath(originPoint, p)} fill="none" stroke={m.color} strokeWidth={0.75} strokeOpacity={0.55} />
-                  );
-                });
-            })}
-
             {/* Dashed timeline connecting every exhibit's origin in order. */}
             {legend.length > 1 &&
               legend.slice(1).map((l, i) => {
@@ -192,11 +197,11 @@ export function CombinedSourceMap({
                   <circle
                     cx={p.x}
                     cy={p.y}
-                    r={isOrigin ? 7 : 4.5}
-                    fill={m.color}
-                    fillOpacity={isOrigin ? 1 : 0.85}
-                    stroke="var(--surface)"
-                    strokeWidth={1.25}
+                    r={isOrigin ? 7 : 5}
+                    fill={isOrigin ? m.color : "none"}
+                    stroke={isOrigin ? "var(--surface)" : m.color}
+                    strokeWidth={isOrigin ? 1.25 : 1.75}
+                    strokeDasharray={isOrigin ? undefined : "2 1.5"}
                     filter="url(#combined-source-map-flat-glow)"
                   />
                   {isOrigin && m.order != null && (
@@ -207,30 +212,41 @@ export function CombinedSourceMap({
                   {/* Invisible, larger hit target — the base marker (down
                       to a 4.5px "result" dot) is a fiddly thing to hover
                       precisely; this widens the real hover area without
-                      changing how the marker actually looks. */}
-                  <circle
-                    cx={p.x}
-                    cy={p.y}
-                    r={12}
-                    fill="transparent"
-                    onMouseEnter={(e) => setHover({ x: e.clientX, y: e.clientY, title: m.title })}
-                    onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
-                    onMouseLeave={() => setHover(null)}
-                  />
+                      changing how the marker actually looks. Hover itself
+                      is handled by the wrapping <a>/<g> below
+                      (hoverHandlers), so this needs no handlers of its
+                      own — it just enlarges what that wrapper catches. */}
+                  <circle cx={p.x} cy={p.y} r={12} fill="transparent" />
                 </>
               );
+              const hoverHandlers = { onMouseEnter: () => setHoveredKey(m.key), onMouseLeave: () => setHoveredKey(null) };
               return m.href ? (
-                <a key={m.key} href={m.href} target="_blank" rel="noreferrer noopener" className="cursor-pointer transition-opacity hover:opacity-80">
+                <a
+                  key={m.key}
+                  href={m.href}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="cursor-pointer transition-opacity hover:opacity-80"
+                  {...hoverHandlers}
+                >
                   {content}
                 </a>
               ) : (
-                <g key={m.key}>{content}</g>
+                <g key={m.key} {...hoverHandlers}>
+                  {content}
+                </g>
               );
             })}
+
+            {(() => {
+              const hoveredFlat = renderedMarkers.find((m) => m.key === hoveredKey && m.preview);
+              if (!hoveredFlat?.preview) return null;
+              const p = projectLatLon(hoveredFlat.lat, hoveredFlat.lon);
+              return <MarkerPreview preview={hoveredFlat.preview} x={p.x} y={p.y} boundsWidth={WORLD_MAP_WIDTH} boundsHeight={WORLD_MAP_HEIGHT} />;
+            })()}
           </WorldMapSvg>
         </div>
       </div>
-      {hover && <MarkerHoverTooltip card={hover} />}
     </div>
   );
 }

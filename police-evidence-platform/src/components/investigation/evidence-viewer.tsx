@@ -53,6 +53,7 @@ export function EvidenceViewer({
               src={caseData.mediaSrc ?? "/evidence/case-video.mp4"}
               poster={caseData.thumbnail}
               controls
+              loop
               className="h-[280px] w-full bg-black object-contain transition-all duration-300"
               style={getFilterStyle()}
               onPlay={() => relayVideoRefs.current.forEach(v => v?.play().catch(()=>{}))}
@@ -197,6 +198,7 @@ export function EvidenceViewer({
                       ref={(el) => { relayVideoRefs.current[index] = el; }}
                       src={caseData.mediaSrc ?? "/evidence/case-video.mp4"}
                       poster={caseData.thumbnail}
+                      loop
                       className="size-full object-cover"
                       style={mode.id === "heatmap" ? {} : getFilterStyle(mode.id)}
                       muted

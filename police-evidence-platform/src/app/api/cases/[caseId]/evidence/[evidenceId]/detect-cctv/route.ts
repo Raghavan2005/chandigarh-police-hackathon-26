@@ -9,11 +9,12 @@ import { sampleVideoFrames } from "@/lib/frame-extract";
 // Disclosed sampling strategy for CCTV use case #1 — denser coverage than
 // the deepfake pipeline's 6-frame whole-clip sample (PS4_USE_CASES.md item
 // #1 explicitly calls this out: a person/vehicle/plate may only be
-// on-screen for a couple of seconds). One frame every 2 seconds, capped at
-// 40 frames (~80s of dense coverage; longer footage still gets 40 frames
-// spread across its full length, just thinner per-second coverage) — a
-// real compute/time budget tradeoff for a CPU-only local model, not an
-// attempt to sample every frame.
+// on-screen for a couple of seconds). One frame every 2 seconds for clips
+// up to 80s; longer footage still gets exactly 40 frames, but
+// sampleVideoFrames widens the effective interval so those 40 frames span
+// the *entire* clip instead of stopping at the 80s mark — a real
+// compute/time budget tradeoff for a CPU-only local model, not an attempt
+// to sample every frame.
 const SAMPLE_INTERVAL_SECONDS = 2;
 const MAX_SAMPLED_FRAMES = 40;
 
@@ -127,6 +128,7 @@ export async function POST(
           boundingBoxJson: JSON.stringify(obj.box),
           plateText: obj.plateText,
           plateConfidence: obj.plateConfidence,
+          plateBoundingBoxJson: obj.plateBox ? JSON.stringify(obj.plateBox) : null,
         };
       });
 
@@ -160,6 +162,11 @@ export async function POST(
     return {
       summary: {
         frameCount: frameResults.length,
+        durationSeconds,
+        // Last sampled timestamp — lets the UI show the investigator what
+        // span of the clip was actually covered, instead of just a frame
+        // count that gives no sense of whether the whole video was seen.
+        coverageEndSeconds: frames[frames.length - 1].timestampSeconds,
         personCount,
         vehicleCountByClass,
         faceCount,

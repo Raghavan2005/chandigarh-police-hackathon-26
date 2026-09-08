@@ -56,12 +56,13 @@ directly). Endpoints:
                                triggered by loud transients in genuine
                                audio — a signal to investigate, not proof).
   - POST /detect/objects      image -> { objects: [{objectClass,
-                               confidence, box, plateText, plateConfidence}] }
-                               real torchvision COCO detector (person/car/
-                               truck/bus/motorcycle) — plateText/
-                               plateConfidence are set only on vehicle
-                               detections where EasyOCR found a plausible
-                               plate-shaped read over that box's lower
+                               confidence, box, plateText, plateConfidence,
+                               plateBox}] } real torchvision COCO detector
+                               (person/car/truck/bus/motorcycle) — plateText/
+                               plateConfidence/plateBox are set only on
+                               vehicle detections where EasyOCR found a
+                               plausible plate-shaped read over that box's
+                               lower
                                region, null otherwise. CCTV use case (PS4
                                use case #1).
   - POST /embed/face          image -> { faces: [{box, embedding,
@@ -192,6 +193,10 @@ class ObjectDetectionModel(BaseModel):
     # (no vehicle present, or OCR found nothing plausible), never fabricated.
     plateText: str | None = None
     plateConfidence: float | None = None
+    # Normalized [x1,y1,x2,y2], 0-1 fractions of the frame -- the plate
+    # text's OWN box (from EasyOCR's per-read polygon), not the vehicle's.
+    # Null whenever plateText is null.
+    plateBox: list[float] | None = None
 
 
 class ObjectDetectionResponse(BaseModel):
@@ -498,6 +503,7 @@ async def detect_objects(file: UploadFile = File(...)) -> ObjectDetectionRespons
     for detection in detections:
         plate_text: str | None = None
         plate_confidence: float | None = None
+        plate_box: list[float] | None = None
         if detection.object_class in VEHICLE_CLASSES:
             try:
                 plate = read_plate(image, detection.box)
@@ -507,6 +513,7 @@ async def detect_objects(file: UploadFile = File(...)) -> ObjectDetectionRespons
             if plate is not None:
                 plate_text = plate.text
                 plate_confidence = plate.confidence
+                plate_box = plate.box
         objects.append(
             ObjectDetectionModel(
                 objectClass=detection.object_class,
@@ -514,6 +521,7 @@ async def detect_objects(file: UploadFile = File(...)) -> ObjectDetectionRespons
                 box=detection.box,
                 plateText=plate_text,
                 plateConfidence=plate_confidence,
+                plateBox=plate_box,
             )
         )
 

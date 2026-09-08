@@ -11,39 +11,12 @@ import {
   projectOrthographic,
   type GlobeMarker,
 } from "@/lib/globe-projection";
+import { MarkerPreview } from "@/components/shared/marker-preview";
 
 export type { GlobeMarker } from "@/lib/globe-projection";
 
 const DEG_PER_PIXEL = 0.4;
 const MAX_ABS_LAT = 85;
-
-interface MarkerHoverCard {
-  x: number;
-  y: number;
-  title: string;
-}
-
-/**
- * Replaces the browser's own native SVG `<title>` tooltip on a marker —
- * the same fix already applied to the case mind-map graph
- * (mindmap-graph.tsx), needed here for the identical reason: a native
- * `<title>` only shows after a real ~1s hover delay and, confirmed live,
- * sometimes never fires at all once a marker sits inside a drag-to-rotate
- * SVG with its own pointer-capture logic — a real investigator reported
- * hovering a place-mention diamond and getting nothing. `position: fixed`
- * keyed off the raw hover-event coordinates works regardless of the
- * globe's own drag/rotation state.
- */
-function MarkerHoverTooltip({ card }: { card: MarkerHoverCard }) {
-  return (
-    <div
-      className="pointer-events-none fixed z-50 max-w-[280px] rounded-md border border-border-subtle bg-surface-raised px-3 py-2 text-xs text-text-primary shadow-lg"
-      style={{ left: card.x + 14, top: card.y + 14 }}
-    >
-      {card.title}
-    </div>
-  );
-}
 
 /**
  * A real orthographic-projection 3D-look globe (not a flat rectangle) —
@@ -75,14 +48,14 @@ export function GlobeMapSvg({
   markers: GlobeMarker[];
 }) {
   const [rotation, setRotation] = useState({ lat: initialCenterLat, lon: initialCenterLon });
-  const [hover, setHover] = useState<MarkerHoverCard | null>(null);
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const dragOrigin = useRef<{ x: number; y: number } | null>(null);
   const dragged = useRef(false);
 
   function handlePointerDown(e: React.PointerEvent<SVGSVGElement>) {
     dragOrigin.current = { x: e.clientX, y: e.clientY };
     dragged.current = false;
-    setHover(null);
+    setHoveredKey(null);
     e.currentTarget.setPointerCapture(e.pointerId);
   }
   function handlePointerMove(e: React.PointerEvent<SVGSVGElement>) {
@@ -240,11 +213,11 @@ export function GlobeMapSvg({
               <circle
                 cx={p.x}
                 cy={p.y}
-                r={isOrigin ? 7 : 4.5}
-                fill={m.color}
-                fillOpacity={isOrigin ? 1 : 0.85}
-                stroke="var(--surface)"
-                strokeWidth={1.25}
+                r={isOrigin ? 7 : 5}
+                fill={isOrigin ? m.color : "none"}
+                stroke={isOrigin ? "var(--surface)" : m.color}
+                strokeWidth={isOrigin ? 1.25 : 1.75}
+                strokeDasharray={isOrigin ? undefined : "2 1.5"}
                 filter={`url(#${idPrefix}-marker-glow)`}
               />
               {isOrigin && m.order != null && (
@@ -253,30 +226,42 @@ export function GlobeMapSvg({
                 </text>
               )}
               {/* Invisible, larger hit target — the base marker (down to a
-                  4.5px "result" dot) is a fiddly thing to hover precisely;
+                  5px "result" dot) is a fiddly thing to hover precisely;
                   this widens the real hover area without changing how the
-                  marker actually looks. */}
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r={12}
-                fill="transparent"
-                onMouseEnter={(e) => setHover({ x: e.clientX, y: e.clientY, title: m.title })}
-                onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
-                onMouseLeave={() => setHover(null)}
-              />
+                  marker actually looks. Hover itself is handled by the
+                  wrapping <a>/<g> below (hoverHandlers), so this needs no
+                  handlers of its own — it just enlarges what that wrapper
+                  catches. */}
+              <circle cx={p.x} cy={p.y} r={12} fill="transparent" />
             </>
           );
+          const hoverHandlers = { onMouseEnter: () => setHoveredKey(m.key), onMouseLeave: () => setHoveredKey(null) };
           return m.href ? (
-            <a key={m.key} href={m.href} target="_blank" rel="noreferrer noopener" className="cursor-pointer transition-opacity hover:opacity-80">
+            <a
+              key={m.key}
+              href={m.href}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="cursor-pointer transition-opacity hover:opacity-80"
+              {...hoverHandlers}
+            >
               {content}
             </a>
           ) : (
-            <g key={m.key}>{content}</g>
+            <g key={m.key} {...hoverHandlers}>
+              {content}
+            </g>
           );
         })}
+
+        {(() => {
+          const hovered = markers.find((m) => m.key === hoveredKey);
+          if (!hovered?.preview) return null;
+          const p = projectOrthographic(hovered.lat, hovered.lon, centerLat, centerLon);
+          if (!p.visible) return null;
+          return <MarkerPreview preview={hovered.preview} x={p.x} y={p.y} boundsWidth={GLOBE_SIZE} boundsHeight={GLOBE_SIZE} />;
+        })()}
       </svg>
-      {hover && <MarkerHoverTooltip card={hover} />}
       <p className="text-[10px] text-text-tertiary">
         Drag to rotate
         {hiddenCount > 0 && ` — ${hiddenCount} marker${hiddenCount === 1 ? " is" : "s are"} currently on the far side`}

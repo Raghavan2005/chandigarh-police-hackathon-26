@@ -1,11 +1,14 @@
 import type { WebSearchResult } from "@prisma/client";
 import type { WebSearchResultItem } from "@/lib/web-search";
 import type { DomainLocation } from "@/lib/domain-geo";
+import type { PageTimestampSource } from "@/lib/page-timestamp";
 import type { CachedWebSearchResult } from "@/components/investigation/web-search-panel";
 
 export interface MergedWebSearchResult extends WebSearchResultItem {
   foundBy: string[];
   location: DomainLocation | null;
+  publishedAt: string | null;
+  publishedAtSource: PageTimestampSource | null;
 }
 
 /** Shared parse for the cached WebSearchResult row — kept in this
