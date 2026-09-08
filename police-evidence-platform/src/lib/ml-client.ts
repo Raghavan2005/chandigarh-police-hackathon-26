@@ -6,6 +6,23 @@
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL ?? "http://127.0.0.1:8008";
 
+/**
+ * Thrown when the ML service actually responded with an error (bad input,
+ * model failure, etc.) — distinct from a network failure (service down/
+ * unreachable), so callers can tell "this specific file can't be
+ * processed" from "the service itself is unavailable" instead of
+ * collapsing both into one generic 502.
+ */
+export class MlServiceError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly detail: string,
+  ) {
+    super(`ML service returned ${status}: ${detail}`);
+    this.name = "MlServiceError";
+  }
+}
+
 export interface DetectionResponse {
   probability: number;
   // Second, separate signal from a general (not face-swap-specific)
@@ -119,8 +136,8 @@ async function callDetect<T>(
   });
 
   if (!response.ok) {
-    const detail = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new Error(`ML service ${endpoint} returned ${response.status}: ${detail.detail ?? "unknown error"}`);
+    const body = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new MlServiceError(response.status, body.detail ?? "unknown error");
   }
 
   return response.json();
@@ -157,8 +174,8 @@ export async function translateSegments(
   });
 
   if (!response.ok) {
-    const detail = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new Error(`ML service /translate returned ${response.status}: ${detail.detail ?? "unknown error"}`);
+    const body = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new MlServiceError(response.status, body.detail ?? "unknown error");
   }
 
   return response.json();

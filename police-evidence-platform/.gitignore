@@ -60,6 +60,11 @@ yarn-error.log*
 !/storage/cctv-frames/.gitkeep
 !/storage/reference-photos/.gitkeep
 
+# raw source media for the 7 demo cases, dropped in ahead of upload —
+# not app code/data, shouldn't bloat the repo
+/demo-media/*
+!/demo-media/README.md
+
 # vercel
 .vercel
 

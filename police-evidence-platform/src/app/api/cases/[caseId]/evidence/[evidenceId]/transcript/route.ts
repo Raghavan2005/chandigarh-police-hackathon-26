@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { writeAuditEntry } from "@/lib/audit";
 import { resolveEvidencePath } from "@/lib/storage";
-import { transcribeMedia } from "@/lib/ml-client";
+import { transcribeMedia, MlServiceError } from "@/lib/ml-client";
 
 /**
  * Real Whisper transcription (ml-service, local — see transcriber.py) for
@@ -48,11 +48,21 @@ export async function POST(
   }
 
   const buffer = await readFile(resolveEvidencePath(evidence.filePath));
-  const result = await transcribeMedia(buffer, evidence.mimeType).catch((error: unknown) => {
+  let result;
+  try {
+    result = await transcribeMedia(buffer, evidence.mimeType);
+  } catch (error) {
     console.error("[transcript] ml-service /transcribe call failed:", error);
-    return null;
-  });
-  if (!result) {
+    if (error instanceof MlServiceError) {
+      // The service is up and told us specifically why this file can't be
+      // transcribed (e.g. no audio track) — surface that, don't blame
+      // reachability. Its own 5xx (a genuine internal failure) still maps
+      // to 502; anything else is a real, specific reason about this file.
+      return NextResponse.json(
+        { error: error.detail },
+        { status: error.status >= 500 ? 502 : 422 },
+      );
+    }
     return NextResponse.json(
       { error: "Transcription failed — the ML service may be unreachable. Check it's running and try again." },
       { status: 502 },

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { writeAuditEntry } from "@/lib/audit";
-import { translateSegments, type TranscriptSegment } from "@/lib/ml-client";
+import { translateSegments, MlServiceError, type TranscriptSegment } from "@/lib/ml-client";
 
 /**
  * On-demand caption translation — only ever runs when an investigator asks
@@ -64,16 +64,16 @@ export async function POST(
     );
   }
 
-  const result = await translateSegments(segments, transcript.language, targetLang).catch((error: unknown) => {
+  let result;
+  try {
+    result = await translateSegments(segments, transcript.language, targetLang);
+  } catch (error) {
     console.error("[transcript/translate] ml-service /translate call failed:", error);
-    return null;
-  });
-  if (!result) {
+    if (error instanceof MlServiceError) {
+      return NextResponse.json({ error: error.detail }, { status: error.status >= 500 ? 502 : 422 });
+    }
     return NextResponse.json(
-      {
-        error:
-          "Translation failed — either the ML service is unreachable, or this language pair isn't supported. Check it's running and try again.",
-      },
+      { error: "Translation failed — the ML service may be unreachable. Check it's running and try again." },
       { status: 502 },
     );
   }

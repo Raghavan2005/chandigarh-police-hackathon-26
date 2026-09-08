@@ -563,15 +563,29 @@ export function RealEvidenceViewer({
   // the container's, so every box lands exactly where MTCNN found that
   // face, not just "roughly in the container." One box per detected face,
   // not just the one the classifier happened to score.
-  const boxStyles = (() => {
-    if (!showFaceBox || faceBoxes.length === 0 || !naturalSize || !containerWidth) return [];
+  // The actual displayed content rect of the base (object-contain) image
+  // within its fixed-size container — shared by face boxes below and the
+  // heatmap overlay. Needed because the heatmap PNG the ML service returns
+  // is always a fixed square (detector.py resizes to INPUT_SIZE x
+  // INPUT_SIZE before scoring, regardless of the source image's real
+  // aspect ratio) — sizing it with its own object-contain would letterbox
+  // it independently of the base image, visibly shrinking it to a centered
+  // square instead of covering the same region the classifier actually
+  // scored. Stretching it to this exact rect is the correct inverse of
+  // that same resize, not an approximation.
+  const contentRect = (() => {
+    if (!naturalSize || !containerWidth) return null;
     const cw = containerWidth;
     const ch = CONTAINER_HEIGHT;
     const scale = Math.min(cw / naturalSize.w, ch / naturalSize.h);
     const dw = naturalSize.w * scale;
     const dh = naturalSize.h * scale;
-    const offsetX = (cw - dw) / 2;
-    const offsetY = (ch - dh) / 2;
+    return { dw, dh, offsetX: (cw - dw) / 2, offsetY: (ch - dh) / 2 };
+  })();
+
+  const boxStyles = (() => {
+    if (!showFaceBox || faceBoxes.length === 0 || !contentRect) return [];
+    const { dw, dh, offsetX, offsetY } = contentRect;
     return faceBoxes.map(([x1, y1, x2, y2]) => ({
       left: offsetX + x1 * dw,
       top: offsetY + y1 * dh,
@@ -704,12 +718,18 @@ export function RealEvidenceViewer({
                 <ActiveCaptionBridge onChange={setActiveCaptionText} />
               </MediaPlayer>
             )}
-            {showHeatmap && (isImage || isVideo) && (
+            {showHeatmap && (isImage || isVideo) && contentRect && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={heatmapUrl}
                 alt="Manipulation heatmap"
-                className="pointer-events-none absolute inset-0 h-[280px] w-full object-contain opacity-80 mix-blend-hard-light"
+                className="pointer-events-none absolute opacity-80 mix-blend-hard-light"
+                style={{
+                  left: contentRect.offsetX,
+                  top: contentRect.offsetY,
+                  width: contentRect.dw,
+                  height: contentRect.dh,
+                }}
               />
             )}
             {boxStyles.map((style, i) => (

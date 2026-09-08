@@ -82,7 +82,15 @@ export async function POST(
       const duration = parseFloat(evidence.metadataResult.duration);
       if (Number.isFinite(duration) && duration > 0) timestampSeconds = duration / 2;
     }
-    imageBuffer = await extractFrameAt(resolveEvidencePath(evidence.filePath), timestampSeconds);
+    try {
+      imageBuffer = await extractFrameAt(resolveEvidencePath(evidence.filePath), timestampSeconds);
+    } catch (error) {
+      console.error("[reverse-image-search] frame extraction failed:", error);
+      return NextResponse.json(
+        { error: "Could not extract a frame from this video to search — it may have no video track (e.g. an audio recording saved in a video container)." },
+        { status: 422 },
+      );
+    }
   }
 
   const providers = getConfiguredProviders();

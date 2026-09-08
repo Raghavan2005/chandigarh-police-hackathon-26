@@ -135,8 +135,18 @@ export async function POST(
     const durationSeconds = evidence.metadataResult?.duration ? parseFloat(evidence.metadataResult.duration) : 0;
     const frames = await sampleVideoFrames(absolutePath, durationSeconds, deepfakeSampleFrameCount(durationSeconds));
     if (frames.length === 0) {
+      // A video-tagged file with no video stream at all (e.g. a voice
+      // recording saved with a .mp4/.mov extension — MetadataResult already
+      // found no resolution for it) isn't corrupt, it just has nothing to
+      // extract a frame from — say that specifically instead of implying
+      // file damage.
+      const noVideoStream = evidence.metadataResult && !evidence.metadataResult.resolution;
       return NextResponse.json(
-        { error: "Could not extract any frames from this video — check the file isn't corrupt." },
+        {
+          error: noVideoStream
+            ? "This file has no video track to extract frames from — it may be an audio recording saved in a video container. Analyze it as audio evidence instead."
+            : "Could not extract any frames from this video — check the file isn't corrupt.",
+        },
         { status: 422 },
       );
     }
