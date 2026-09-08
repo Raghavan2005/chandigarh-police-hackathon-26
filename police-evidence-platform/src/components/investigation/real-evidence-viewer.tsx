@@ -670,6 +670,7 @@ export function RealEvidenceViewer({
                 // already know the real type from the DB, so just pass it.
                 src={{ src: fileUrl, type: mimeType as VideoMimeType }}
                 playsInline
+                loop
                 className="h-[280px] w-full bg-black"
                 style={getFilterStyle(overlayMode) as React.ComponentProps<typeof MediaPlayer>["style"]}
                 onProviderChange={() => {
