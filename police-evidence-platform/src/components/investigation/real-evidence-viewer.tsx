@@ -671,6 +671,13 @@ export function RealEvidenceViewer({
                 src={{ src: fileUrl, type: mimeType as VideoMimeType }}
                 playsInline
                 loop
+                autoPlay
+                // Browsers only allow autoplay without a prior user
+                // gesture when the media starts muted (Chrome/Safari
+                // autoplay policy) -- without this, autoPlay above would
+                // silently fail to start rather than actually play. The
+                // investigator can unmute from the player's own controls.
+                muted
                 className="h-[280px] w-full bg-black"
                 style={getFilterStyle(overlayMode) as React.ComponentProps<typeof MediaPlayer>["style"]}
                 onProviderChange={() => {
