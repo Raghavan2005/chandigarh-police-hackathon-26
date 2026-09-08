@@ -41,6 +41,23 @@ export function sphericalCentroid(points: { lat: number; lon: number }[]): { lat
   return { lat: (lat * 180) / Math.PI, lon: (lon * 180) / Math.PI };
 }
 
+/**
+ * `Math.sin`/`Math.cos`/`Math.atan2` are not guaranteed bit-identical across
+ * JS engines — Node's V8 (server-side render, computing this once for the
+ * initial SSR pass) and a browser's V8 (client hydration, recomputing the
+ * identical math from the same props) can disagree in the last binary digit
+ * of a trig result for the exact same input. Invisible to the eye, but not
+ * to React's hydration check, which diffs the server-rendered attribute
+ * *string* against the client's freshly computed number — the same real,
+ * confirmed-live bug class as mindmap-graph.tsx's computeLayout, fixed the
+ * same way: round to 6 decimal places, many orders of magnitude finer than
+ * a screen pixel, so server and client always agree on the exact string
+ * React renders/hydrates against.
+ */
+function round6(n: number): number {
+  return Math.round(n * 1e6) / 1e6;
+}
+
 /** Orthographic projection (the classic "photo of a globe from space" math)
  * centered on (lat0, lon0) — a real projection, not a flat rectangle
  * pretending to be a sphere. `visible` is false for the far hemisphere
@@ -54,7 +71,7 @@ export function projectOrthographic(lat: number, lon: number, lat0: number, lon0
   const cosC = Math.sin(phi0) * Math.sin(phi) + Math.cos(phi0) * Math.cos(phi) * Math.cos(lambda - lambda0);
   const x = GLOBE_CENTER + GLOBE_R * Math.cos(phi) * Math.sin(lambda - lambda0);
   const y = GLOBE_CENTER - GLOBE_R * (Math.cos(phi0) * Math.sin(phi) - Math.sin(phi0) * Math.cos(phi) * Math.cos(lambda - lambda0));
-  return { x, y, visible: cosC > -0.02 };
+  return { x: round6(x), y: round6(y), visible: cosC > -0.02 };
 }
 
 /** A great-circle sweep (fixed lat or fixed lon), broken into separate

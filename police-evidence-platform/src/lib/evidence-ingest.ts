@@ -4,6 +4,8 @@ import { appendCheckpoint, writeAuditEntryInTx } from "@/lib/audit";
 import { resolveEvidencePath, sha256Hex, writeEvidenceFile } from "@/lib/storage";
 import { extractMetadata } from "@/lib/metadata";
 import { fuseDocumentEvidence } from "@/lib/document-fusion";
+import { extractDocumentText } from "@/lib/document-analysis";
+import { extractLocationMentions, isLocationExtractionConfigured } from "@/lib/location-extraction";
 
 interface PdfSignatureExifFields {
   signaturePresent?: boolean;
@@ -175,6 +177,51 @@ export async function ingestEvidence(input: IngestEvidenceInput): Promise<Ingest
       return { documentFusionAuditEntry };
     });
     appendCheckpoint(documentFusionAuditEntry);
+  }
+
+  // Real place-name extraction + geocoding (location-extraction.ts) — runs
+  // automatically here rather than as an on-demand button, by explicit
+  // product decision: an investigator opening a freshly-uploaded chat/
+  // document exhibit should already see any real place mentions plotted on
+  // the Source Finder map, not need to remember to click something first.
+  // Only possible when extractMetadata actually produced real text (chat
+  // exports and PDFs; see extractDocumentText's own mimeType-agnostic
+  // reading of exifJson.textPreview) — most evidence types (image/video/
+  // audio) have no text at all, and this is a genuine no-op for them, not a
+  // silently-skipped feature. A sensitive case (NCII/minor) never sends its
+  // evidence text to Gemini or its extracted place names to a third-party
+  // geocoding service, same rule as every other AI call in this app.
+  const text = extractDocumentText(extracted.exifJson);
+  if (text && isLocationExtractionConfigured()) {
+    const thisCase = await db.case.findUnique({ where: { id: input.caseId }, select: { sensitivityLevel: true } });
+    if (thisCase && thisCase.sensitivityLevel === "standard") {
+      try {
+        const locations = await extractLocationMentions(text);
+        const { locationAuditEntry } = await db.$transaction(async (tx) => {
+          await tx.locationMentionResult.create({
+            data: { evidenceId: evidence.id, locationsJson: JSON.stringify(locations) },
+          });
+          const locationAuditEntry = await writeAuditEntryInTx(
+            {
+              caseId: input.caseId,
+              evidenceHash: sha256,
+              actorId: input.uploadedById,
+              action: "ANALYZED",
+              device: "pramana-location-extractor",
+            },
+            tx,
+          );
+          return { locationAuditEntry };
+        });
+        appendCheckpoint(locationAuditEntry);
+      } catch (error) {
+        // Same rule as metadata extraction above: a failed AI call or a
+        // Nominatim outage must never fail the upload itself — the evidence
+        // is already safely recorded, a missing LocationMentionResult row
+        // is a visible, honest gap (no markers show up), not a lost upload.
+        console.warn(`[evidence-ingest] Location extraction failed for evidence ${evidence.id}:`, error);
+      }
+    }
   }
 
   return { ok: true, evidence };

@@ -4,6 +4,7 @@ import { path as ffprobePath } from "@ffprobe-installer/ffprobe";
 import { parse as parseExif } from "exifr";
 import { PDFParse } from "pdf-parse";
 import { verifyPdfSignature } from "@/lib/pdf-signature";
+import { parseWhatsAppChat, chatToPlainText, computeParticipantStats, computeTurnTaking } from "@/lib/whatsapp-chat";
 
 const execFileAsync = promisify(execFile);
 
@@ -39,6 +40,9 @@ export async function extractMetadata(
   }
   if (mimeType === "application/pdf") {
     return extractPdfMetadata(buffer);
+  }
+  if (mimeType === "text/plain") {
+    return extractTextMetadata(buffer);
   }
   // Anything else (unsupported document formats, etc.): no extraction path
   // exists yet — return an honestly-empty result rather than fabricate
@@ -268,4 +272,67 @@ async function extractPdfMetadata(buffer: Buffer): Promise<ExtractedMetadata> {
   } finally {
     await parser?.destroy();
   }
+}
+
+/**
+ * Real text-evidence extraction — specifically recognizes WhatsApp's own
+ * "Export chat" .txt format (whatsapp-chat.ts) and, when the file actually
+ * matches it, extracts the real parsed participants/message count/date
+ * range rather than treating it as an opaque blob. Falls back to plain
+ * generic text extraction (still real, just unstructured) when the file
+ * doesn't match that format — never fabricates chat structure a plain
+ * text file doesn't have.
+ *
+ * No signature/tamper-date concept applies here the way it does for PDF:
+ * a .txt file has no embedded creation/modification timestamps or
+ * signature format to check, so those fields stay null/false rather than
+ * being guessed from filesystem mtime (which reflects when *this platform*
+ * received the file, not when the export was actually made — a real, not
+ * hypothetical, distinction worth keeping honest).
+ */
+function extractTextMetadata(buffer: Buffer): ExtractedMetadata {
+  const text = buffer.toString("utf-8");
+  const chat = parseWhatsAppChat(text);
+
+  if (chat) {
+    return {
+      container: "WhatsApp chat export",
+      resolution: null,
+      duration: null,
+      codec: null,
+      encoderSignature: null,
+      exifJson: JSON.stringify({
+        isWhatsAppChat: true,
+        participants: chat.participants,
+        messageCount: chat.messages.length,
+        mediaOmittedCount: chat.mediaOmittedCount,
+        dateRangeStart: chat.dateRangeStart?.toISOString() ?? null,
+        dateRangeEnd: chat.dateRangeEnd?.toISOString() ?? null,
+        textPreview: chatToPlainText(chat),
+        // Real, per-participant facts computed once here from the full
+        // parsed chat (not re-derivable from the capped textPreview above,
+        // which drops timestamps entirely) — this is what lets the case
+        // mind-map show every real group member and real conversational
+        // turn-taking as structural facts, with zero AI/LLM involvement.
+        participantStats: computeParticipantStats(chat),
+        turnTaking: computeTurnTaking(chat),
+      }),
+      gpsLatitude: null,
+      gpsLongitude: null,
+    };
+  }
+
+  return {
+    container: "text/plain",
+    resolution: null,
+    duration: null,
+    codec: null,
+    encoderSignature: null,
+    exifJson: JSON.stringify({
+      isWhatsAppChat: false,
+      textPreview: text.slice(0, 2000),
+    }),
+    gpsLatitude: null,
+    gpsLongitude: null,
+  };
 }

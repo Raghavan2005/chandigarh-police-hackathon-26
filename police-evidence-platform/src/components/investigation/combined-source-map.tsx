@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { Globe2, MapPinOff } from "lucide-react";
 import { GlobeMapSvg } from "@/components/shared/globe-map";
 import { projectLatLon, WorldMapSvg } from "@/components/shared/world-map";
@@ -18,6 +21,28 @@ function flatArcPath(p1: { x: number; y: number }, p2: { x: number; y: number })
   return `M ${p1.x},${p1.y} Q ${midX},${cy} ${p2.x},${p2.y}`;
 }
 
+interface MarkerHoverCard {
+  x: number;
+  y: number;
+  title: string;
+}
+
+/** Same fix as the globe map (globe-map.tsx) and the case mind-map graph
+ * (mindmap-graph.tsx) — a native SVG `<title>` tooltip on a marker here had
+ * the same real, confirmed-live problem: an investigator hovering a
+ * place-mention diamond got no popup at all. Replaced with a real floating
+ * card keyed off the hover event's own coordinates. */
+function MarkerHoverTooltip({ card }: { card: MarkerHoverCard }) {
+  return (
+    <div
+      className="pointer-events-none fixed z-50 max-w-[280px] rounded-md border border-border-subtle bg-surface-raised px-3 py-2 text-xs text-text-primary shadow-lg"
+      style={{ left: card.x + 14, top: card.y + 14 }}
+    >
+      {card.title}
+    </div>
+  );
+}
+
 /**
  * One shared globe for the whole case, instead of a separate map per
  * exhibit — plots every exhibit's own origin (where its file was actually
@@ -34,6 +59,8 @@ export function CombinedSourceMap({
   evidence: Evidence[];
   propagation: EvidencePropagation[];
 }) {
+  const [hover, setHover] = useState<MarkerHoverCard | null>(null);
+
   const originsByEvidenceId = new Map(
     propagation.map((p) => [p.evidenceId, p.sightings.find((s) => s.kind === "origin")] as const),
   );
@@ -177,7 +204,19 @@ export function CombinedSourceMap({
                       {m.order}
                     </text>
                   )}
-                  <title>{m.title}</title>
+                  {/* Invisible, larger hit target — the base marker (down
+                      to a 4.5px "result" dot) is a fiddly thing to hover
+                      precisely; this widens the real hover area without
+                      changing how the marker actually looks. */}
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={12}
+                    fill="transparent"
+                    onMouseEnter={(e) => setHover({ x: e.clientX, y: e.clientY, title: m.title })}
+                    onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
+                    onMouseLeave={() => setHover(null)}
+                  />
                 </>
               );
               return m.href ? (
@@ -191,6 +230,7 @@ export function CombinedSourceMap({
           </WorldMapSvg>
         </div>
       </div>
+      {hover && <MarkerHoverTooltip card={hover} />}
     </div>
   );
 }

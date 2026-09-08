@@ -115,6 +115,52 @@ export function computePipelineStatus(evidence: PipelineEvidenceInput): Pipeline
     };
   }
 
+  // Plain-text evidence (a WhatsApp "Export chat" .txt, or generic text) —
+  // like PDF, no ML classifier and no C2PA/perceptual-hash equivalent
+  // exists for this evidence type. Unlike PDF, there is also no
+  // signature/tamper-date structural check possible at all: a .txt file
+  // has no embedded creation date or signature format to check, so this
+  // gets an honest one-step pipeline (real extraction) rather than forcing
+  // in a check that doesn't apply, or silently reusing PDF's document-
+  // integrity verdict shape for a file type it was never computed for
+  // (evidence-ingest.ts only ever runs fuseDocumentEvidence for
+  // container === "PDF").
+  if (evidence.mimeType === "text/plain") {
+    let chatInfo: { isWhatsAppChat?: boolean; participants?: string[]; messageCount?: number; mediaOmittedCount?: number; dateRangeStart?: string | null; dateRangeEnd?: string | null } = {};
+    try {
+      chatInfo = evidence.metadataResult?.exifJson ? JSON.parse(evidence.metadataResult.exifJson) : {};
+    } catch {
+      chatInfo = {};
+    }
+    const steps: PipelineStep[] = [
+      {
+        id: "metadata",
+        label: chatInfo.isWhatsAppChat ? "Chat export parsed" : "Text extracted",
+        done: Boolean(evidence.metadataResult),
+        detail: chatInfo.isWhatsAppChat
+          ? "Recognized as a real WhatsApp \"Export chat\" .txt file — parsed into individual messages with sender, timestamp, and media-omitted markers preserved. No signature or tamper-date check applies to this evidence type (a .txt file has neither to check) — content analysis (below) is what's available instead."
+          : "Read as plain text — not a recognized WhatsApp chat export format, so treated as generic text content rather than fabricating a chat structure it doesn't have.",
+        metrics: evidence.metadataResult
+          ? chatInfo.isWhatsAppChat
+            ? [
+                { label: "Participants", value: (chatInfo.participants ?? []).join(", ") || "—" },
+                { label: "Messages", value: String(chatInfo.messageCount ?? 0) },
+                { label: "Media omitted", value: String(chatInfo.mediaOmittedCount ?? 0) },
+                {
+                  label: "Date range",
+                  value:
+                    chatInfo.dateRangeStart && chatInfo.dateRangeEnd
+                      ? `${new Date(chatInfo.dateRangeStart).toLocaleDateString("en-IN")} – ${new Date(chatInfo.dateRangeEnd).toLocaleDateString("en-IN")}`
+                      : "—",
+                },
+              ]
+            : [{ label: "Container", value: evidence.metadataResult.container ?? "—" }]
+          : undefined,
+      },
+    ];
+    return { steps, totalMs: null };
+  }
+
   const matchCount = evidence.matchesFrom.length + evidence.corpusMatches.length;
   // Audio has no perceptual-hash equivalent (Evidence.phash is "null for
   // audio/document" per its schema comment) — the matching step still runs

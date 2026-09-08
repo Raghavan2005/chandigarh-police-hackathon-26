@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Clock3, FileDigit, GitCompareArrows, Loader2, ScanSearch, Shield, ShieldAlert, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Clock3, FileDigit, GitCompareArrows, Loader2, MapPin, ScanSearch, Shield, ShieldAlert, ShieldCheck } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn, formatDateOnly, formatTimestamp } from "@/lib/utils";
 import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
@@ -93,6 +93,16 @@ export function EvidenceCard({
   // the two real signals it's based on (signature check, tamper-date
   // consistency) are already computed synchronously at upload time.
   const isDocumentPdf = evidence.mimeType === "application/pdf";
+  // Plain-text evidence — specifically a WhatsApp "Export chat" .txt file
+  // (whatsapp-chat.ts), or generic text as an honest fallback when the
+  // file doesn't match that format. Gets the same on-demand AI content
+  // analysis (summary, threat detection) as a PDF does, via the exact same
+  // routes (document-summary.ts/document-threat-detection.ts already read
+  // extracted text generically, not PDF-specifically) — but never a
+  // signature/tamper-date verdict, since neither concept exists for a
+  // .txt file (see pipeline-status.ts's own text/plain branch).
+  const isTextDoc = evidence.mimeType === "text/plain";
+  const isDocumentLike = isDocumentPdf || isTextDoc;
   // A case's evidenceKind is one value for the whole case, but individual
   // evidence items can be a different real mimeType (e.g. a document
   // uploaded onto an "audio" case) — the icon must reflect the actual file,
@@ -181,7 +191,7 @@ export function EvidenceCard({
   const meta = evidence.metadataResult;
   const provenance = evidence.provenanceResult;
   const hasVideoDiffSlot = isVideo && evidence.matchesFrom.length > 0;
-  const isPdfDoc = Boolean(meta && meta.container === "PDF" && meta.exifJson);
+  const hasDocumentAnalysis = Boolean(meta && isDocumentLike && meta.exifJson);
 
   // Jump targets for the sticky nav below — mirrors exactly which panels
   // actually render further down (same conditions), so a link is never
@@ -193,7 +203,7 @@ export function EvidenceCard({
     ...(showFaceMatchSlot ? [{ id: `ev-${evidence.id}-reverse-image`, label: "Reverse image search" }] : []),
     ...(showFaceMatchSlot ? [{ id: `ev-${evidence.id}-image-description`, label: "AI description" }] : []),
     ...(hasVideoDiffSlot ? [{ id: `ev-${evidence.id}-video-diff`, label: "Video diff" }] : []),
-    ...(isPdfDoc ? [{ id: `ev-${evidence.id}-document`, label: "Document" }] : []),
+    ...(hasDocumentAnalysis ? [{ id: `ev-${evidence.id}-document`, label: isTextDoc ? "Chat" : "Document" }] : []),
   ];
 
   return (
@@ -273,9 +283,13 @@ export function EvidenceCard({
               cachedMatches={parseReferenceMatchResults(evidence.referenceMatchResults)}
             />
           )}
-          {isPdfDoc && meta?.exifJson && (
+          {hasDocumentAnalysis && meta?.exifJson && (
             <div id={`ev-${evidence.id}-document`} className="scroll-mt-14 flex flex-col gap-3">
-              <DocumentDetails exifJson={meta.exifJson} sha256={evidence.sha256} />
+              {isTextDoc ? (
+                <ChatDetails exifJson={meta.exifJson} sha256={evidence.sha256} />
+              ) : (
+                <DocumentDetails exifJson={meta.exifJson} sha256={evidence.sha256} />
+              )}
               <DocumentAnalysisPanel
                 caseId={caseId}
                 evidenceId={evidence.id}
@@ -283,18 +297,19 @@ export function EvidenceCard({
                 cachedThreat={parseDocumentThreatAssessment(evidence.documentThreatAssessment)}
                 sensitivityLevel={sensitivityLevel}
               />
+              <LocationMentionsPanel locationMentionResult={evidence.locationMentionResult} />
             </div>
           )}
         </div>
 
         <div className="min-w-0 rounded-lg border border-border-subtle bg-surface-sunken p-4">
-          {canInvestigate || isDocumentPdf ? (
+          {canInvestigate || isDocumentLike ? (
             <RealPipelinePanel evidence={evidence} />
           ) : (
             <div className="flex flex-col gap-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Analysis pipeline</p>
               <p className="mt-2 text-xs text-text-tertiary">
-                Detection isn&apos;t available for this evidence type yet (image/video/audio/PDF only in this build).
+                Detection isn&apos;t available for this evidence type yet (image/video/audio/PDF/text only in this build).
               </p>
             </div>
           )}
@@ -803,6 +818,129 @@ interface PdfDocumentInfo {
   signaturePresent?: boolean;
   signatureCoversWholeFile?: boolean | null;
   signerName?: string | null;
+}
+
+interface ChatDocumentInfo {
+  isWhatsAppChat: boolean;
+  participants?: string[];
+  messageCount?: number;
+  mediaOmittedCount?: number;
+  dateRangeStart?: string | null;
+  dateRangeEnd?: string | null;
+  textPreview: string;
+}
+
+/** Text-evidence equivalent of DocumentDetails below — deliberately never
+ * shows a signature/tamper-date section, since neither concept exists for a
+ * .txt file (src/lib/whatsapp-chat.ts, src/lib/metadata.ts's
+ * extractTextMetadata). Showing "No digital signature found" here would
+ * falsely imply a signature check ran against this evidence type. */
+function ChatDetails({ exifJson, sha256 }: { exifJson: string; sha256: string }) {
+  let info: ChatDocumentInfo | null = null;
+  try {
+    info = JSON.parse(exifJson);
+  } catch {
+    return null;
+  }
+  if (!info) return null;
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border-subtle pt-3 text-xs">
+      {info.isWhatsAppChat ? (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+          <Field label="Participants" value={(info.participants ?? []).join(", ") || "—"} className="col-span-2 sm:col-span-4" />
+          <Field label="Messages" value={String(info.messageCount ?? 0)} />
+          <Field label="Media omitted" value={String(info.mediaOmittedCount ?? 0)} />
+          <Field
+            label="Date range"
+            value={
+              info.dateRangeStart && info.dateRangeEnd
+                ? `${formatTimestamp(new Date(info.dateRangeStart))} – ${formatTimestamp(new Date(info.dateRangeEnd))}`
+                : "—"
+            }
+            className="col-span-2"
+          />
+          <Field label="SHA-256" value={sha256} className="col-span-2 sm:col-span-4 truncate" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-x-4 gap-y-1">
+          <p className="text-text-tertiary">
+            Not a recognized WhatsApp export format — treated as generic text content.
+          </p>
+          <Field label="SHA-256" value={sha256} className="truncate" />
+        </div>
+      )}
+      {info.textPreview && (
+        <div>
+          <p className="text-[11px] font-medium text-text-secondary">Extracted text (preview)</p>
+          <p className="mt-1 line-clamp-4 whitespace-pre-line text-text-tertiary">{info.textPreview}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ParsedLocationMention {
+  name: string;
+  quote: string;
+  lat: number | null;
+  lon: number | null;
+  displayName: string | null;
+}
+
+/**
+ * Real place names Gemini found in this exhibit's own text at ingest time
+ * (location-extraction.ts), each geocoded to a real coordinate via
+ * Nominatim where possible — never fabricated. A name Nominatim couldn't
+ * resolve (lat/lon null) still shows here, honestly labeled as unresolved,
+ * rather than being silently dropped. The same data, aggregated across
+ * every exhibit on the case, also appears as a plain list on the case's
+ * mind-map page (mindmap-server.ts's collectLocationMentions) — this panel
+ * is the per-exhibit "here's what was found on this one" view.
+ */
+function LocationMentionsPanel({
+  locationMentionResult,
+}: {
+  locationMentionResult: { locationsJson: string } | null;
+}) {
+  if (!locationMentionResult) return null;
+  let places: ParsedLocationMention[] = [];
+  try {
+    places = JSON.parse(locationMentionResult.locationsJson);
+  } catch {
+    return null;
+  }
+  if (places.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border-subtle pt-3 text-xs">
+      <p className="flex items-center gap-1.5 font-medium text-text-secondary">
+        <MapPin className="size-3.5 text-accent-primary" />
+        Places mentioned in this exhibit&apos;s text
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {places.map((p, i) => (
+          <span
+            key={i}
+            title={`"${p.quote}"`}
+            className={cn(
+              "rounded-full border px-2 py-0.5",
+              p.lat !== null && p.lon !== null
+                ? "border-accent-primary/30 bg-accent-dim text-text-primary"
+                : "border-border-subtle text-text-tertiary",
+            )}
+          >
+            {p.name}
+            {p.lat === null && " (unresolved)"}
+          </span>
+        ))}
+      </div>
+      <p className="text-[10px] text-text-tertiary">
+        Named in the exhibit&apos;s own text — an investigative lead to verify, not a confirmed location of any
+        device or file. See this case&apos;s mind-map page for the full list across every exhibit.
+      </p>
+    </div>
+  );
 }
 
 /** Real PDF Stage 1 extraction results (src/lib/metadata.ts's

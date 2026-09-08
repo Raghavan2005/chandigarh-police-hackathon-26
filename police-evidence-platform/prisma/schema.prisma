@@ -216,6 +216,7 @@ model Evidence {
   documentSummaryResult      DocumentSummaryResult?
   documentThreatAssessment   DocumentThreatAssessment?
   webSearchResult            WebSearchResult?
+  locationMentionResult      LocationMentionResult?
 
   corpusMatches       CorpusMatch[]
   matchesFrom         EvidenceMatch[] @relation("EvidenceMatchSource")
@@ -544,6 +545,26 @@ model DocumentThreatAssessment {
   reasoning      String?
   quote          String?
   ranAt          DateTime @default(now())
+}
+
+// Real place-name mentions found in an exhibit's own extracted text (a chat
+// export's real messages, or a document's real text layer — same generic
+// extractDocumentText() source already used for summaries/threat detection,
+// so this runs for both without special-casing chat vs. PDF) — runs
+// automatically as part of ingestion, not on-demand, per explicit product
+// decision. Every entry is grounded by a real Gemini extraction (a place
+// actually named in the text, with the exact quote it came from) and then,
+// where possible, geocoded to a real lat/lon via OpenStreetMap Nominatim —
+// never a fabricated coordinate. `locationsJson` is an array of
+// `{ name, quote, lat, lon, displayName }`, where lat/lon/displayName are
+// null for a name Nominatim couldn't resolve (e.g. "Sector 45" with no city
+// context) — an honest gap, not silently dropped or guessed.
+model LocationMentionResult {
+  id            String   @id @default(cuid())
+  evidenceId    String   @unique
+  evidence      Evidence @relation(fields: [evidenceId], references: [id])
+  locationsJson String
+  ranAt         DateTime @default(now())
 }
 
 // Per-face annotation — a manual label plus cached reverse-image-search /

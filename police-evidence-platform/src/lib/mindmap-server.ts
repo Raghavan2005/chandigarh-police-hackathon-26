@@ -84,6 +84,121 @@ function domainOf(url: string): string {
   }
 }
 
+interface ChatExifInfo {
+  isWhatsAppChat?: boolean;
+  participantStats?: { name: string; messageCount: number; firstTimestamp: string | null; lastTimestamp: string | null }[];
+  turnTaking?: { from: string; to: string; count: number }[];
+}
+
+function parseChatExif(ev: RealEvidence): ChatExifInfo | null {
+  if (ev.mimeType !== "text/plain" || !ev.metadataResult?.exifJson) return null;
+  const info = safeParse<ChatExifInfo>(ev.metadataResult.exifJson);
+  return info?.isWhatsAppChat ? info : null;
+}
+
+/** Real person-node id, shared between the structural chat-participant layer
+ * here and the AI-inferred entity layer below (`${type}:${name}`) — a named
+ * participant who is later also named by the AI layer merges into this same
+ * node instead of creating a disconnected duplicate (see synthesizeCaseMindMap:
+ * it only creates a new node when this id doesn't already exist). */
+function chatPersonNodeId(name: string): string {
+  return `person:${name}`;
+}
+
+function formatChatTimestamp(iso: string | null): string {
+  if (!iso) return "unknown time";
+  return new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * Real, zero-LLM structural facts for a WhatsApp chat exhibit — every group
+ * member, their real message count and first/last-seen time, and real
+ * conversational turn-taking between them (see whatsapp-chat.ts's own
+ * computeParticipantStats/computeTurnTaking for what "turn-taking" honestly
+ * does and doesn't claim). Previously "who else is in this group chat" was
+ * left entirely to the AI-inferred entity layer, which could only notice a
+ * participant if their name happened to surface in free-text extraction —
+ * unreliable, and the reason a chat's own encryption-notice boilerplate was
+ * once misread as an "Organization" entity (fixed at the source in
+ * chatToPlainText, but this structural layer is the real fix: participants
+ * are never something the AI needs to infer in the first place).
+ */
+// A real hackathon-logistics group chat used to develop this feature had 62
+// distinct senders, most with exactly 1-2 messages (join notices, a single
+// "ok" or "thanks") — fanning all 62 out as graph nodes around one exhibit
+// produces an illegible wall of phone numbers no matter how good the layout
+// math is, even though every one of those senders is a real fact. Capping
+// to the most active real participants keeps the graph itself legible
+// without losing anything: the full participant list (all of them, capped
+// or not) is still shown in full on the exhibit's own ChatDetails panel —
+// this cap only governs how many get promoted to a full graph node.
+const MAX_PARTICIPANT_NODES = 20;
+
+function addChatParticipantGraph(ev: RealEvidence, exId: string, nodes: MindMapNode[], edges: MindMapEdge[]): void {
+  const info = parseChatExif(ev);
+  if (!info?.participantStats) return;
+
+  const shownStats = [...info.participantStats].sort((a, b) => b.messageCount - a.messageCount).slice(0, MAX_PARTICIPANT_NODES);
+  const shownNames = new Set(shownStats.map((s) => s.name));
+  const omittedCount = info.participantStats.length - shownStats.length;
+
+  for (const stat of shownStats) {
+    const personId = chatPersonNodeId(stat.name);
+    if (!nodes.some((n) => n.id === personId)) {
+      nodes.push({
+        id: personId,
+        kind: "person",
+        label: stat.name,
+        detail: `${stat.messageCount} message${stat.messageCount === 1 ? "" : "s"} in this chat · ${formatChatTimestamp(stat.firstTimestamp)} – ${formatChatTimestamp(stat.lastTimestamp)}`,
+        timestamp: stat.firstTimestamp,
+        origin: "structural",
+        href: null,
+      });
+    }
+    edges.push({
+      from: exId,
+      to: personId,
+      label: `sent ${stat.messageCount} message${stat.messageCount === 1 ? "" : "s"}`,
+      evidence: null,
+      origin: "structural",
+    });
+  }
+
+  if (omittedCount > 0) {
+    nodes.push({
+      id: `${exId}:more-participants`,
+      kind: "other",
+      label: `+${omittedCount} more participant${omittedCount === 1 ? "" : "s"}`,
+      detail: `Real group members not individually graphed to keep this view legible — each sent only 1-2 messages. Full list is in this exhibit's own chat details panel.`,
+      timestamp: null,
+      origin: "structural",
+      href: null,
+    });
+    edges.push({ from: exId, to: `${exId}:more-participants`, label: "also contains", evidence: null, origin: "structural" });
+  }
+
+  // Capped and sorted by count, and restricted to the participants actually
+  // shown above — a turn-taking edge pointing at a node that was never
+  // created would just be silently dropped at render time anyway (the graph
+  // component skips edges whose endpoint isn't in `nodes`), but filtering
+  // here keeps the count-based cap meaningful instead of wasting slots on
+  // edges that can't render.
+  const topTurns = (info.turnTaking ?? []).filter((t) => shownNames.has(t.from) && shownNames.has(t.to)).slice(0, 16);
+  for (const turn of topTurns) {
+    edges.push({
+      from: chatPersonNodeId(turn.from),
+      to: chatPersonNodeId(turn.to),
+      // Deliberately not "replied to" — a flat export has no reply-to
+      // metadata, so this is the honest, weaker claim the data actually
+      // supports: their messages were adjacent in the real timeline, this
+      // many times.
+      label: `messaged right after ×${turn.count}`,
+      evidence: null,
+      origin: "structural",
+    });
+  }
+}
+
 /**
  * The real, deterministic half of the graph — built entirely from this
  * platform's own already-loaded database relations (getRealCase's include
@@ -121,6 +236,8 @@ export function buildStructuralGraph(realCase: RealCase): { nodes: MindMapNode[]
       href: `/cases/${realCase.id}`,
     });
     edges.push({ from: caseNodeId, to: exId, label: "contains", evidence: null, origin: "structural" });
+
+    addChatParticipantGraph(ev, exId, nodes, edges);
 
     // Seeded-corpus matches — this platform's own "have we seen this file
     // before" database, previously invisible to the mind map entirely.
@@ -296,8 +413,26 @@ function gatherExhibitSections(ev: RealEvidence): string[] {
     }
   }
 
+  const chatInfo = parseChatExif(ev);
   const documentText = extractDocumentText(ev.metadataResult?.exifJson);
-  if (documentText) sections.push(`Document text (extracted excerpt): "${documentText}"`);
+  if (chatInfo) {
+    // Labeled distinctly from a generic "Document text" excerpt — this is
+    // what the prompt's own chat-handling instructions key off of to ask
+    // for per-sender substance instead of a generic "communicated with".
+    if (documentText) {
+      sections.push(
+        // Deliberately says "a group chat export" and never names the
+        // specific messaging app — naming it here caused the exact same
+        // "app name treated as case content" bug this file's own
+        // chatToPlainText fix addresses (the app name isn't case-relevant
+        // content; it's already recorded structurally, not something the AI
+        // needs to independently notice, let alone as an Organization).
+        `This exhibit is a real group chat export. Every group member is already known structurally (see case facts) — do not re-list them as a generic finding, and do not treat the messaging app itself as a person, organization, or any other case entity. The lines below are the chat's real messages in chronological order, each formatted as "Sender: message":\n${documentText}`,
+      );
+    }
+  } else if (documentText) {
+    sections.push(`Document text (extracted excerpt): "${documentText}"`);
+  }
   if (ev.documentSummaryResult) sections.push(`AI summary of this document: ${ev.documentSummaryResult.summary}`);
 
   return sections;
@@ -455,6 +590,12 @@ From the exhibit text alone:
 2. List relationships between those entities that the text actually, directly evidences (e.g. "X called Y", "X sent a document to Y", "X is mentioned inside Y's transcript"). Never invent a relationship that isn't directly supported by a specific piece of the text below — if you cannot point to the exact text that shows it, do not include it.
 3. Write a short, plain narrative summary connecting what these exhibits show together as a case, informed by both the case facts above and the exhibit text below.
 
+Some exhibit sections below are real group chat transcripts (marked as such), where each line is "Sender: message" in real chronological order. For these:
+- Every sender is already a known person in this case (tracked separately, structurally) — you do not need to list them as entities discovered by you; only add them as an entity if their "note" would say something substantive about them beyond just being a chat participant.
+- For each sender's "note", summarize specifically what THAT PERSON said or did in the conversation — what they asked, arranged, admitted, instructed, or were told — not a generic statement that they "were part of a conversation" or "communicated with" someone.
+- For relationships between two senders, the label must describe the actual substance of their exchange (e.g. "asked about delivery timing to", "instructed to stay silent about", "warned about consequences of"), grounded in an exact quoted line from the transcript — never the generic "communicated with" or "spoke to" for a chat exhibit.
+- Never extract the messaging app/platform itself (whichever one it is) as a person, organization, or any other entity — it is not case content, only where the conversation happened to take place.
+
 If the exhibit text is too sparse, vague, or the exhibits don't actually reference each other or common entities, return empty (or near-empty) arrays and say so plainly in the summary rather than guessing or inventing connections just to produce a fuller-looking result.`;
 }
 
@@ -526,7 +667,8 @@ export async function synthesizeCaseMindMap(realCase: RealCase): Promise<CaseMin
 
   for (const entity of ai.entities) {
     const entityId = `${entity.type}:${entity.name}`;
-    if (!nodes.some((n) => n.id === entityId)) {
+    const existingNode = nodes.find((n) => n.id === entityId);
+    if (!existingNode) {
       nodes.push({
         id: entityId,
         kind: entity.type,
@@ -536,6 +678,16 @@ export async function synthesizeCaseMindMap(realCase: RealCase): Promise<CaseMin
         origin: "ai_inferred",
         href: null,
       });
+    } else if (entity.note) {
+      // A structural node (e.g. a real chat participant, created above with
+      // zero LLM involvement) already exists under this exact id — this is
+      // the intended merge, not a collision: the same person, one real node.
+      // Its structural detail (message count, real timestamps) must not be
+      // silently discarded, but the whole point of the AI layer here is the
+      // substantive "what did this person actually say/do" gist — append it
+      // rather than dropping it on the floor, which the pre-existence check
+      // alone would otherwise do.
+      existingNode.detail = `${existingNode.detail} · ${entity.note}`;
     }
     for (const tag of entity.mentionedInExhibits) {
       const exId = tagToExhibitNodeId.get(tag);
@@ -559,4 +711,82 @@ export async function synthesizeCaseMindMap(realCase: RealCase): Promise<CaseMin
  * graph above never needs this; only the AI-inferred layer does. */
 export function isMindMapConfigured(): boolean {
   return isGeminiConfigured();
+}
+
+export interface CaseLocationMention {
+  exhibitLabel: string;
+  name: string;
+  quote: string;
+  resolved: boolean;
+  /** The real chat participant whose message the quote came from — found
+   * by matching the quote back against the chat's own "Sender: message"
+   * lines (see findSenderForQuote below), not asked of Gemini directly (it
+   * only ever sees the flattened text, not a structured sender field, so
+   * asking it to name the sender would just be re-deriving something we
+   * can already look up exactly). Null when the exhibit isn't a chat, or
+   * the quote couldn't be matched back to one line (e.g. it spans a
+   * multi-line message) — shown as an honest "exhibit only" fallback, not
+   * a guessed name. */
+  sender: string | null;
+  /** Real link to the exhibit's own document/chat details section on the
+   * case's Evidence tab (its default tab, so the hash lands directly on
+   * it) — lets an investigator jump straight from a place name to the
+   * actual message that named it. */
+  href: string;
+}
+
+/** Chat text is stored flattened as "Sender: message" lines
+ * (whatsapp-chat.ts's chatToPlainText) — the same lines Gemini was shown to
+ * extract the quote from in the first place, so the sender that quote came
+ * from is always findable by matching it back against those exact lines,
+ * not a separate inference. Returns null for a document with no such
+ * lines, or if the quote spans a multi-line message and no single line
+ * contains it whole — an honest miss, not a wrong guess. */
+function findSenderForQuote(textPreview: string | null, quote: string): string | null {
+  if (!textPreview) return null;
+  const trimmedQuote = quote.trim();
+  if (!trimmedQuote) return null;
+  for (const line of textPreview.split("\n")) {
+    const match = line.match(/^([^:]+): (.*)$/);
+    if (!match) continue;
+    const [, sender, text] = match;
+    if (text.includes(trimmedQuote) || trimmedQuote.includes(text.trim())) return sender.trim();
+  }
+  return null;
+}
+
+/**
+ * Real place names Gemini found in each exhibit's own text at ingest time
+ * (location-extraction.ts), aggregated across the whole case — zero
+ * additional LLM calls here, just reading the already-persisted
+ * LocationMentionResult rows getRealCase() already includes. Deliberately
+ * plain names + quotes, no lat/lon in this shape: this feeds a minimal
+ * text list on the mind-map page, not a map (that attempt — plotting these
+ * on the case's Source Finder map — was tried and explicitly reverted per
+ * product decision; see git history on combined-source-map.tsx). A name
+ * Gemini found but Nominatim couldn't geocode still appears here, marked
+ * unresolved rather than dropped — this list is about what was said, not
+ * about what could be mapped.
+ */
+export function collectLocationMentions(realCase: RealCase): CaseLocationMention[] {
+  const mentions: CaseLocationMention[] = [];
+  realCase.evidence.forEach((ev, index) => {
+    if (!ev.locationMentionResult) return;
+    const places = safeParse<{ name: string; quote: string; lat: number | null }[]>(
+      ev.locationMentionResult.locationsJson,
+    );
+    if (!places) return;
+    const textPreview = extractDocumentText(ev.metadataResult?.exifJson);
+    for (const place of places) {
+      mentions.push({
+        exhibitLabel: `Exhibit ${index + 1}`,
+        name: place.name,
+        quote: place.quote,
+        resolved: place.lat !== null,
+        sender: findSenderForQuote(textPreview, place.quote),
+        href: `/cases/${realCase.id}#ev-${ev.id}-document`,
+      });
+    }
+  });
+  return mentions;
 }

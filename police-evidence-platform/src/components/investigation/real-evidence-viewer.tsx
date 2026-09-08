@@ -546,8 +546,9 @@ export function RealEvidenceViewer({
   const isVideo = mimeType.startsWith("video/");
   const isAudio = mimeType.startsWith("audio/");
   const isPdf = mimeType === "application/pdf";
+  const isText = mimeType === "text/plain";
 
-  if (!isImage && !isVideo && !isAudio && !isPdf) {
+  if (!isImage && !isVideo && !isAudio && !isPdf && !isText) {
     return (
       <div className="flex h-40 items-center justify-center rounded-lg border border-border-subtle bg-surface-sunken text-xs text-text-tertiary">
         No inline preview for this file type — download from the evidence record.
@@ -648,6 +649,15 @@ export function RealEvidenceViewer({
               // browser's own native PDF viewer renders it directly, no
               // separate PDF-rendering library needed.
               <iframe src={fileUrl} title="Evidence document" className="h-[280px] w-full bg-white" />
+            )}
+            {isText && (
+              // Same auth-gated file route, serving the real
+              // `text/plain` bytes with the right Content-Type — the
+              // browser's own plain-text rendering shows the raw chat
+              // export exactly as exported, not a paraphrase. The
+              // structured participant/message-count/date-range summary
+              // lives in ChatDetails (evidence-card.tsx) alongside this.
+              <iframe src={fileUrl} title="Evidence text" className="h-[280px] w-full bg-white" />
             )}
             {isVideo && (
               // Real video player (Vidstack, not a bare native <video>) for

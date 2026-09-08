@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import type { MindMapNode, MindMapEdge, MindMapNodeKind } from "@/lib/mindmap-server";
 import { formatTimestamp } from "@/lib/utils";
 
@@ -11,15 +14,25 @@ const KIND_COLOR: Record<Exclude<MindMapNodeKind, "exhibit">, string> = {
   other: "var(--text-tertiary)",
 };
 
+// "Person" deliberately has no "(AI-inferred)" suffix, unlike the other
+// entity kinds — a person node can now be a real, structural fact (a chat's
+// actual participants, computed with zero LLM involvement) OR an AI-
+// inferred entity, sometimes both merged into one node. "other" has the
+// same duality: normally an AI-inferred miscellaneous entity, but also used
+// structurally for a chat's own "+N more participants" overflow node (see
+// mindmap-server.ts's addChatParticipantGraph). Which one a given node
+// actually is comes from its own `origin` (shown per-node in the hover card
+// below and via the dashed-vs-solid ring here), not a blanket label that
+// would be actively false for either case.
 const KIND_LABEL: Record<MindMapNodeKind, string> = {
   case: "Case",
   exhibit: "Exhibit (colored by verdict)",
   match: "Internal match (corpus/cross-case/reference)",
   web_source: "External web source",
-  person: "Person (AI-inferred)",
+  person: "Person",
   organization: "Organization (AI-inferred)",
   location: "Location (AI-inferred)",
-  other: "Other entity (AI-inferred)",
+  other: "Other",
 };
 
 function exhibitColor(detail: string): string {
@@ -66,6 +79,23 @@ const RING1_RADIUS = 220;
  * other side) never wastes half a square canvas on empty space, and a
  * busy case never risks a node landing outside a pre-guessed size.
  */
+/**
+ * `Math.sin`/`Math.cos` are not guaranteed bit-identical across JS engines —
+ * Node's V8 (server-side render) and a browser's V8 (client hydration) can
+ * disagree in the last binary digit of a trig result for the exact same
+ * input, which is invisible to the eye but not to React's hydration check:
+ * it diffs the server-rendered attribute *string* against the client's
+ * freshly computed number, and a difference as small as 1e-11px still
+ * counts as a mismatch (confirmed live — this is exactly what produced a
+ * real "hydrated but didn't match" warning on this graph). Rounding to 6
+ * decimal places is many orders of magnitude finer than a screen pixel, so
+ * nothing looks different — it just guarantees the server and client agree
+ * on the exact string React renders/hydrates against.
+ */
+function round6(n: number): number {
+  return Math.round(n * 1e6) / 1e6;
+}
+
 function computeLayout(nodes: MindMapNode[], edges: MindMapEdge[]): Map<string, Positioned> {
   const positions = new Map<string, Positioned>();
 
@@ -79,7 +109,7 @@ function computeLayout(nodes: MindMapNode[], edges: MindMapEdge[]): Map<string, 
 
   exhibitNodes.forEach((n, i) => {
     const angle = (2 * Math.PI * i) / Math.max(exhibitNodes.length, 1) - Math.PI / 2;
-    positions.set(n.id, { node: n, x: RING1_RADIUS * Math.cos(angle), y: RING1_RADIUS * Math.sin(angle), angle });
+    positions.set(n.id, { node: n, x: round6(RING1_RADIUS * Math.cos(angle)), y: round6(RING1_RADIUS * Math.sin(angle)), angle });
   });
 
   // First edge pointing at a node decides which exhibit (or the case, as a
@@ -119,8 +149,8 @@ function computeLayout(nodes: MindMapNode[], edges: MindMapEdge[]): Map<string, 
       const angle = outward - arc / 2 + arc * t;
       positions.set(child.id, {
         node: child,
-        x: parentPos.x + clusterRadius * Math.cos(angle),
-        y: parentPos.y + clusterRadius * Math.sin(angle),
+        x: round6(parentPos.x + clusterRadius * Math.cos(angle)),
+        y: round6(parentPos.y + clusterRadius * Math.sin(angle)),
         angle,
       });
     });
@@ -174,7 +204,132 @@ function NodeLink({ href, children }: { href: string | null; children: React.Rea
   );
 }
 
+interface HoverCard {
+  x: number;
+  y: number;
+  title: string;
+  subtitle: string;
+  detail: string;
+  quote: string | null;
+  href: string | null;
+}
+
+/**
+ * Replaces the browser's own native SVG `<title>` tooltip — functional, but
+ * a plain fixed-format OS tooltip that can't show a real multi-line gist
+ * cleanly (no line-wrapping control, ~1s hover delay, no way to visually
+ * separate "what this is" from "the actual gist"). This renders inside the
+ * scrollable graph container using `position: fixed` keyed off the raw
+ * mouse coordinates from the hover event, so it tracks correctly regardless
+ * of how far the container has been scrolled/panned.
+ */
+function HoverTooltip({ card }: { card: HoverCard }) {
+  return (
+    <div
+      className="pointer-events-none fixed z-50 max-w-[280px] rounded-md border border-border-subtle bg-surface-raised px-3 py-2 text-xs shadow-lg"
+      style={{ left: card.x + 14, top: card.y + 14 }}
+    >
+      <p className="font-medium text-text-primary">{card.title}</p>
+      <p className="text-[10px] uppercase tracking-wide text-text-tertiary">{card.subtitle}</p>
+      {card.detail && <p className="mt-1 text-text-secondary">{card.detail}</p>}
+      {card.quote && <p className="mt-1 italic text-text-tertiary">&ldquo;{card.quote}&rdquo;</p>}
+      {card.href && <p className="mt-1 truncate text-accent-primary">→ {card.href}</p>}
+    </div>
+  );
+}
+
 export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: MindMapEdge[] }) {
+  const [hover, setHover] = useState<HoverCard | null>(null);
+
+  // Manual drag offsets, layered on top of the computed layout below rather
+  // than replacing it — computeLayout still runs every render (it's cheap,
+  // pure math over however many nodes exist) and gives every node its
+  // algorithmic starting position; dragging one just overrides where it
+  // actually renders. Edges read the exact same merged position map for
+  // their endpoints, so a dragged node's lines follow it with zero special
+  // casing — they were never hardcoded to the algorithmic position in the
+  // first place, just whatever `positions.get(id)` returns.
+  const [dragOverrides, setDragOverrides] = useState<Map<string, { x: number; y: number }>>(new Map());
+  // A fresh mind-map run (new/removed nodes after re-running the AI layer)
+  // makes any prior manual arrangement meaningless for nodes that may no
+  // longer exist — reset rather than carry stale offsets forward. Compares
+  // by array identity (the panel always passes a fresh array per fetch), so
+  // this doesn't fire on every render, only when the actual graph changes.
+  const [prevNodes, setPrevNodes] = useState(nodes);
+  if (nodes !== prevNodes) {
+    setPrevNodes(nodes);
+    if (dragOverrides.size > 0) setDragOverrides(new Map());
+  }
+
+  // Tracks the in-progress drag across the pointerdown → pointermove →
+  // pointerup sequence (a ref, not state — updating it must never itself
+  // trigger a render) and, separately, whether that sequence actually moved
+  // the node at all. The latter survives just long enough for the click
+  // event that fires right after pointerup to check it: a node with a real
+  // href (e.g. an exhibit) would otherwise navigate away the moment a drag
+  // ends, since a drag-and-release is also, mechanically, a click.
+  const dragIdRef = useRef<string | null>(null);
+  const draggedRef = useRef(false);
+  // A real drag moves the pointer several pixels between events — far
+  // enough, at real mouse/trackpad speed, that it routinely leaves a small
+  // 7px node before the browser has attached pointer capture to it. Element-
+  // level `setPointerCapture` is supposed to keep routing events to that
+  // element regardless, but this app's first cut relied on exactly that and
+  // it did not hold up under a real trackpad drag (worked fine under
+  // Puppeteer's synthetic, slow, step-by-step mouse moves — the discrepancy
+  // is exactly this speed difference). Listening on `window` instead is the
+  // standard, environment-independent fix: once a drag starts, every
+  // pointermove/pointerup on the whole page is seen regardless of exactly
+  // which element the cursor is physically over.
+  const positionsRef = useRef<Map<string, Positioned>>(new Map());
+
+  useEffect(() => {
+    function handleMove(e: PointerEvent) {
+      const id = dragIdRef.current;
+      if (!id) return;
+      if (e.movementX !== 0 || e.movementY !== 0) draggedRef.current = true;
+      setDragOverrides((prev) => {
+        const current = prev.get(id) ?? positionsRef.current.get(id);
+        if (!current) return prev;
+        const next = new Map(prev);
+        next.set(id, { x: current.x + e.movementX, y: current.y + e.movementY });
+        return next;
+      });
+    }
+    function handleUp() {
+      dragIdRef.current = null;
+    }
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+    };
+  }, []);
+
+  // computeLayout/boundingBoxOf run unconditionally, even for the trivial
+  // "nothing to graph" case below — they're cheap pure math over however
+  // many nodes exist (zero or one, in that case) — so that positionsRef can
+  // be synced via a plain effect without violating React's "hooks run in
+  // the same order every render" rule, which an early `return` before this
+  // point would otherwise do.
+  const basePositions = computeLayout(nodes, edges);
+  const positions = new Map(basePositions);
+  for (const [id, offset] of dragOverrides) {
+    const base = positions.get(id);
+    if (base) positions.set(id, { ...base, x: offset.x, y: offset.y });
+  }
+  const box = boundingBoxOf(positions);
+  const usedKinds = new Set(nodes.map((n) => n.kind));
+
+  // Keeps the ref the window-level drag listener reads in sync with this
+  // render's positions — an effect, not a direct assignment during render,
+  // since mutating a ref's `.current` while rendering is itself a React
+  // anti-pattern the lint rules (correctly) flag.
+  useEffect(() => {
+    positionsRef.current = positions;
+  });
+
   if (nodes.length <= 1) {
     return (
       <p className="rounded-lg border border-dashed border-border-subtle p-4 text-xs text-text-tertiary">
@@ -183,9 +338,25 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
     );
   }
 
-  const positions = computeLayout(nodes, edges);
-  const box = boundingBoxOf(positions);
-  const usedKinds = new Set(nodes.map((n) => n.kind));
+  function startDrag(id: string) {
+    return (e: React.PointerEvent<SVGGElement>) => {
+      e.stopPropagation();
+      e.preventDefault();
+      dragIdRef.current = id;
+      draggedRef.current = false;
+    };
+  }
+
+  // Suppresses the click-triggered navigation (NodeLink wraps a real <a>
+  // for nodes with an href) that would otherwise fire the instant a drag
+  // ends — a pointerdown-move-up sequence is, to the DOM, also a click.
+  function onNodeClickCapture(e: React.MouseEvent) {
+    if (draggedRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      draggedRef.current = false;
+    }
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -203,7 +374,7 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
           exhibit fanning its sources in one direction no longer leaves
           half the canvas empty just because the box was sized to "look
           roughly circular" in advance. */}
-      <div className="max-h-[640px] overflow-auto rounded-lg border border-border-subtle bg-surface-sunken">
+      <div className="max-h-[640px] select-none overflow-auto rounded-lg border border-border-subtle bg-surface-sunken">
         <svg viewBox={`${box.x} ${box.y} ${box.width} ${box.height}`} width={box.width} height={box.height}>
           <defs>
             <marker id="mm-arrow-structural" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -221,8 +392,25 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
             const midX = (a.x + b.x) / 2;
             const midY = (a.y + b.y) / 2;
             const structural = edge.origin === "structural";
+            const aNode = a.node;
+            const bNode = b.node;
             return (
-              <g key={`edge-${i}`}>
+              <g
+                key={`edge-${i}`}
+                onMouseEnter={(e) =>
+                  setHover({
+                    x: e.clientX,
+                    y: e.clientY,
+                    title: `${aNode.label} → ${bNode.label}`,
+                    subtitle: structural ? "Real link" : "AI-inferred link",
+                    detail: edge.label,
+                    quote: edge.evidence,
+                    href: null,
+                  })
+                }
+                onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
+                onMouseLeave={() => setHover(null)}
+              >
                 <line
                   x1={a.x}
                   y1={a.y}
@@ -234,6 +422,11 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
                   opacity={structural ? 1 : 0.75}
                   markerEnd={structural ? "url(#mm-arrow-structural)" : "url(#mm-arrow-ai)"}
                 />
+                {/* A wider, invisible line under the visible one — a 1-1.25px
+                    stroke is a tiny, fiddly hover target; this makes the
+                    hover card actually easy to trigger without changing how
+                    the edge looks. */}
+                <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="transparent" strokeWidth={10} />
                 {/* Only draw the label text for edges that say something
                     distinct per-edge (an AI relationship/mention, or the
                     single case→exhibit "contains" edge). A structural
@@ -253,7 +446,6 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
                     {edge.label}
                   </text>
                 )}
-                <title>{`${edge.from} → ${edge.to}: ${edge.label}${edge.evidence ? `\n"${edge.evidence}"` : ""}`}</title>
               </g>
             );
           })}
@@ -265,7 +457,31 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
             const color = nodeColor(node);
             return (
               <NodeLink key={node.id} href={node.href}>
-                <g>
+                <g
+                  onMouseEnter={(e) =>
+                    setHover({
+                      x: e.clientX,
+                      y: e.clientY,
+                      title: node.label,
+                      subtitle: `${KIND_LABEL[node.kind]} · ${node.origin === "structural" ? "real fact" : "AI-inferred"}`,
+                      detail: node.detail,
+                      quote: null,
+                      href: node.href,
+                    })
+                  }
+                  onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
+                  onMouseLeave={() => setHover(null)}
+                  onPointerDown={startDrag(node.id)}
+                  onClick={onNodeClickCapture}
+                  onDragStart={(e) => e.preventDefault()}
+                  style={{ cursor: "grab", touchAction: "none" }}
+                >
+                  {/* Invisible, larger hit target — a 7px-radius node (the
+                      default for anything that isn't the case/exhibit) is a
+                      genuinely fiddly thing to grab precisely; this widens
+                      what counts as "on the node" for both hover and drag
+                      without changing how the node actually looks. */}
+                  <circle cx={p.x} cy={p.y} r={r + 8} fill="transparent" />
                   <circle
                     cx={p.x}
                     cy={p.y}
@@ -278,13 +494,15 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
                   <text x={p.x} y={p.y + r + 12} textAnchor="middle" className="fill-[var(--text-primary)] text-[9px] font-medium">
                     {node.label}
                   </text>
-                  <title>{`${node.label} (${KIND_LABEL[node.kind]})\n${node.detail}${node.href ? `\n→ ${node.href}` : ""}`}</title>
                 </g>
               </NodeLink>
             );
           })}
         </svg>
       </div>
+      {hover && <HoverTooltip card={hover} />}
+
+      <p className="text-[10px] text-text-tertiary">Drag any dot to rearrange the graph — its connections follow automatically.</p>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] text-text-tertiary">
         {(Object.keys(KIND_LABEL) as MindMapNodeKind[])

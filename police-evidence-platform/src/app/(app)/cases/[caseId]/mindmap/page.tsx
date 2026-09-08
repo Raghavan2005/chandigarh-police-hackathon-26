@@ -1,9 +1,11 @@
+import { MapPin } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
 import { getRealCase } from "@/lib/cases-server";
-import { aggregateCaseText, buildStructuralGraph } from "@/lib/mindmap-server";
+import { aggregateCaseText, buildStructuralGraph, collectLocationMentions } from "@/lib/mindmap-server";
 import { MindMapPanel, type CachedCaseMindMap } from "@/components/mindmap/mindmap-panel";
+import { PlaceMentionsBox } from "@/components/mindmap/place-mentions-box";
 
 /**
  * Cross-evidence case graph (PS4_USE_CASES.md #6) — alongside the existing
@@ -28,6 +30,7 @@ export default async function MindMapPage(props: PageProps<"/cases/[caseId]/mind
 
   const aggregation = aggregateCaseText(realCase);
   const structural = buildStructuralGraph(realCase);
+  const locationMentions = collectLocationMentions(realCase);
   const cachedRow = await db.caseMindMap.findUnique({ where: { caseId } });
   const cached: CachedCaseMindMap | null = cachedRow
     ? {
@@ -51,6 +54,21 @@ export default async function MindMapPage(props: PageProps<"/cases/[caseId]/mind
           leaves this platform; the AI half is run on demand and cached until you re-run it.
         </p>
       </div>
+
+      {locationMentions.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface p-3 text-xs">
+          <p className="flex items-center gap-1.5 font-medium text-text-secondary">
+            <MapPin className="size-3.5 text-accent-primary" />
+            Places mentioned across this case&apos;s evidence
+          </p>
+          <PlaceMentionsBox mentions={locationMentions} />
+          <p className="text-[10px] text-text-tertiary">
+            Real place names found in each exhibit&apos;s own text, tagged with who said it where known — drag any
+            chip to rearrange, or click one to jump to that exhibit. Investigative leads to verify, not confirmed
+            locations of any device or file.
+          </p>
+        </div>
+      )}
 
       <Card className="border-border-subtle bg-surface shadow-none">
         <CardHeader>
