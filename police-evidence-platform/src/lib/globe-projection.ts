@@ -146,6 +146,15 @@ export function arcPath(p1: GlobePoint2D, p2: GlobePoint2D): string {
   return `M ${p1.x},${p1.y} Q ${cx},${cy} ${p2.x},${p2.y}`;
 }
 
+/** A small hover-preview card's content — heading plus a few detail lines,
+ * already formatted as display strings by the caller (this stays a plain
+ * data shape so globe-projection.ts doesn't need to know what an "exhibit"
+ * or a "web search result" is). */
+export interface GlobeMarkerPreview {
+  heading: string;
+  lines: string[];
+}
+
 export interface GlobeMarker {
   key: string;
   lat: number;
@@ -163,6 +172,11 @@ export interface GlobeMarker {
    * the numbered badge and the dashed timeline path connecting origins in
    * upload order — "where it started, in what order." */
   order?: number;
+  /** Rich hover preview shown in a small HTML card near the marker instead
+   * of relying on the native OS tooltip alone — `title` remains as the
+   * accessible/no-JS fallback. Optional: markers with no extra detail to
+   * show (rare) fall back to `title` only. */
+  preview?: GlobeMarkerPreview;
 }
 
 /** Real domain geolocation is city/region-level, not exact — it's common

@@ -11,6 +11,7 @@ import {
   projectOrthographic,
   type GlobeMarker,
 } from "@/lib/globe-projection";
+import { MarkerPreview } from "@/components/shared/marker-preview";
 
 export type { GlobeMarker } from "@/lib/globe-projection";
 
@@ -47,6 +48,7 @@ export function GlobeMapSvg({
   markers: GlobeMarker[];
 }) {
   const [rotation, setRotation] = useState({ lat: initialCenterLat, lon: initialCenterLon });
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const dragOrigin = useRef<{ x: number; y: number } | null>(null);
   const dragged = useRef(false);
 
@@ -210,11 +212,11 @@ export function GlobeMapSvg({
               <circle
                 cx={p.x}
                 cy={p.y}
-                r={isOrigin ? 7 : 4.5}
-                fill={m.color}
-                fillOpacity={isOrigin ? 1 : 0.85}
-                stroke="var(--surface)"
-                strokeWidth={1.25}
+                r={isOrigin ? 7 : 5}
+                fill={isOrigin ? m.color : "none"}
+                stroke={isOrigin ? "var(--surface)" : m.color}
+                strokeWidth={isOrigin ? 1.25 : 1.75}
+                strokeDasharray={isOrigin ? undefined : "2 1.5"}
                 filter={`url(#${idPrefix}-marker-glow)`}
               />
               {isOrigin && m.order != null && (
@@ -225,14 +227,32 @@ export function GlobeMapSvg({
               <title>{m.title}</title>
             </>
           );
+          const hoverHandlers = { onMouseEnter: () => setHoveredKey(m.key), onMouseLeave: () => setHoveredKey(null) };
           return m.href ? (
-            <a key={m.key} href={m.href} target="_blank" rel="noreferrer noopener" className="cursor-pointer transition-opacity hover:opacity-80">
+            <a
+              key={m.key}
+              href={m.href}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="cursor-pointer transition-opacity hover:opacity-80"
+              {...hoverHandlers}
+            >
               {content}
             </a>
           ) : (
-            <g key={m.key}>{content}</g>
+            <g key={m.key} {...hoverHandlers}>
+              {content}
+            </g>
           );
         })}
+
+        {(() => {
+          const hovered = markers.find((m) => m.key === hoveredKey);
+          if (!hovered?.preview) return null;
+          const p = projectOrthographic(hovered.lat, hovered.lon, centerLat, centerLon);
+          if (!p.visible) return null;
+          return <MarkerPreview preview={hovered.preview} x={p.x} y={p.y} boundsWidth={GLOBE_SIZE} boundsHeight={GLOBE_SIZE} />;
+        })()}
       </svg>
       <p className="text-[10px] text-text-tertiary">
         Drag to rotate

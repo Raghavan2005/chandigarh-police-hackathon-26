@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ExternalLink, Eye, Globe, Globe2, Loader2, Lock, MapPin, TriangleAlert } from "lucide-react";
+import { AlertTriangle, Clock, ExternalLink, Eye, Globe, Loader2, Lock, MapPin, TriangleAlert } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,8 @@ export interface OriginLocation {
   source: "exif" | "ip-geo";
 }
 
+export type PageTimestampSource = "jsonld" | "meta" | "header";
+
 export interface MergedWebSearchResultItem {
   title: string;
   url: string;
@@ -27,6 +29,8 @@ export interface MergedWebSearchResultItem {
   snippet: string | null;
   foundBy: string[];
   location: WebSearchResultLocation | null;
+  publishedAt: string | null;
+  publishedAtSource: PageTimestampSource | null;
 }
 
 export interface CachedWebSearchResult {
@@ -90,16 +94,29 @@ function formatRelativeTime(iso: string): string {
   return `${days}d ago`;
 }
 
+const TIMESTAMP_SOURCE_LABEL: Record<PageTimestampSource, string> = {
+  jsonld: "article metadata",
+  meta: "page metadata",
+  header: "server Last-Modified (weak signal)",
+};
+
 /**
  * Real multi-engine web search over this exhibit's own extracted text
  * (transcript/document text/AI description) — Google via Gemini grounding
  * (official), Brave and DuckDuckGo (real HTML-endpoint results, no key,
  * but unofficial — could break if either changes their markup). Real
  * merge/dedup by URL, each result tagged with which engine(s) found it.
- * Plus a best-effort domain-server geolocation map (DNS -> geoip-lite,
- * same offline database already used for evidence-sighting IP
- * geolocation) — most results resolve to a CDN edge, not the publisher's
- * actual location, disclosed rather than implied precise.
+ *
+ * Each result also gets a real per-page "first seen" timestamp (JSON-LD
+ * datePublished > meta/<time> tags > Last-Modified header, see
+ * page-timestamp.ts) — this is what actually orders the chronological
+ * timeline below. A per-domain server geolocation (DNS -> geoip-lite) is
+ * also resolved and shown per-result, and appears on the shared map/globe
+ * only as a fallback (hollow, explicitly "unverified" pin) for exhibits
+ * with no real EXIF/IP upload origin — see combined-source-map.tsx. Nearly
+ * every domain here sits behind a CDN, so that location is the CDN edge
+ * that answered a DNS query, not the publisher's real location or content
+ * spread; it never overrides or outranks a verified origin.
  */
 export function WebSearchPanel({
   caseId,
@@ -160,7 +177,11 @@ export function WebSearchPanel({
     router.refresh();
   }
 
-  const located = result ? result.results.filter((r) => r.location) : [];
+  const timestamped = result
+    ? [...result.results]
+        .filter((r) => r.publishedAt)
+        .sort((a, b) => new Date(a.publishedAt!).getTime() - new Date(b.publishedAt!).getTime())
+    : [];
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-surface p-3 text-xs">
@@ -207,18 +228,45 @@ export function WebSearchPanel({
             {formatRelativeTime(result.ranAt)} ({new Date(result.ranAt).toLocaleString()}).
           </p>
 
-          {located.length > 0 && (
-            <p className="flex items-center gap-1.5 text-[10px] text-text-tertiary">
-              <Globe2 className="size-3 text-accent-primary" />
-              {located.length} of {result.results.length} result{result.results.length === 1 ? "" : "s"} resolved to
-              an approximate server location — plotted on the shared globe above, alongside every other exhibit.
-            </p>
-          )}
-          {result.results.length > 0 && located.length === 0 && (
-            <p className="text-[10px] text-text-tertiary">
-              None of these {result.results.length} results&apos; domains resolved to a geolocatable server —
-              nothing to show on a map, not an error.
-            </p>
+          <p className="text-[10px] text-text-tertiary">
+            {timestamped.length} of {result.results.length} result{result.results.length === 1 ? "" : "s"} carried a
+            page that declared its own publish/modified date — that&apos;s what orders the timeline below. Server
+            location is also resolved per-result, but only appears on the shared map above as a hollow, unverified
+            &ldquo;~&rdquo; pin for exhibits with no real EXIF/IP upload origin — most of these domains sit behind a
+            CDN, so it&apos;s the CDN edge that answered a DNS query, not the publisher or the content&apos;s real
+            geography, and never overrides a verified origin when one exists.
+          </p>
+
+          {timestamped.length > 0 && (
+            <div className="flex flex-col gap-1 rounded-md border border-border-subtle bg-surface-sunken/40 p-2">
+              <p className="flex items-center gap-1.5 text-[10px] font-medium text-text-secondary">
+                <Clock className="size-3 text-accent-primary" />
+                First seen, chronologically ({timestamped.length})
+              </p>
+              <ol className="flex flex-col gap-1">
+                {timestamped.map((r, i) => (
+                  <li key={r.url}>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewResult(r)}
+                      className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-surface"
+                    >
+                      <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-[9px] font-bold text-text-tertiary">
+                        {i + 1}
+                      </span>
+                      <span className="w-[130px] shrink-0 text-[10px] text-text-tertiary">
+                        {new Date(r.publishedAt!).toLocaleDateString()}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[11px] text-text-primary">{r.title}</span>
+                      <span className="shrink-0 truncate text-[10px] text-text-tertiary">{r.domain}</span>
+                      <span className="shrink-0 rounded-full border border-border-subtle px-1.5 py-0.5 text-[9px] text-text-tertiary">
+                        {TIMESTAMP_SOURCE_LABEL[r.publishedAtSource!]}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </div>
           )}
 
           <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
@@ -252,10 +300,17 @@ export function WebSearchPanel({
                 <DialogTitle className="pr-6">{previewResult.title}</DialogTitle>
                 <DialogDescription className="flex flex-wrap items-center gap-2">
                   <span>{previewResult.domain}</span>
+                  {previewResult.publishedAt && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="size-3" />
+                      {new Date(previewResult.publishedAt).toLocaleString()} (
+                      {TIMESTAMP_SOURCE_LABEL[previewResult.publishedAtSource!]})
+                    </span>
+                  )}
                   {previewResult.location && (
                     <span className="flex items-center gap-1">
                       <MapPin className="size-3" />
-                      {previewResult.location.label} (approx. server location)
+                      {previewResult.location.label} (approx. server location, not plotted on the map)
                     </span>
                   )}
                   {previewResult.foundBy.map((label) => (
