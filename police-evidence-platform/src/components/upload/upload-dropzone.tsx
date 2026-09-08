@@ -126,7 +126,7 @@ export function UploadDropzone({
           <span className="text-accent-primary">browse files</span>
         </p>
         <p className="text-[11px] text-text-tertiary">
-          Accepted: JPG, PNG, MP4, MOV, MP3, WAV, PDF — max 500MB
+          Accepted: JPG, PNG, MP4, MOV, MP3, WAV, PDF, TXT — max 500MB
         </p>
       </label>
 

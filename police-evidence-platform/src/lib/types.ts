@@ -10,7 +10,11 @@ export function inferEvidenceKind(mimeType: string): EvidenceKind | null {
   if (mimeType.startsWith("image/")) return "image";
   if (mimeType.startsWith("video/")) return "video";
   if (mimeType.startsWith("audio/")) return "audio";
-  if (mimeType === "application/pdf") return "document";
+  // metadata.ts already extracts real metadata for both of these
+  // (extractPdfMetadata / extractTextMetadata) and every downstream
+  // document-analysis route works off extracted text generically, not a
+  // PDF-only assumption — this was the only layer still rejecting .txt.
+  if (mimeType === "application/pdf" || mimeType === "text/plain") return "document";
   return null;
 }
 

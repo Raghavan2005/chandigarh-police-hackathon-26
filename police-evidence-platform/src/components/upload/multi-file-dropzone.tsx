@@ -92,7 +92,7 @@ export function MultiFileDropzone({
         </p>
         <p className="text-[11px] text-text-tertiary">
           A mix of images, videos, audio, and documents is fine — each becomes its own exhibit on this case.
-          Accepted: JPG, PNG, MP4, MOV, MP3, WAV, PDF — max 500MB each.
+          Accepted: JPG, PNG, MP4, MOV, MP3, WAV, PDF, TXT — max 500MB each.
         </p>
       </label>
 
