@@ -8,11 +8,11 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StepperHeader } from "@/components/upload/stepper-header";
-import { EvidenceTypeTiles } from "@/components/upload/evidence-type-tiles";
-import { UploadDropzone } from "@/components/upload/upload-dropzone";
+import { MultiFileDropzone, classifyFiles, type QueuedFile } from "@/components/upload/multi-file-dropzone";
+import { formatBytes } from "@/components/upload/upload-dropzone";
 import { TabletCaptureHint } from "@/components/upload/tablet-capture-hint";
 import { buttonVariants } from "@/components/ui/button";
-import type { EvidenceKind } from "@/lib/types";
+import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, ArrowLeft, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
 
@@ -38,91 +38,146 @@ export default function NewCasePage() {
   const [gdEntryNumber, setGdEntryNumber] = useState("");
   const [dispatchNumber, setDispatchNumber] = useState("");
 
-  const [kind, setKind] = useState<EvidenceKind | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [queuedFiles, setQueuedFiles] = useState<QueuedFile[]>([]);
+  const [rejectedNames, setRejectedNames] = useState<string[]>([]);
   const [deviceIdentifier, setDeviceIdentifier] = useState("");
   const [casePropertyNumber, setCasePropertyNumber] = useState("");
 
+  function addFiles(files: File[]) {
+    const { queued, rejected } = classifyFiles(files);
+    setQueuedFiles((prev) => [...prev, ...queued]);
+    setRejectedNames(rejected.map((f) => f.name));
+  }
+
+  function removeFile(id: string) {
+    setQueuedFiles((prev) => prev.filter((f) => f.id !== id));
+  }
+
   const [investigatorName, setInvestigatorName] = useState<string | null>(null);
+  const [investigatorNameStatus, setInvestigatorNameStatus] = useState<"loading" | "loaded" | "error">("loading");
 
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  // Set once the case row itself is successfully created — if only the
+  // evidence upload leg then fails, retrying must resume from here instead
+  // of calling POST /api/cases again, which has no dedup and would create a
+  // second case with the same FIR number every time the investigator
+  // retries a transient upload failure.
+  const [createdCaseId, setCreatedCaseId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
-      .then((d) => setInvestigatorName(d.name ?? null))
-      .catch(() => setInvestigatorName(null));
+      .then((d) => {
+        setInvestigatorName(d.name ?? null);
+        setInvestigatorNameStatus("loaded");
+      })
+      .catch(() => setInvestigatorNameStatus("error"));
   }, []);
 
   const canNext =
     (step === 0 && firNumber.trim().length > 0 && policeStation.trim().length > 0 && title.trim().length > 0) ||
-    (step === 1 && kind !== null && file !== null) ||
+    (step === 1 && queuedFiles.length > 0) ||
     step === 2;
 
   async function handleSubmit() {
-    if (!kind || !file) return;
+    if (queuedFiles.length === 0) return;
     setStatus("submitting");
     setErrorMessage("");
 
-    const caseResponse = await fetch("/api/cases", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        firNumber,
-        policeStation,
-        district,
-        title,
-        summary: summary.trim() || undefined,
-        evidenceKind: kind,
-        sensitivityLevel,
-        investigatorRank: investigatorRank.trim() || undefined,
-        investigatorBadgeNo: investigatorBadgeNo.trim() || undefined,
-        investigatorMobile: investigatorMobile.trim() || undefined,
-        offenceSections: offenceSections.trim() || undefined,
-        firDate: firDate || undefined,
-        complainantName: complainantName.trim() || undefined,
-        complainantContact: complainantContact.trim() || undefined,
-        accusedDetails: accusedDetails.trim() || undefined,
-        courtJurisdiction: courtJurisdiction.trim() || undefined,
-        gdEntryNumber: gdEntryNumber.trim() || undefined,
-        dispatchNumber: dispatchNumber.trim() || undefined,
-      }),
-    }).catch(() => null);
+    // If a prior attempt already created the case and only some evidence
+    // uploads failed, resume from there instead of creating a second case —
+    // POST /api/cases has no dedup on FIR number, so calling it again on
+    // every retry would silently pile up duplicate cases.
+    let caseId = createdCaseId;
+    if (!caseId) {
+      const caseResponse = await fetch("/api/cases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firNumber,
+          policeStation,
+          district,
+          title,
+          summary: summary.trim() || undefined,
+          // Display-level only (Case.evidenceKind) — real per-exhibit kind
+          // is each Evidence row's own mimeType. First queued file just
+          // gives the case a sensible default icon/label.
+          evidenceKind: queuedFiles[0].kind,
+          sensitivityLevel,
+          investigatorRank: investigatorRank.trim() || undefined,
+          investigatorBadgeNo: investigatorBadgeNo.trim() || undefined,
+          investigatorMobile: investigatorMobile.trim() || undefined,
+          offenceSections: offenceSections.trim() || undefined,
+          firDate: firDate || undefined,
+          complainantName: complainantName.trim() || undefined,
+          complainantContact: complainantContact.trim() || undefined,
+          accusedDetails: accusedDetails.trim() || undefined,
+          courtJurisdiction: courtJurisdiction.trim() || undefined,
+          gdEntryNumber: gdEntryNumber.trim() || undefined,
+          dispatchNumber: dispatchNumber.trim() || undefined,
+        }),
+      }).catch(() => null);
 
-    if (!caseResponse || !caseResponse.ok) {
-      const body = await caseResponse?.json().catch(() => null);
-      setStatus("error");
-      setErrorMessage(body?.error ?? "Could not create the case. Check your connection and try again.");
-      return;
+      if (!caseResponse || !caseResponse.ok) {
+        const body = await caseResponse?.json().catch(() => null);
+        setStatus("error");
+        setErrorMessage(body?.error ?? "Could not create the case. Check your connection and try again.");
+        return;
+      }
+
+      const createdCase = await caseResponse.json();
+      caseId = createdCase.id;
+      setCreatedCaseId(caseId);
     }
 
-    const createdCase = await caseResponse.json();
+    // Sequential, not parallel — keeps per-file progress legible and avoids
+    // hammering the server with N concurrent uploads for a large batch.
+    // Uploads every file not already marked "done" from a prior attempt, so
+    // retrying after a partial failure only re-attempts what actually
+    // failed. Tracked in a local variable (not read back from React state)
+    // so the pass/fail tally below can't be thrown off by state updates not
+    // having flushed between awaits.
+    let working = queuedFiles;
+    let failedCount = 0;
+    let attemptedCount = 0;
+    for (const qf of queuedFiles) {
+      if (qf.status === "done") continue;
+      attemptedCount += 1;
+      working = working.map((f) => (f.id === qf.id ? { ...f, status: "uploading" as const } : f));
+      setQueuedFiles(working);
 
-    const formData = new FormData();
-    formData.append("file", file);
-    if (deviceIdentifier.trim()) formData.append("deviceIdentifier", deviceIdentifier.trim());
-    if (casePropertyNumber.trim()) formData.append("casePropertyNumber", casePropertyNumber.trim());
+      const formData = new FormData();
+      formData.append("file", qf.file);
+      if (deviceIdentifier.trim()) formData.append("deviceIdentifier", deviceIdentifier.trim());
+      if (casePropertyNumber.trim()) formData.append("casePropertyNumber", casePropertyNumber.trim());
 
-    const evidenceResponse = await fetch(`/api/cases/${createdCase.id}/evidence`, {
-      method: "POST",
-      body: formData,
-    }).catch(() => null);
+      const evidenceResponse = await fetch(`/api/cases/${caseId}/evidence`, {
+        method: "POST",
+        body: formData,
+      }).catch(() => null);
 
-    if (!evidenceResponse || !evidenceResponse.ok) {
-      const body = await evidenceResponse?.json().catch(() => null);
+      if (!evidenceResponse || !evidenceResponse.ok) {
+        const body = await evidenceResponse?.json().catch(() => null);
+        failedCount += 1;
+        working = working.map((f) =>
+          f.id === qf.id ? { ...f, status: "error" as const, error: body?.error ?? "Upload failed." } : f,
+        );
+      } else {
+        working = working.map((f) => (f.id === qf.id ? { ...f, status: "done" as const, error: undefined } : f));
+      }
+      setQueuedFiles(working);
+    }
+
+    if (failedCount > 0) {
       setStatus("error");
-      // The case itself was created successfully even though the upload failed —
-      // send the investigator there so the case isn't orphaned from view, with
-      // an honest message about what actually went wrong.
       setErrorMessage(
-        (body?.error ?? "Evidence upload failed.") +
-          ` The case (${createdCase.id}) was created — you can retry the upload from its page.`,
+        `${failedCount} of ${attemptedCount} file${attemptedCount === 1 ? "" : "s"} failed to upload — see details below, then retry.`,
       );
       return;
     }
 
-    router.push(`/cases/${createdCase.id}`);
+    router.push(`/cases/${caseId}`);
   }
 
   return (
@@ -350,19 +405,24 @@ export default function NewCasePage() {
         {step === 1 && (
           <div className="flex flex-col gap-5">
             <div>
-              <p className="mb-2 text-sm font-medium text-text-secondary">Evidence type</p>
-              <EvidenceTypeTiles value={kind} onChange={setKind} />
+              <p className="mb-2 text-sm font-medium text-text-secondary">
+                Evidence {queuedFiles.length > 0 && `(${queuedFiles.length})`}
+              </p>
+              <MultiFileDropzone
+                queued={queuedFiles}
+                onAdd={addFiles}
+                onRemove={removeFile}
+                disabled={status === "submitting"}
+              />
+              {rejectedNames.length > 0 && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-status-warning">
+                  <AlertTriangle className="size-3.5 shrink-0" />
+                  Skipped {rejectedNames.length === 1 ? rejectedNames[0] : `${rejectedNames.length} files`} —
+                  unsupported file type.
+                </p>
+              )}
             </div>
-            <div>
-              <p className="mb-2 text-sm font-medium text-text-secondary">Upload file</p>
-              <UploadDropzone onComplete={setFile} externalFile={file} />
-            </div>
-            <TabletCaptureHint
-              onCaptured={(captured) => {
-                setKind((k) => k ?? "image");
-                setFile(captured);
-              }}
-            />
+            <TabletCaptureHint onCaptured={(captured) => addFiles([captured])} />
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="deviceIdentifier" className="text-text-secondary">
@@ -394,9 +454,9 @@ export default function NewCasePage() {
             <div className="flex items-center gap-2 rounded-lg border border-status-safe/30 bg-status-safe-bg px-3 py-2 text-status-safe">
               <ShieldCheck className="size-4" />
               <p className="text-sm">
-                Ready to submit. This creates the case record and uploads the evidence file for real.
+                Ready to submit. This creates the case record and uploads each queued exhibit for real.
                 Detection doesn&apos;t run automatically — open the case afterward and click Investigate
-                to run the real analysis pipeline on this evidence.
+                on each exhibit to run the real analysis pipeline.
               </p>
             </div>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
@@ -406,20 +466,50 @@ export default function NewCasePage() {
               <dd className="text-text-primary">{policeStation}</dd>
               <dt className="text-text-tertiary">Case title</dt>
               <dd className="text-text-primary">{title}</dd>
-              <dt className="text-text-tertiary">Evidence type</dt>
-              <dd className="capitalize text-text-primary">{kind}</dd>
-              <dt className="text-text-tertiary">File</dt>
-              <dd className="truncate text-text-primary">{file?.name}</dd>
+              <dt className="text-text-tertiary">Exhibits</dt>
+              <dd className="text-text-primary">
+                <ul className="flex flex-col gap-1">
+                  {queuedFiles.map((q) => {
+                    const Icon = KIND_ICON[q.kind];
+                    return (
+                      <li key={q.id} className="flex items-center gap-1.5">
+                        <Icon className="size-3.5 shrink-0 text-text-tertiary" />
+                        <span className="truncate">{q.file.name}</span>
+                        <span className="shrink-0 text-[11px] text-text-tertiary">
+                          ({q.kind} · {formatBytes(q.file.size)})
+                        </span>
+                        {q.status === "done" && <span className="shrink-0 text-[11px] text-status-safe">uploaded</span>}
+                        {q.status === "error" && <span className="shrink-0 text-[11px] text-status-critical">failed</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </dd>
               <dt className="text-text-tertiary">Assigned to</dt>
               <dd className="text-text-primary">
-                {investigatorName ?? "…"} (you){investigatorRank ? `, ${investigatorRank}` : ""}
+                {investigatorNameStatus === "loading"
+                  ? "…"
+                  : investigatorNameStatus === "error"
+                    ? "Signed-in investigator (name unavailable — check your connection)"
+                    : (investigatorName ?? "Signed-in investigator")}{" "}
+                (you){investigatorRank ? `, ${investigatorRank}` : ""}
                 {investigatorBadgeNo ? ` — ${investigatorBadgeNo}` : ""}
               </dd>
             </dl>
             {status === "error" && (
-              <p role="alert" className="text-sm text-status-critical">
-                {errorMessage}
-              </p>
+              <div role="alert" className="flex flex-col gap-1 text-sm text-status-critical">
+                <p>{errorMessage}</p>
+                {createdCaseId && (
+                  <p>
+                    The case ({createdCaseId}) was already created — retrying below only re-attempts the upload, it
+                    won&apos;t create another case. You can also{" "}
+                    <a href={`/cases/${createdCaseId}`} className="underline">
+                      open the case now
+                    </a>{" "}
+                    and upload evidence from there instead.
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -459,7 +549,7 @@ export default function NewCasePage() {
               className: "bg-accent-primary text-white hover:bg-accent-primary-hover",
             })}
           >
-            Submit &amp; Investigate
+            {createdCaseId ? "Retry upload" : "Submit & Investigate"}
             <ArrowRight className="size-4" />
           </button>
         )}
@@ -478,7 +568,9 @@ export default function NewCasePage() {
             </motion.div>
             <div className="flex items-center gap-2 text-sm text-text-secondary">
               <Loader2 className="size-4 animate-spin text-accent-primary" />
-              Creating case and uploading evidence…
+              {createdCaseId
+                ? `Uploading exhibits (${queuedFiles.filter((f) => f.status === "done").length}/${queuedFiles.length})…`
+                : "Creating case…"}
             </div>
             <p className="text-xs text-text-tertiary">Chandigarh Police — Pramana Forensic Evidence Platform</p>
           </motion.div>

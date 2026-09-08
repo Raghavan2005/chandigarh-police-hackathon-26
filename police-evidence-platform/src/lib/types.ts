@@ -1,5 +1,19 @@
 export type EvidenceKind = "image" | "video" | "audio" | "document";
 
+/** Coarse, display-level classification from a file's own MIME type — used
+ * to auto-detect each dropped file's kind in a multi-file upload (case
+ * creation, add-evidence) instead of requiring the investigator to
+ * pre-select one kind for the whole batch. Real per-file behavior always
+ * goes by the actual stored mimeType (see evidence-ingest.ts), never this
+ * bucket — null for a type this platform doesn't accept. */
+export function inferEvidenceKind(mimeType: string): EvidenceKind | null {
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("video/")) return "video";
+  if (mimeType.startsWith("audio/")) return "audio";
+  if (mimeType === "application/pdf") return "document";
+  return null;
+}
+
 export type Verdict = "AUTHENTIC" | "MANIPULATED" | "AI_GENERATED" | "INCONCLUSIVE";
 
 export type CaseStatus = "new" | "analyzing" | "review" | "closed";
