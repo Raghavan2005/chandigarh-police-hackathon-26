@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pramana — Investigation Desk</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+        colors: {
+          navy: {
+            50: '#eef2f7', 100: '#d7e0ec', 200: '#b0c1d9', 300: '#89a3c6',
+            400: '#5d7fa8', 500: '#3f6088', 600: '#2c4a6e', 700: '#1f3a58',
+            800: '#152a42', 900: '#0d1d30', 950: '#081222'
+          },
+          khaki: {
+            50: '#f7f6f0', 100: '#eeebdd', 200: '#dcd6ba', 300: '#c8bf92',
+            400: '#aea070', 500: '#948759', 600: '#786d47', 700: '#5d543a',
+            800: '#453e2c', 900: '#2f2a1e'
+          }
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; }
+  .tab-btn.active { border-bottom-color: #152a42; color: #152a42; font-weight: 700; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .evi-row .evi-detail { display: none; }
+  .evi-row.expanded .evi-detail { display: table-row; }
+  .evi-row.expanded .chevron { transform: rotate(90deg); }
+  .chevron { transition: transform .15s ease; }
+</style>
+</head>
+<body class="bg-slate-50 text-navy-900 text-base leading-relaxed antialiased">
+
+<!-- ============ HEADER ============ -->
+<header class="bg-white border-b border-slate-200">
+  <div class="max-w-[1600px] mx-auto px-6 py-3 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3 text-sm text-slate-500">
+      <span class="h-9 w-9 rounded bg-navy-900 text-white flex items-center justify-center font-extrabold text-sm">CP</span>
+      <button class="hover:text-navy-800 font-medium">&larr; Case Register</button>
+    </div>
+    <div class="flex items-center gap-3 text-sm">
+      <div class="h-9 w-9 rounded-full bg-navy-100 border border-navy-200 flex items-center justify-center font-bold text-navy-800 text-xs">RK</div>
+      <div class="leading-tight">
+        <p class="font-semibold text-navy-900">Inspector Rajesh Kumar</p>
+        <p class="text-xs text-slate-500">Investigating Officer</p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ CASE HEADER BAR ============ -->
+<div class="bg-navy-900 text-white border-b-4 border-khaki-500">
+  <div class="max-w-[1600px] mx-auto px-6 py-5 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <p class="text-xs uppercase tracking-widest text-khaki-300 font-semibold mb-1">Case File</p>
+      <h1 class="text-3xl font-extrabold tracking-tight">CR-2026-0842</h1>
+      <p class="text-lg text-navy-100 mt-1">Deepfake video of political figure — circulated via WhatsApp</p>
+      <p class="text-sm text-navy-300 mt-2">Sector 17 Police Station, Chandigarh · FIR No. 0842/2026 · Sections: IT Act 66D, IPC 469, 500</p>
+    </div>
+    <div class="flex flex-col items-end gap-2">
+      <span class="text-xs font-bold px-3 py-1.5 rounded bg-red-600 text-white tracking-wide">ACTIVE INVESTIGATION</span>
+      <span class="text-xs font-bold px-3 py-1.5 rounded bg-white/10 border border-white/25 text-white tracking-wide">PRIORITY: HIGH</span>
+      <p class="text-xs text-navy-300 mt-1">Opened: 05 Sep 2026 · Last updated: 2 hrs ago</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TABS ============ -->
+<nav class="bg-white border-b border-slate-200 sticky top-0 z-10">
+  <div class="max-w-[1600px] mx-auto px-6 flex gap-7 text-sm overflow-x-auto">
+    <button class="tab-btn active py-3.5 border-b-2 border-transparent text-slate-500 whitespace-nowrap" data-tab="overview">Overview</button>
+    <button class="tab-btn py-3.5 border-b-2 border-transparent text-slate-500 whitespace-nowrap" data-tab="persons">Persons of Interest</button>
+    <button class="tab-btn py-3.5 border-b-2 border-transparent text-slate-500 whitespace-nowrap" data-tab="evidence">Evidence <span class="ml-1 text-xs bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">6</span></button>
+    <button class="tab-btn py-3.5 border-b-2 border-transparent text-slate-500 whitespace-nowrap" data-tab="witnesses">Witnesses</button>
+    <button class="tab-btn py-3.5 border-b-2 border-transparent text-slate-500 whitespace-nowrap" data-tab="timeline">Timeline</button>
+    <button class="tab-btn py-3.5 border-b-2 border-transparent text-slate-500 whitespace-nowrap" data-tab="documents">Documents</button>
+    <button class="tab-btn py-3.5 border-b-2 border-transparent text-slate-500 whitespace-nowrap" data-tab="notes">Investigation Notes</button>
+  </div>
+</nav>
+
+<main class="max-w-[1600px] mx-auto px-6 py-6">
+
+  <!-- ============ OVERVIEW ============ -->
+  <section id="tab-overview" class="tab-panel active">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 flex flex-col gap-6">
+
+        <!-- Progress stepper -->
+        <div class="bg-white border border-slate-200 rounded-md p-5">
+          <h2 class="text-lg font-bold mb-5">Investigation Progress</h2>
+          <ol class="flex items-center w-full">
+            <li class="flex-1 flex flex-col items-center relative">
+              <div class="h-9 w-9 rounded-full bg-navy-800 text-white flex items-center justify-center font-bold text-sm z-10">✓</div>
+              <p class="text-xs font-semibold mt-2 text-center">FIR<br/>Registered</p>
+              <div class="absolute top-4 left-1/2 w-full h-0.5 bg-navy-800"></div>
+            </li>
+            <li class="flex-1 flex flex-col items-center relative">
+              <div class="h-9 w-9 rounded-full bg-navy-800 text-white flex items-center justify-center font-bold text-sm z-10">✓</div>
+              <p class="text-xs font-semibold mt-2 text-center">Evidence<br/>Collected</p>
+              <div class="absolute top-4 left-1/2 w-full h-0.5 bg-navy-800"></div>
+            </li>
+            <li class="flex-1 flex flex-col items-center relative">
+              <div class="h-9 w-9 rounded-full bg-khaki-500 text-white flex items-center justify-center font-bold text-sm z-10 ring-4 ring-khaki-100">3</div>
+              <p class="text-xs font-bold mt-2 text-center text-navy-900">Analysis<br/>In Progress</p>
+              <div class="absolute top-4 left-1/2 w-full h-0.5 bg-slate-200"></div>
+            </li>
+            <li class="flex-1 flex flex-col items-center relative">
+              <div class="h-9 w-9 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-sm z-10">4</div>
+              <p class="text-xs text-slate-400 mt-2 text-center">Charge<br/>Sheet</p>
+              <div class="absolute top-4 left-1/2 w-full h-0.5 bg-slate-200"></div>
+            </li>
+            <li class="flex-1 flex flex-col items-center relative">
+              <div class="h-9 w-9 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-sm z-10">5</div>
+              <p class="text-xs text-slate-400 mt-2 text-center">Case<br/>Closed</p>
+            </li>
+          </ol>
+        </div>
+
+        <!-- Case facts -->
+        <div class="bg-white border border-slate-200 rounded-md">
+          <div class="px-5 py-3.5 border-b border-slate-200"><h2 class="text-lg font-bold">Case Facts</h2></div>
+          <table class="w-full text-sm">
+            <tbody class="divide-y divide-slate-200">
+              <tr><td class="px-5 py-3 w-52 text-slate-500 font-medium">FIR Number</td><td class="px-5 py-3 font-semibold">0842/2026</td></tr>
+              <tr><td class="px-5 py-3 text-slate-500 font-medium">Police Station</td><td class="px-5 py-3 font-semibold">Sector 17, Chandigarh</td></tr>
+              <tr><td class="px-5 py-3 text-slate-500 font-medium">Date of FIR</td><td class="px-5 py-3 font-semibold">05 September 2026</td></tr>
+              <tr><td class="px-5 py-3 text-slate-500 font-medium">Investigating Officer</td><td class="px-5 py-3 font-semibold">Inspector Rajesh Kumar</td></tr>
+              <tr><td class="px-5 py-3 text-slate-500 font-medium">Sections Applied</td><td class="px-5 py-3 font-semibold">IT Act §66D, IPC §469, §500</td></tr>
+              <tr><td class="px-5 py-3 text-slate-500 font-medium">Complainant</td><td class="px-5 py-3 font-semibold">State (Cyber Crime Cell, suo motu)</td></tr>
+              <tr><td class="px-5 py-3 text-slate-500 font-medium">Court Jurisdiction</td><td class="px-5 py-3 font-semibold">District &amp; Sessions Court, Chandigarh</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Recent actions -->
+        <div class="bg-white border border-slate-200 rounded-md p-5">
+          <h2 class="text-lg font-bold mb-3">Recent Actions</h2>
+          <ul class="divide-y divide-slate-200 text-sm">
+            <li class="py-2.5 flex justify-between"><span>Video evidence flagged <span class="font-semibold">MANIPULATED</span> by AI analysis (confidence 90%)</span><span class="text-slate-400 text-xs shrink-0 ml-4">2 hrs ago</span></li>
+            <li class="py-2.5 flex justify-between"><span>Cross-case match found against CR-2026-0770</span><span class="text-slate-400 text-xs shrink-0 ml-4">3 hrs ago</span></li>
+            <li class="py-2.5 flex justify-between"><span>Evidence Exhibit #4 (source video) uploaded by Insp. Rajesh Kumar</span><span class="text-slate-400 text-xs shrink-0 ml-4">Yesterday</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div class="flex flex-col gap-6">
+        <div class="bg-white border border-slate-200 rounded-md p-5">
+          <h2 class="text-base font-bold mb-3">Case Status</h2>
+          <dl class="text-sm space-y-2.5">
+            <div class="flex justify-between"><dt class="text-slate-500">Status</dt><dd class="font-semibold">Active Investigation</dd></div>
+            <div class="flex justify-between"><dt class="text-slate-500">Priority</dt><dd class="font-bold text-red-700">High</dd></div>
+            <div class="flex justify-between"><dt class="text-slate-500">Sensitivity</dt><dd class="font-semibold">Standard</dd></div>
+            <div class="flex justify-between"><dt class="text-slate-500">Evidence Items</dt><dd class="font-semibold">6</dd></div>
+            <div class="flex justify-between"><dt class="text-slate-500">Persons of Interest</dt><dd class="font-semibold">2</dd></div>
+          </dl>
+        </div>
+        <div class="bg-navy-900 text-white rounded-md p-5">
+          <h2 class="text-base font-bold text-khaki-300 tracking-wide mb-2">AI ANALYSIS SUMMARY</h2>
+          <p class="text-sm text-navy-100 leading-relaxed">Primary video exhibit scored 90% manipulation probability, corroborated by metadata inconsistency and a hash match to prior circulated content. Verdict: <span class="font-bold text-white">MANIPULATED</span>. Treat as investigative finding — verify independently before court filing.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PERSONS OF INTEREST ============ -->
+  <section id="tab-persons" class="tab-panel">
+    <div class="bg-white border border-slate-200 rounded-md">
+      <div class="px-5 py-3.5 border-b border-slate-200"><h2 class="text-lg font-bold">Persons of Interest</h2></div>
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+          <tr>
+            <th class="text-left font-semibold px-5 py-2.5">Name</th>
+            <th class="text-left font-semibold px-5 py-2.5">Role</th>
+            <th class="text-left font-semibold px-5 py-2.5">Contact</th>
+            <th class="text-left font-semibold px-5 py-2.5">Address</th>
+            <th class="text-left font-semibold px-5 py-2.5">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200">
+          <tr>
+            <td class="px-5 py-3 font-semibold">Vikram Malhotra</td>
+            <td class="px-5 py-3">Suspect — uploader (first seen)</td>
+            <td class="px-5 py-3 text-slate-600">+91 98140 22317</td>
+            <td class="px-5 py-3 text-slate-600">Sector 22, Chandigarh</td>
+            <td class="px-5 py-3"><span class="text-xs font-semibold px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200">WANTED FOR QUESTIONING</span></td>
+          </tr>
+          <tr>
+            <td class="px-5 py-3 font-semibold">Neha Kapoor</td>
+            <td class="px-5 py-3">Complainant</td>
+            <td class="px-5 py-3 text-slate-600">+91 90233 11045</td>
+            <td class="px-5 py-3 text-slate-600">Sector 35, Chandigarh</td>
+            <td class="px-5 py-3"><span class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">STATEMENT RECORDED</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ EVIDENCE ============ -->
+  <section id="tab-evidence" class="tab-panel">
+    <div class="bg-white border border-slate-200 rounded-md">
+      <div class="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between">
+        <h2 class="text-lg font-bold">Evidence Register</h2>
+        <span class="text-xs text-slate-400">Click a row to expand details</span>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+          <tr>
+            <th class="text-left font-semibold px-5 py-2.5 w-10"></th>
+            <th class="text-left font-semibold px-5 py-2.5">Exhibit #</th>
+            <th class="text-left font-semibold px-5 py-2.5">Type</th>
+            <th class="text-left font-semibold px-5 py-2.5">Description</th>
+            <th class="text-left font-semibold px-5 py-2.5">Verdict</th>
+            <th class="text-left font-semibold px-5 py-2.5">Uploaded</th>
+          </tr>
+        </thead>
+        <tbody id="evidence-body">
+          <tr class="evi-row hover:bg-slate-50 cursor-pointer border-t border-slate-200">
+            <td class="px-5 py-3"><span class="chevron inline-block">&#9656;</span></td>
+            <td class="px-5 py-3 font-semibold">EXH-01</td>
+            <td class="px-5 py-3">Video (.mp4)</td>
+            <td class="px-5 py-3">Primary manipulated video, source of complaint</td>
+            <td class="px-5 py-3"><span class="text-xs font-bold px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200">MANIPULATED · 90%</span></td>
+            <td class="px-5 py-3 text-slate-500">05 Sep, 09:12</td>
+          </tr>
+          <tr class="evi-detail bg-slate-50">
+            <td></td>
+            <td colspan="5" class="px-5 py-4 text-sm text-slate-600">
+              SHA-256: 6dcef7af…60ae41 · Grad-CAM heatmap generated on 4 sampled frames · Corroborating signals: metadata inconsistency, hash match to CR-2026-0770 · Chain of custody: seized from complainant's device, hashed at intake by Insp. Rajesh Kumar.
+            </td>
+          </tr>
+          <tr class="evi-row hover:bg-slate-50 cursor-pointer border-t border-slate-200">
+            <td class="px-5 py-3"><span class="chevron inline-block">&#9656;</span></td>
+            <td class="px-5 py-3 font-semibold">EXH-02</td>
+            <td class="px-5 py-3">WhatsApp export (.txt)</td>
+            <td class="px-5 py-3">Group chat coordinating video circulation</td>
+            <td class="px-5 py-3"><span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-300">3 participants</span></td>
+            <td class="px-5 py-3 text-slate-500">05 Sep, 10:03</td>
+          </tr>
+          <tr class="evi-detail bg-slate-50">
+            <td></td>
+            <td colspan="5" class="px-5 py-4 text-sm text-slate-600">
+              11 messages parsed · Participants: Vikram Malhotra, +91 90031 44278, unknown contact "Bunty" · Places mentioned: Chandigarh, Delhi · Real-time turn-taking graph available on case mind-map.
+            </td>
+          </tr>
+          <tr class="evi-row hover:bg-slate-50 cursor-pointer border-t border-slate-200">
+            <td class="px-5 py-3"><span class="chevron inline-block">&#9656;</span></td>
+            <td class="px-5 py-3 font-semibold">EXH-03</td>
+            <td class="px-5 py-3">Image (.jpg)</td>
+            <td class="px-5 py-3">Screenshot of viral social media post</td>
+            <td class="px-5 py-3"><span class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">INCONCLUSIVE · 61%</span></td>
+            <td class="px-5 py-3 text-slate-500">06 Sep, 14:20</td>
+          </tr>
+          <tr class="evi-detail bg-slate-50">
+            <td></td>
+            <td colspan="5" class="px-5 py-4 text-sm text-slate-600">Single-signal classifier score only — no independent corroboration yet. Not treated as a firm finding.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ WITNESSES ============ -->
+  <section id="tab-witnesses" class="tab-panel">
+    <div class="bg-white border border-slate-200 rounded-md">
+      <div class="px-5 py-3.5 border-b border-slate-200"><h2 class="text-lg font-bold">Witnesses</h2></div>
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+          <tr><th class="text-left font-semibold px-5 py-2.5">Name</th><th class="text-left font-semibold px-5 py-2.5">Relation to Case</th><th class="text-left font-semibold px-5 py-2.5">Contact</th><th class="text-left font-semibold px-5 py-2.5">Statement</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200">
+          <tr><td class="px-5 py-3 font-semibold">Ramesh Chand</td><td class="px-5 py-3">Neighbour — reported first sighting of viral post</td><td class="px-5 py-3 text-slate-600">+91 98765 44120</td><td class="px-5 py-3"><span class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">RECORDED</span></td></tr>
+          <tr><td class="px-5 py-3 font-semibold">Anjali Verma</td><td class="px-5 py-3">Colleague of complainant</td><td class="px-5 py-3 text-slate-600">+91 99145 88012</td><td class="px-5 py-3"><span class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">PENDING</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ TIMELINE ============ -->
+  <section id="tab-timeline" class="tab-panel">
+    <div class="bg-white border border-slate-200 rounded-md p-6">
+      <h2 class="text-lg font-bold mb-5">Case Timeline</h2>
+      <ol class="relative border-l-2 border-slate-200 pl-6 space-y-6">
+        <li><span class="absolute -left-[9px] h-4 w-4 rounded-full bg-navy-800 border-2 border-white"></span>
+          <p class="font-semibold">FIR Registered</p><p class="text-sm text-slate-500">05 Sep 2026, 09:00 hrs — Sector 17 Police Station</p></li>
+        <li><span class="absolute -left-[9px] h-4 w-4 rounded-full bg-navy-800 border-2 border-white"></span>
+          <p class="font-semibold">Primary video exhibit seized and hashed</p><p class="text-sm text-slate-500">05 Sep 2026, 09:12 hrs</p></li>
+        <li><span class="absolute -left-[9px] h-4 w-4 rounded-full bg-navy-800 border-2 border-white"></span>
+          <p class="font-semibold">WhatsApp export collected from complainant device</p><p class="text-sm text-slate-500">05 Sep 2026, 10:03 hrs</p></li>
+        <li><span class="absolute -left-[9px] h-4 w-4 rounded-full bg-khaki-500 border-2 border-white"></span>
+          <p class="font-semibold">AI analysis flagged manipulation (90% confidence)</p><p class="text-sm text-slate-500">08 Sep 2026, 08:42 hrs</p></li>
+        <li><span class="absolute -left-[9px] h-4 w-4 rounded-full bg-slate-300 border-2 border-white"></span>
+          <p class="font-semibold text-slate-400">Charge sheet — pending</p><p class="text-sm text-slate-400">Not yet reached</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ DOCUMENTS ============ -->
+  <section id="tab-documents" class="tab-panel">
+    <div class="bg-white border border-slate-200 rounded-md">
+      <div class="px-5 py-3.5 border-b border-slate-200"><h2 class="text-lg font-bold">Case Documents</h2></div>
+      <ul class="divide-y divide-slate-200">
+        <li class="px-5 py-3.5 flex items-center justify-between">
+          <div class="flex items-center gap-3"><span class="h-9 w-9 rounded bg-navy-50 border border-navy-200 flex items-center justify-center text-navy-700 font-bold text-xs">PDF</span><div><p class="font-semibold">FIR Copy — 0842_2026.pdf</p><p class="text-xs text-slate-500">Uploaded 05 Sep 2026</p></div></div>
+          <button class="text-sm font-semibold text-navy-800 border border-navy-300 rounded px-3 py-1.5 hover:bg-navy-50">Download</button>
+        </li>
+        <li class="px-5 py-3.5 flex items-center justify-between">
+          <div class="flex items-center gap-3"><span class="h-9 w-9 rounded bg-navy-50 border border-navy-200 flex items-center justify-center text-navy-700 font-bold text-xs">PDF</span><div><p class="font-semibold">Forensic Analysis Report — draft.pdf</p><p class="text-xs text-slate-500">Generated 08 Sep 2026</p></div></div>
+          <button class="text-sm font-semibold text-navy-800 border border-navy-300 rounded px-3 py-1.5 hover:bg-navy-50">Download</button>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ NOTES ============ -->
+  <section id="tab-notes" class="tab-panel">
+    <div class="bg-white border border-slate-200 rounded-md p-5">
+      <h2 class="text-lg font-bold mb-3">Investigation Notes</h2>
+      <div class="flex gap-3 mb-5">
+        <textarea id="note-input" rows="3" placeholder="Add a case note…" class="flex-1 border border-slate-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-navy-700 focus:border-navy-700"></textarea>
+        <button id="note-submit" class="self-end bg-navy-800 hover:bg-navy-900 text-white font-semibold text-sm px-5 py-2.5 rounded">Add Note</button>
+      </div>
+      <ul id="notes-list" class="divide-y divide-slate-200 text-sm">
+        <li class="py-3">
+          <p class="text-navy-900">Complainant confirmed the video was never recorded — no such statement was made at the referenced event.</p>
+          <p class="text-xs text-slate-400 mt-1">Inspector Rajesh Kumar · 06 Sep 2026, 11:20 hrs</p>
+        </li>
+        <li class="py-3">
+          <p class="text-navy-900">Cross-referencing upload timestamps against 2 prior circulated copies to establish first point of origin.</p>
+          <p class="text-xs text-slate-400 mt-1">Inspector Rajesh Kumar · 07 Sep 2026, 16:05 hrs</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer class="max-w-[1600px] mx-auto px-6 py-6 text-xs text-slate-400">
+  Pramana — Chandigarh Police Cyber Crime &amp; Digital Forensics Platform · Concept 2: Investigation Desk · Prototype for internal review only
+</footer>
+
+<script>
+  // Tabs
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Evidence row expand/collapse
+  document.querySelectorAll('.evi-row').forEach(row => {
+    row.addEventListener('click', () => row.classList.toggle('expanded'));
+  });
+
+  // Add note
+  document.getElementById('note-submit').addEventListener('click', () => {
+    const input = document.getElementById('note-input');
+    const text = input.value.trim();
+    if (!text) return;
+    const li = document.createElement('li');
+    li.className = 'py-3';
+    const now = new Date();
+    li.innerHTML = `<p class="text-navy-900">${text.replace(/</g,'&lt;')}</p><p class="text-xs text-slate-400 mt-1">Inspector Rajesh Kumar · ${now.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}, ${now.toLocaleTimeString('en-IN',{hour12:false})} hrs</p>`;
+    document.getElementById('notes-list').prepend(li);
+    input.value = '';
+  });
+</script>
+</body>
+</html>
