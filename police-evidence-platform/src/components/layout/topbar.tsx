@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Bell, Command, LogOut, Search, UserRound } from "lucide-react";
+import { Bell, Command, LogOut, PanelLeftOpen, Search, UserRound } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,9 +18,13 @@ import {
 export function Topbar({
   session,
   unacknowledgedAlertCount = 0,
+  sidebarHidden = false,
+  onShowSidebar,
 }: {
   session: { name: string; role: string };
   unacknowledgedAlertCount?: number;
+  sidebarHidden?: boolean;
+  onShowSidebar?: () => void;
 }) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
@@ -37,6 +41,18 @@ export function Topbar({
       <div className="flex md:hidden items-center gap-2">
         <Image src="/Chandigarh_Police_Logo.png" alt="Chandigarh Police" width={28} height={28} />
       </div>
+
+      {sidebarHidden && onShowSidebar && (
+        <button
+          type="button"
+          onClick={onShowSidebar}
+          title="Show sidebar"
+          aria-label="Show sidebar"
+          className="hidden md:flex size-8 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-surface-raised hover:text-text-primary"
+        >
+          <PanelLeftOpen className="size-4" />
+        </button>
+      )}
 
       <div className="relative w-full max-w-md">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-text-tertiary" />

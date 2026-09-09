@@ -60,7 +60,7 @@ export function WorldMapSvg({
         <rect x={0} y={0} width={WORLD_MAP_WIDTH} height={WORLD_MAP_HEIGHT} fill={`url(#${idPrefix}-ocean)`} />
 
         {FLAT_COUNTRY_FILL_PATHS.map((d, i) => (
-          <path key={`land-${i}`} d={d} fill="var(--status-safe)" fillOpacity={0.22} stroke="var(--status-safe)" strokeOpacity={0.5} strokeWidth={0.5} />
+          <path key={`land-${i}`} d={d} fill="#2563eb" fillOpacity={0.28} stroke="#2563eb" strokeOpacity={0.6} strokeWidth={0.5} />
         ))}
 
         {GRID_LONS.map((lon) => {

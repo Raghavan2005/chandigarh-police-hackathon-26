@@ -12,6 +12,7 @@ import {
   ScrollText,
   Settings,
   ShieldAlert,
+  PanelLeftClose,
 } from "lucide-react";
 
 const NAV = [
@@ -59,7 +60,7 @@ const NAV = [
   { href: "/", label: "Settings", icon: Settings, disabled: true },
 ] as const;
 
-export function Sidebar() {
+export function Sidebar({ onHide }: { onHide?: () => void }) {
   const pathname = usePathname();
 
   return (
@@ -76,6 +77,17 @@ export function Sidebar() {
           <p className="text-sm font-semibold text-text-primary">Pramana</p>
           <p className="text-[10px] text-text-tertiary">Chandigarh Police — Forensic Console</p>
         </div>
+        {onHide && (
+          <button
+            type="button"
+            onClick={onHide}
+            title="Hide sidebar"
+            aria-label="Hide sidebar"
+            className="ml-auto flex size-7 shrink-0 items-center justify-center rounded-md text-text-tertiary hover:bg-surface-raised hover:text-text-primary"
+          >
+            <PanelLeftClose className="size-4" />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 space-y-0.5 px-2 py-3">

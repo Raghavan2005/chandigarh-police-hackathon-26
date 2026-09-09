@@ -108,60 +108,60 @@
 }
 
 .dark {
-  --background: #0b0d10;
-  --foreground: #edeef0;
-  --card: #14171c;
-  --card-foreground: #edeef0;
-  --popover: #1a1e24;
-  --popover-foreground: #edeef0;
-  --primary: #c9a227;
-  --primary-foreground: #14100a;
-  --secondary: #262b33;
-  --secondary-foreground: #edeef0;
-  --muted: #1a1e24;
-  --muted-foreground: #9aa1ab;
-  --accent: #2e2712;
-  --accent-foreground: #edeef0;
-  --destructive: #f04438;
-  --border: #262b33;
-  --input: #262b33;
-  --ring: #c9a227;
-  --chart-1: #c9a227;
-  --chart-2: #6b8cae;
-  --chart-3: #22c55e;
-  --chart-4: #f59e0b;
-  --chart-5: #f04438;
-  --sidebar: #14171c;
-  --sidebar-foreground: #edeef0;
-  --sidebar-primary: #c9a227;
-  --sidebar-primary-foreground: #14100a;
-  --sidebar-accent: #2e2712;
-  --sidebar-accent-foreground: #edeef0;
-  --sidebar-border: #262b33;
-  --sidebar-ring: #c9a227;
+  --background: #ffffff;
+  --foreground: #14171c;
+  --card: #ffffff;
+  --card-foreground: #14171c;
+  --popover: #ffffff;
+  --popover-foreground: #14171c;
+  --primary: #1e3a8a;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #14171c;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+  --accent: #dbeafe;
+  --accent-foreground: #14171c;
+  --destructive: #dc2626;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #1e3a8a;
+  --chart-1: #1e3a8a;
+  --chart-2: #3b6ea5;
+  --chart-3: #16a34a;
+  --chart-4: #d97706;
+  --chart-5: #dc2626;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #14171c;
+  --sidebar-primary: #1e3a8a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #dbeafe;
+  --sidebar-accent-foreground: #14171c;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #1e3a8a;
 
   /* --- Forensic console tokens (design.md) --- */
-  --canvas: #0b0d10;
-  --surface: #14171c;
-  --surface-raised: #1a1e24;
-  --surface-sunken: #07090b;
-  --border-subtle: #262b33;
-  --border-strong: #383f4a;
-  --text-primary: #edeef0;
-  --text-secondary: #9aa1ab;
+  --canvas: #f7f7f8;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #eef0f2;
+  --border-subtle: #e5e7eb;
+  --border-strong: #d1d5db;
+  --text-primary: #14171c;
+  --text-secondary: #4b5563;
   --text-tertiary: #6b7280;
-  --text-disabled: #454b54;
-  --accent-primary: #c9a227;
-  --accent-primary-hover: #ddb646;
-  --accent-dim: #2e2712;
-  --status-critical: #f04438;
-  --status-critical-bg: #2a1215;
-  --status-warning: #f59e0b;
-  --status-warning-bg: #2a2011;
-  --status-safe: #22c55e;
-  --status-safe-bg: #12241a;
-  --status-inconclusive: #6b8cae;
-  --status-inconclusive-bg: #161f28;
+  --text-disabled: #9ca3af;
+  --accent-primary: #1e3a8a;
+  --accent-primary-hover: #2c4ea6;
+  --accent-dim: #dbeafe;
+  --status-critical: #dc2626;
+  --status-critical-bg: #fef2f2;
+  --status-warning: #d97706;
+  --status-warning-bg: #fffbeb;
+  --status-safe: #16a34a;
+  --status-safe-bg: #f0fdf4;
+  --status-inconclusive: #3b6ea5;
+  --status-inconclusive-bg: #eef4fa;
   --status-neutral: #6b7280;
 }
 
@@ -202,14 +202,15 @@
   font-family: var(--font-noto-serif-devanagari), var(--font-noto-serif), serif;
 }
 
-/* The whole app is hardcoded dark mode (<html class="dark">, no toggle —
-   see app/layout.tsx), so body's dark bg-canvas is always present, screen
-   or print. A real PDF export (report.pdf) caught this: the report card
-   itself is bg-white, but anywhere the card doesn't cover — page margins,
-   space below the card on a short report — printed as solid black,
-   because nothing had ever reset the background for print. window.print()
-   would have had the identical bug; nobody had verified an actual printed
-   output before. */
+/* The app hardcodes the "dark" class on <html> (no toggle — see
+   app/layout.tsx); the .dark block's tokens were later repointed to a
+   white palette, but the print reset below is kept regardless, since
+   bg-canvas need not match #ffffff exactly and any mismatch between
+   canvas and the report card's bg-white would repeat the original bug a
+   real PDF export caught: the report card is bg-white, but anywhere the
+   card doesn't cover — page margins, space below the card on a short
+   report — printed using whatever body background was active, because
+   nothing had ever reset the background for print. */
 @media print {
   html,
   body {

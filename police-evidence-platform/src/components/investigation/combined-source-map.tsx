@@ -10,7 +10,11 @@ import { parseWebSearchResult } from "@/lib/web-search-merge";
 import type { Evidence } from "@/components/investigation/evidence-card";
 import type { EvidencePropagation } from "@/lib/propagation-server";
 
-const EXHIBIT_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
+// chart-1 (now the brand's dark blue) and chart-2 (steel blue) are both
+// skipped here — either would blend into the map's blue landmass fill
+// (see world-map.tsx/globe-map.tsx); amber and purple keep every exhibit
+// visually distinct against the map background.
+const EXHIBIT_COLORS = ["#ca8a04", "#9333ea", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 
 /** Same gentle bow as the globe's arcPath, but toward the flat map's own
  * center — a flat map has no "far side," so this is purely cosmetic

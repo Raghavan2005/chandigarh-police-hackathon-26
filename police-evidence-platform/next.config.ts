@@ -7,7 +7,10 @@ const nextConfig: NextConfig = {
   // since that's the whole point of accessing this dev server over LAN.
   // Safe here because this only ever runs on a controlled event-venue
   // network, not the public internet.
-  allowedDevOrigins: ["10.41.164.40"],
+  // *.trycloudflare.com added for the Cloudflare Tunnel used to demo to
+  // the jury remotely — the wildcard covers the random subdomain that
+  // changes every time the tunnel restarts.
+  allowedDevOrigins: ["10.41.164.40", "*.trycloudflare.com"],
   // Ships a native binary — Turbopack otherwise tries to parse the
   // executable itself as JS source and fails. Use native require instead
   // of bundling, per Next's own serverExternalPackages docs.

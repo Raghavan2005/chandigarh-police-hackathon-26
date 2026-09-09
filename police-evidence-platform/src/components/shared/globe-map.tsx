@@ -140,10 +140,10 @@ export function GlobeMapSvg({
             <circle cx={GLOBE_CENTER} cy={GLOBE_CENTER} r={GLOBE_R} />
           </clipPath>
           {countries.fillPaths.map((d, i) => (
-            <path key={`land-${i}`} d={d} fill="var(--status-safe)" fillOpacity={0.28} stroke="var(--status-safe)" strokeOpacity={0.6} strokeWidth={0.5} />
+            <path key={`land-${i}`} d={d} fill="#2563eb" fillOpacity={0.32} stroke="#2563eb" strokeOpacity={0.65} strokeWidth={0.5} />
           ))}
           {countries.strokeRuns.map((run, i) => (
-            <polyline key={`coast-${i}`} points={run.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke="var(--status-safe)" strokeOpacity={0.5} strokeWidth={0.5} />
+            <polyline key={`coast-${i}`} points={run.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#2563eb" strokeOpacity={0.55} strokeWidth={0.5} />
           ))}
           {graticule.map((run, i) =>
             run.length > 1 ? (
