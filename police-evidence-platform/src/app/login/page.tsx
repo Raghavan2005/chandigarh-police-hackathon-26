@@ -64,7 +64,8 @@ function LoginForm() {
             <Input
               ref={emailInputRef}
               id="email"
-              type="email"
+              type="text"
+              inputMode="email"
               autoComplete="username"
               required
               value={email}
