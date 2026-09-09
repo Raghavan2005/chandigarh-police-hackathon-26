@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { MindMapNode, MindMapEdge, MindMapNodeKind } from "@/lib/mindmap-server";
-import { formatTimestamp } from "@/lib/utils";
+import { cn, formatTimestamp } from "@/lib/utils";
 
 const KIND_COLOR: Record<Exclude<MindMapNodeKind, "exhibit">, string> = {
   case: "var(--text-primary)",
@@ -241,6 +241,43 @@ function HoverTooltip({ card }: { card: HoverCard }) {
 export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: MindMapEdge[] }) {
   const [hover, setHover] = useState<HoverCard | null>(null);
 
+  // Which kinds are toggled off via the legend — purely a render-time
+  // filter, never fed back into computeLayout/boundingBoxOf, so hiding
+  // "web source" nodes to declutter a busy case never reshuffles the
+  // position of anything that's still visible.
+  const [hiddenKinds, setHiddenKinds] = useState<Set<MindMapNodeKind>>(new Set());
+  function toggleKind(kind: MindMapNodeKind) {
+    setHiddenKinds((prev) => {
+      const next = new Set(prev);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
+  }
+
+  // Hovering a node (or an edge) narrows focus to just that node's own
+  // neighborhood — everything else fades to near-invisible — rather than
+  // leaving every node/edge at full, equal visual weight all the time,
+  // which is what actually makes a graph with more than a handful of nodes
+  // read as "complicated": there's no way to tell, at a glance, what
+  // connects to what without this. `null` means "nothing focused," i.e.
+  // the original all-nodes-equal view.
+  const [focusIds, setFocusIds] = useState<Set<string> | null>(null);
+  function focusNode(id: string) {
+    const connected = new Set<string>([id]);
+    for (const e of edges) {
+      if (e.from === id) connected.add(e.to);
+      if (e.to === id) connected.add(e.from);
+    }
+    setFocusIds(connected);
+  }
+  function focusEdge(from: string, to: string) {
+    setFocusIds(new Set([from, to]));
+  }
+  function clearFocus() {
+    setFocusIds(null);
+  }
+
   // Manual drag offsets, layered on top of the computed layout below rather
   // than replacing it — computeLayout still runs every render (it's cheap,
   // pure math over however many nodes exist) and gives every node its
@@ -389,15 +426,18 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
             const a = positions.get(edge.from);
             const b = positions.get(edge.to);
             if (!a || !b) return null;
+            if (hiddenKinds.has(a.node.kind) || hiddenKinds.has(b.node.kind)) return null;
             const midX = (a.x + b.x) / 2;
             const midY = (a.y + b.y) / 2;
             const structural = edge.origin === "structural";
             const aNode = a.node;
             const bNode = b.node;
+            const inFocus = !focusIds || (focusIds.has(edge.from) && focusIds.has(edge.to));
             return (
               <g
                 key={`edge-${i}`}
-                onMouseEnter={(e) =>
+                onMouseEnter={(e) => {
+                  focusEdge(edge.from, edge.to);
                   setHover({
                     x: e.clientX,
                     y: e.clientY,
@@ -406,10 +446,14 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
                     detail: edge.label,
                     quote: edge.evidence,
                     href: null,
-                  })
-                }
+                  });
+                }}
                 onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
-                onMouseLeave={() => setHover(null)}
+                onMouseLeave={() => {
+                  clearFocus();
+                  setHover(null);
+                }}
+                style={{ transition: "opacity 150ms ease" }}
               >
                 <line
                   x1={a.x}
@@ -419,7 +463,7 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
                   stroke={structural ? "var(--border-strong)" : "var(--accent-primary)"}
                   strokeWidth={structural ? 1.25 : 1}
                   strokeDasharray={structural ? undefined : "3 3"}
-                  opacity={structural ? 1 : 0.75}
+                  opacity={inFocus ? (structural ? 1 : 0.75) : 0.06}
                   markerEnd={structural ? "url(#mm-arrow-structural)" : "url(#mm-arrow-ai)"}
                 />
                 {/* A wider, invisible line under the visible one — a 1-1.25px
@@ -440,7 +484,8 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
                     x={midX}
                     y={midY}
                     textAnchor="middle"
-                    className="fill-[var(--text-secondary)] text-[8.5px] font-medium"
+                    opacity={inFocus ? 1 : 0.06}
+                    className="fill-[var(--text-secondary)] text-[9px] font-semibold"
                     style={{ paintOrder: "stroke", stroke: "var(--surface-sunken)", strokeWidth: 4 }}
                   >
                     {edge.label}
@@ -451,14 +496,17 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
           })}
 
           {nodes.map((node) => {
+            if (hiddenKinds.has(node.kind)) return null;
             const p = positions.get(node.id);
             if (!p) return null;
             const r = nodeRadius(node);
             const color = nodeColor(node);
+            const inFocus = !focusIds || focusIds.has(node.id);
             return (
               <NodeLink key={node.id} href={node.href}>
                 <g
-                  onMouseEnter={(e) =>
+                  onMouseEnter={(e) => {
+                    focusNode(node.id);
                     setHover({
                       x: e.clientX,
                       y: e.clientY,
@@ -467,14 +515,17 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
                       detail: node.detail,
                       quote: null,
                       href: node.href,
-                    })
-                  }
+                    });
+                  }}
                   onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
-                  onMouseLeave={() => setHover(null)}
+                  onMouseLeave={() => {
+                    clearFocus();
+                    setHover(null);
+                  }}
                   onPointerDown={startDrag(node.id)}
                   onClick={onNodeClickCapture}
                   onDragStart={(e) => e.preventDefault()}
-                  style={{ cursor: "grab", touchAction: "none" }}
+                  style={{ cursor: "grab", touchAction: "none", opacity: inFocus ? 1 : 0.15, transition: "opacity 150ms ease" }}
                 >
                   {/* Invisible, larger hit target — a 7px-radius node (the
                       default for anything that isn't the case/exhibit) is a
@@ -491,7 +542,13 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
                     strokeWidth={2}
                     strokeDasharray={node.origin === "ai_inferred" ? "2 2" : undefined}
                   />
-                  <text x={p.x} y={p.y + r + 12} textAnchor="middle" className="fill-[var(--text-primary)] text-[9px] font-medium">
+                  <text
+                    x={p.x}
+                    y={p.y + r + 13}
+                    textAnchor="middle"
+                    className="fill-[var(--text-primary)] text-[10.5px] font-semibold"
+                    style={{ paintOrder: "stroke", stroke: "var(--surface-sunken)", strokeWidth: 4 }}
+                  >
                     {node.label}
                   </text>
                 </g>
@@ -502,20 +559,38 @@ export function MindMapGraph({ nodes, edges }: { nodes: MindMapNode[]; edges: Mi
       </div>
       {hover && <HoverTooltip card={hover} />}
 
-      <p className="text-[10px] text-text-tertiary">Drag any dot to rearrange the graph — its connections follow automatically.</p>
+      <p className="text-[10px] text-text-tertiary">
+        Hover any dot to trace its connections, drag to rearrange, click a legend item below to hide that kind.
+      </p>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] text-text-tertiary">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[10px] text-text-tertiary">
         {(Object.keys(KIND_LABEL) as MindMapNodeKind[])
           .filter((k) => usedKinds.has(k))
-          .map((k) => (
-            <span key={k} className="flex items-center gap-1">
-              <span
-                className="inline-block size-2.5 rounded-full border-2"
-                style={{ borderColor: k === "exhibit" ? "var(--status-neutral)" : KIND_COLOR[k as Exclude<MindMapNodeKind, "exhibit">] }}
-              />
-              {KIND_LABEL[k]}
-            </span>
-          ))}
+          .map((k) => {
+            const isHidden = hiddenKinds.has(k);
+            const toggleable = k !== "case";
+            return (
+              <button
+                key={k}
+                type="button"
+                disabled={!toggleable}
+                onClick={() => toggleKind(k)}
+                aria-pressed={isHidden}
+                title={toggleable ? (isHidden ? `Show ${KIND_LABEL[k]} nodes` : `Hide ${KIND_LABEL[k]} nodes`) : undefined}
+                className={cn(
+                  "flex items-center gap-1 rounded-full border border-transparent px-1.5 py-0.5",
+                  toggleable && "cursor-pointer hover:border-border-subtle hover:bg-surface-raised",
+                  isHidden && "opacity-40 line-through",
+                )}
+              >
+                <span
+                  className="inline-block size-2.5 shrink-0 rounded-full border-2"
+                  style={{ borderColor: k === "exhibit" ? "var(--status-neutral)" : KIND_COLOR[k as Exclude<MindMapNodeKind, "exhibit">] }}
+                />
+                {KIND_LABEL[k]}
+              </button>
+            );
+          })}
         <span className="flex items-center gap-1">
           <span className="inline-block h-px w-4 bg-[var(--border-strong)]" /> real / database fact
         </span>

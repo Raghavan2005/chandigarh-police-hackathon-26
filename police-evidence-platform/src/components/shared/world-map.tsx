@@ -49,8 +49,8 @@ export function WorldMapSvg({
       <svg viewBox={`0 0 ${WORLD_MAP_WIDTH} ${WORLD_MAP_HEIGHT}`} className={`${heightClassName} w-full min-w-[420px]`}>
         <defs>
           <radialGradient id={`${idPrefix}-ocean`} cx="50%" cy="42%" r="75%">
-            <stop offset="0%" stopColor="var(--accent-dim)" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="var(--surface-sunken)" stopOpacity="1" />
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="1" />
+            <stop offset="100%" stopColor="#0c4a6e" stopOpacity="1" />
           </radialGradient>
           <filter id={`${idPrefix}-glow`} x="-50%" y="-50%" width="200%" height="200%">
             <feDropShadow dx="0" dy="0" stdDeviation="1.5" floodColor="var(--surface)" floodOpacity="0.9" />
@@ -60,27 +60,27 @@ export function WorldMapSvg({
         <rect x={0} y={0} width={WORLD_MAP_WIDTH} height={WORLD_MAP_HEIGHT} fill={`url(#${idPrefix}-ocean)`} />
 
         {FLAT_COUNTRY_FILL_PATHS.map((d, i) => (
-          <path key={`land-${i}`} d={d} fill="#2563eb" fillOpacity={0.28} stroke="#2563eb" strokeOpacity={0.6} strokeWidth={0.5} />
+          <path key={`land-${i}`} d={d} fill="#22c55e" fillOpacity={0.85} stroke="#15803d" strokeOpacity={0.9} strokeWidth={0.5} />
         ))}
 
         {GRID_LONS.map((lon) => {
           const { x } = projectLatLon(0, lon);
           return (
-            <line key={`lon-${lon}`} x1={x} y1={0} x2={x} y2={WORLD_MAP_HEIGHT} stroke="var(--border-subtle)" strokeWidth={0.5} strokeDasharray="2 4" />
+            <line key={`lon-${lon}`} x1={x} y1={0} x2={x} y2={WORLD_MAP_HEIGHT} stroke="#ffffff" strokeOpacity={0.25} strokeWidth={0.5} strokeDasharray="2 4" />
           );
         })}
         {GRID_LATS.map((lat) => {
           const { y } = projectLatLon(lat, 0);
           return (
-            <line key={`lat-${lat}`} x1={0} y1={y} x2={WORLD_MAP_WIDTH} y2={y} stroke="var(--border-subtle)" strokeWidth={0.5} strokeDasharray="2 4" />
+            <line key={`lat-${lat}`} x1={0} y1={y} x2={WORLD_MAP_WIDTH} y2={y} stroke="#ffffff" strokeOpacity={0.25} strokeWidth={0.5} strokeDasharray="2 4" />
           );
         })}
-        <line x1={origin.x} y1={0} x2={origin.x} y2={WORLD_MAP_HEIGHT} stroke="var(--border-strong)" strokeWidth={0.75} />
-        <line x1={0} y1={origin.y} x2={WORLD_MAP_WIDTH} y2={origin.y} stroke="var(--border-strong)" strokeWidth={0.75} />
-        <text x={origin.x + 4} y={10} fill="var(--text-tertiary)" fontSize={9} className="font-mono">
+        <line x1={origin.x} y1={0} x2={origin.x} y2={WORLD_MAP_HEIGHT} stroke="#ffffff" strokeOpacity={0.5} strokeWidth={0.75} />
+        <line x1={0} y1={origin.y} x2={WORLD_MAP_WIDTH} y2={origin.y} stroke="#ffffff" strokeOpacity={0.5} strokeWidth={0.75} />
+        <text x={origin.x + 4} y={10} fill="#ffffff" fillOpacity={0.85} fontSize={9} className="font-mono">
           Prime Meridian
         </text>
-        <text x={WORLD_MAP_WIDTH - 4} y={origin.y - 4} fill="var(--text-tertiary)" fontSize={9} textAnchor="end" className="font-mono">
+        <text x={WORLD_MAP_WIDTH - 4} y={origin.y - 4} fill="#ffffff" fillOpacity={0.85} fontSize={9} textAnchor="end" className="font-mono">
           Equator
         </text>
 

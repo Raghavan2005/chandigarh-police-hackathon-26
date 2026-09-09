@@ -41,10 +41,10 @@ function flatArcPath(p1: { x: number; y: number }, p2: { x: number; y: number })
  * signal — a DNS lookup of the result's domain, which for CDN-fronted
  * sites (nearly everything on the open web) resolves to a CDN edge, not
  * the publisher's real location or anything about content spread — so
- * these render as hollow/dashed "unverified" pins, distinct from the solid
- * numbered origin pins, with that caveat spelled out in their own tooltip
- * and in the caption below the map. Never used to override or outrank a
- * real origin when one exists.
+ * these render as a solid dot with a faint dashed "accuracy halo" around
+ * it, distinct from the numbered origin pins, with that caveat spelled
+ * out in their own tooltip and in the caption below the map. Never used
+ * to override or outrank a real origin when one exists.
  */
 export function CombinedSourceMap({
   evidence,
@@ -162,9 +162,10 @@ export function CombinedSourceMap({
         </div>
       </div>
       <p className="text-[10px] text-text-tertiary">
-        Filled numbered pins are verified upload origins (EXIF GPS or IP geolocation). Hollow dashed &ldquo;~&rdquo;
-        pins mean that exhibit had no verified origin — shown instead is the nearest available signal, a linked
-        page&apos;s approximate server/CDN location, which is not a confirmed origin or spread point.
+        Numbered pins are verified upload origins (EXIF GPS or IP geolocation). A dot with a faint dashed halo
+        (&ldquo;~&rdquo; in the legend) means that exhibit had no verified origin — shown instead is the nearest
+        available signal, a linked page&apos;s approximate server/CDN location, which is not a confirmed origin or
+        spread point.
       </p>
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         <div className="flex flex-col gap-1.5">
@@ -202,12 +203,18 @@ export function CombinedSourceMap({
                     cx={p.x}
                     cy={p.y}
                     r={isOrigin ? 7 : 5}
-                    fill={isOrigin ? m.color : "none"}
-                    stroke={isOrigin ? "var(--surface)" : m.color}
-                    strokeWidth={isOrigin ? 1.25 : 1.75}
-                    strokeDasharray={isOrigin ? undefined : "2 1.5"}
+                    fill={m.color}
+                    stroke="var(--surface)"
+                    strokeWidth={isOrigin ? 1.25 : 1}
                     filter="url(#combined-source-map-flat-glow)"
                   />
+                  {/* Faint dashed accuracy halo around a solid dot, not a
+                      hollow dashed marker — matches globe-map.tsx and stays
+                      legible even when several results decluster into a
+                      tight cluster. */}
+                  {!isOrigin && (
+                    <circle cx={p.x} cy={p.y} r={9} fill="none" stroke={m.color} strokeWidth={1} strokeDasharray="3 3" strokeLinecap="round" opacity={0.55} />
+                  )}
                   {isOrigin && m.order != null && (
                     <text x={p.x} y={p.y} fill="var(--surface)" fontSize={8} fontWeight={700} textAnchor="middle" dominantBaseline="central" className="pointer-events-none select-none">
                       {m.order}

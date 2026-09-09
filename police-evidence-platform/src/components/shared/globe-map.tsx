@@ -110,9 +110,9 @@ export function GlobeMapSvg({
       >
         <defs>
           <radialGradient id={`${idPrefix}-sphere`} cx="35%" cy="30%" r="75%">
-            <stop offset="0%" stopColor="var(--accent-dim)" stopOpacity="0.9" />
-            <stop offset="55%" stopColor="var(--surface-sunken)" stopOpacity="1" />
-            <stop offset="100%" stopColor="#000" stopOpacity="0.55" />
+            <stop offset="0%" stopColor="#60a5fa" stopOpacity="1" />
+            <stop offset="55%" stopColor="#1e6fd9" stopOpacity="1" />
+            <stop offset="100%" stopColor="#0c2f6b" stopOpacity="1" />
           </radialGradient>
           <filter id={`${idPrefix}-globe-shadow`} x="-30%" y="-30%" width="160%" height="160%">
             <feDropShadow dx="0" dy="6" stdDeviation="8" floodColor="#000" floodOpacity="0.5" />
@@ -140,10 +140,10 @@ export function GlobeMapSvg({
             <circle cx={GLOBE_CENTER} cy={GLOBE_CENTER} r={GLOBE_R} />
           </clipPath>
           {countries.fillPaths.map((d, i) => (
-            <path key={`land-${i}`} d={d} fill="#2563eb" fillOpacity={0.32} stroke="#2563eb" strokeOpacity={0.65} strokeWidth={0.5} />
+            <path key={`land-${i}`} d={d} fill="#22c55e" fillOpacity={0.9} stroke="#15803d" strokeOpacity={0.9} strokeWidth={0.5} />
           ))}
           {countries.strokeRuns.map((run, i) => (
-            <polyline key={`coast-${i}`} points={run.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#2563eb" strokeOpacity={0.55} strokeWidth={0.5} />
+            <polyline key={`coast-${i}`} points={run.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#15803d" strokeOpacity={0.75} strokeWidth={0.5} />
           ))}
           {graticule.map((run, i) =>
             run.length > 1 ? (
@@ -151,9 +151,9 @@ export function GlobeMapSvg({
                 key={i}
                 points={run.map((p) => `${p.x},${p.y}`).join(" ")}
                 fill="none"
-                stroke="var(--border-subtle)"
+                stroke="#ffffff"
                 strokeWidth={0.5}
-                opacity={0.5}
+                opacity={0.3}
               />
             ) : null,
           )}
@@ -214,12 +214,19 @@ export function GlobeMapSvg({
                 cx={p.x}
                 cy={p.y}
                 r={isOrigin ? 7 : 5}
-                fill={isOrigin ? m.color : "none"}
-                stroke={isOrigin ? "var(--surface)" : m.color}
-                strokeWidth={isOrigin ? 1.25 : 1.75}
-                strokeDasharray={isOrigin ? undefined : "2 1.5"}
+                fill={m.color}
+                stroke="var(--surface)"
+                strokeWidth={isOrigin ? 1.5 : 1.25}
                 filter={`url(#${idPrefix}-marker-glow)`}
               />
+              {/* "Unverified/approximate" reads as a faint dashed accuracy
+                  halo around a solid, easy-to-spot dot — not as the marker
+                  itself being made of tiny dashes, which turns into an
+                  illegible scribble once several results decluster into a
+                  tight jittered ring (see declusterMarkers). */}
+              {!isOrigin && (
+                <circle cx={p.x} cy={p.y} r={9} fill="none" stroke={m.color} strokeWidth={1} strokeDasharray="3 3" strokeLinecap="round" opacity={0.55} />
+              )}
               {isOrigin && m.order != null && (
                 <text x={p.x} y={p.y} fill="var(--surface)" fontSize={8} fontWeight={700} textAnchor="middle" dominantBaseline="central" className="pointer-events-none select-none">
                   {m.order}
