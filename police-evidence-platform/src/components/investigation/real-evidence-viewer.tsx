@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
+import { TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AudioAnalyser } from "@/components/investigation/audio-analyser";
 import { SpliceDetectionPanel, type CachedSpliceDetectionResult } from "@/components/investigation/splice-detection-panel";
 import { FaceDetailDialog, type FaceAnnotationData } from "@/components/investigation/face-detail-dialog";
@@ -191,6 +192,7 @@ export function RealEvidenceViewer({
   evidenceId,
   mimeType,
   sensitivityLevel,
+  hasCustodyContent,
   hasHeatmap,
   hasFrameHeatmaps,
   faceBoxes,
@@ -204,6 +206,11 @@ export function RealEvidenceViewer({
   evidenceId: string;
   mimeType: string;
   sensitivityLevel: string;
+  /** Whether the "Custody & legal" tab has anything to show for this
+   * exhibit — overrides/declarant/custody-transfers/forensic-expert are all
+   * manual actions an investigator may never have taken, and a tab that's
+   * always empty is worse than no tab. */
+  hasCustodyContent: boolean;
   hasHeatmap: boolean;
   hasFrameHeatmaps: boolean;
   faceBoxes: [number, number, number, number][];
@@ -681,13 +688,13 @@ export function RealEvidenceViewer({
                 src={{ src: fileUrl, type: mimeType as VideoMimeType }}
                 playsInline
                 loop
+                // Unmuted by default so the investigator hears the actual
+                // evidence audio without an extra click. Browsers block
+                // autoplay-with-sound without a prior user gesture, so this
+                // will just start paused (not silently muted-playing) until
+                // the investigator presses play — Vidstack does not fall
+                // back to a muted autoplay on its own.
                 autoPlay
-                // Browsers only allow autoplay without a prior user
-                // gesture when the media starts muted (Chrome/Safari
-                // autoplay policy) -- without this, autoPlay above would
-                // silently fail to start rather than actually play. The
-                // investigator can unmute from the player's own controls.
-                muted
                 className="h-[280px] w-full bg-black"
                 style={getFilterStyle(overlayMode) as React.ComponentProps<typeof MediaPlayer>["style"]}
                 onProviderChange={() => {
@@ -858,6 +865,14 @@ export function RealEvidenceViewer({
         </div>
       )}
 
+      <TabsList variant="line">
+        <TabsTrigger value="media">Media</TabsTrigger>
+        <TabsTrigger value="forensics">Forensics</TabsTrigger>
+        <TabsTrigger value="analysis">Analysis</TabsTrigger>
+        {hasCustodyContent && <TabsTrigger value="custody">Custody &amp; legal</TabsTrigger>}
+      </TabsList>
+
+      <TabsContent value="media" className="flex flex-col gap-2">
       {revealed && (isVideo || isAudio) && (
         <div id={`ev-${evidenceId}-captions`} className="flex scroll-mt-14 flex-wrap items-center gap-2 text-xs">
           <span className="flex items-center gap-1 font-mono text-text-tertiary">
@@ -1128,7 +1143,9 @@ export function RealEvidenceViewer({
           {activeCaptionText}
         </div>
       )}
+      </TabsContent>
 
+      <TabsContent value="forensics" className="flex flex-col gap-3">
       {revealed && (isVideo || isAudio) && <AudioAnalyser mediaEl={mediaEl} />}
 
       {revealed && (isVideo || isAudio) && (
@@ -1242,6 +1259,7 @@ export function RealEvidenceViewer({
           </p>
         </div>
       )}
+      </TabsContent>
 
       {selectedFaceIndex !== null && (
         <FaceDetailDialog

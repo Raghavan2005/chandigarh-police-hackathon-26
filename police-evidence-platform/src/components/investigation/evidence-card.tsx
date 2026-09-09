@@ -24,7 +24,7 @@ import {
   type CachedDocumentSummary,
   type CachedDocumentThreatAssessment,
 } from "@/components/investigation/document-analysis-panel";
-import { EvidenceSectionNav, type EvidenceSection } from "@/components/investigation/evidence-section-nav";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { EvidenceKind, Verdict } from "@/lib/types";
 import type { getRealCase } from "@/lib/cases-server";
 import { mergeReverseImageSearchResults, type CachedMergedReverseImageSearchResult } from "@/lib/reverse-image-search-merge";
@@ -192,19 +192,12 @@ export function EvidenceCard({
   const provenance = evidence.provenanceResult;
   const hasVideoDiffSlot = isVideo && evidence.matchesFrom.length > 0;
   const hasDocumentAnalysis = Boolean(meta && isDocumentLike && meta.exifJson);
-
-  // Jump targets for the sticky nav below — mirrors exactly which panels
-  // actually render further down (same conditions), so a link is never
-  // dead and a rendered panel is never missing from the list.
-  const sections: EvidenceSection[] = [
-    { id: `ev-${evidence.id}-media`, label: isVideo ? "Video" : isAudio ? "Audio" : isImage ? "Image" : "Document" },
-    ...(isVideo || isAudio ? [{ id: `ev-${evidence.id}-captions`, label: "Captions" }] : []),
-    ...(isVideo || isAudio ? [{ id: `ev-${evidence.id}-splice`, label: "Splice detection" }] : []),
-    ...(showFaceMatchSlot ? [{ id: `ev-${evidence.id}-reverse-image`, label: "Reverse image search" }] : []),
-    ...(showFaceMatchSlot ? [{ id: `ev-${evidence.id}-image-description`, label: "AI description" }] : []),
-    ...(hasVideoDiffSlot ? [{ id: `ev-${evidence.id}-video-diff`, label: "Video diff" }] : []),
-    ...(hasDocumentAnalysis ? [{ id: `ev-${evidence.id}-document`, label: isTextDoc ? "Chat" : "Document" }] : []),
-  ];
+  const hasCustodyContent =
+    evidence.overrides.length > 0 ||
+    Boolean(evidence.declarantName) ||
+    evidence.custodyTransfers.length > 0 ||
+    Boolean(evidence.forensicExpert) ||
+    Boolean(evidence.courtDirectionRef);
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-4">
@@ -226,14 +219,16 @@ export function EvidenceCard({
         </span>
       </div>
 
+      <Tabs defaultValue="media" className="gap-4">
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr_1fr_280px]">
         <div className="flex min-w-0 flex-col gap-3">
-          <EvidenceSectionNav sections={sections} />
           <RealEvidenceViewer
             caseId={caseId}
             evidenceId={evidence.id}
             mimeType={evidence.mimeType}
             sensitivityLevel={sensitivityLevel}
+            hasCustodyContent={hasCustodyContent}
             hasHeatmap={Boolean(evidence.detectionResult?.heatmapPath)}
             hasFrameHeatmaps={Boolean(evidence.detectionResult?.frameHeatmapPathsJson)}
             faceBoxes={parseFaceBoxes(evidence.detectionResult?.faceBoxesJson)}
@@ -243,6 +238,7 @@ export function EvidenceCard({
             cachedTranscript={parseTranscript(evidence.transcriptResult)}
             cachedSpliceDetection={parseSpliceDetection(evidence.spliceDetectionResult)}
           />
+          <TabsContent value="forensics" className="flex flex-col gap-3">
           {showFaceMatchSlot && (
             <div id={`ev-${evidence.id}-reverse-image`} className="scroll-mt-14">
               <ReverseImageSearchPanel
@@ -301,6 +297,123 @@ export function EvidenceCard({
               <LocationMentionsPanel locationMentionResult={evidence.locationMentionResult} />
             </div>
           )}
+          </TabsContent>
+
+          <TabsContent value="analysis" className="flex flex-col gap-4">
+          {evidence.fusionVerdict && (
+            <div className="rounded-lg border border-border-subtle bg-surface-sunken p-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+                {isDocumentPdf ? "Document integrity" : "Evidence fusion"}
+              </p>
+              <RealFusionSignals
+                signalBreakdownJson={evidence.fusionVerdict.signalBreakdownJson}
+                coverageCount={evidence.fusionVerdict.coverageCount}
+                confidenceCeiling={evidence.fusionVerdict.confidenceCeiling}
+                verdict={evidence.fusionVerdict.verdict}
+                confidence={evidence.fusionVerdict.confidence}
+                explanation={evidence.fusionVerdict.explanation}
+                {...(isDocumentPdf
+                  ? {
+                      signals: DOCUMENT_FUSION_SIGNALS,
+                      totalSignals: 2,
+                      introText:
+                        "There is no ML classifier for documents in this build — this verdict comes purely from the two structural signals below, never a content-authenticity claim.",
+                    }
+                  : {})}
+              />
+            </div>
+          )}
+          {hasRealMatches && (
+            <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
+              <p className="flex items-center gap-1.5 text-[11px] font-medium text-text-secondary">
+                <GitCompareArrows className="size-3.5" />
+                Matches found
+              </p>
+              {evidence.matchesFrom.map((m) => (
+                <Link
+                  key={m.id}
+                  href={`/cases/${m.matchedCaseId}`}
+                  className="text-[11px] text-accent-primary hover:underline"
+                >
+                  Same/near-identical file found in case {m.matchedCaseId} — {Math.round(m.similarity * 100)}% similar
+                  (Hamming distance {m.hammingDistance})
+                </Link>
+              ))}
+              {evidence.corpusMatches.map((m) => (
+                <p key={m.id} className="text-[11px] text-text-secondary">
+                  Matches seeded corpus item from {m.corpusItem.sourcePlatform} (first seen{" "}
+                  {formatDateOnly(new Date(m.corpusItem.firstSeenAt))}) — {Math.round(m.similarity * 100)}% similar
+                </p>
+              ))}
+            </div>
+          )}
+          {!hasRealMatches && result && (result.corpusMatches > 0 || result.crossCaseMatches > 0) && (
+            <p className="text-[11px] text-text-tertiary">
+              {result.corpusMatches > 0 && `${result.corpusMatches} match(es) in the seeded corpus. `}
+              {result.crossCaseMatches > 0 && `${result.crossCaseMatches} match(es) found in other cases.`}{" "}
+              Refreshing…
+            </p>
+          )}
+          </TabsContent>
+
+          <TabsContent value="custody" className="flex flex-col gap-1">
+          {evidence.overrides.length > 0 && (
+            <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
+              <p className="text-[11px] font-medium text-text-secondary">Human override history</p>
+              {evidence.overrides.map((o) => (
+                <p key={o.id} className="text-[11px] text-text-tertiary">
+                  {o.previousVerdict.replace("_", "-")} → {o.newVerdict.replace("_", "-")} by {o.overriddenBy.name}
+                  {" "}({formatTimestamp(new Date(o.timestamp))}): {o.reason}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {evidence.declarantName && (
+            <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
+              <p className="text-[11px] font-medium text-text-secondary">Section 63 BSA Part A — declarant</p>
+              <p className="text-[11px] text-text-tertiary">
+                {evidence.declarantName}
+                {evidence.declarantRole ? `, ${evidence.declarantRole}` : ""}
+                {evidence.declarantOrg ? ` (${evidence.declarantOrg})` : ""}
+              </p>
+            </div>
+          )}
+
+          {evidence.custodyTransfers.length > 0 && (
+            <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
+              <p className="text-[11px] font-medium text-text-secondary">Physical chain of custody</p>
+              {evidence.custodyTransfers.map((t) => (
+                <p key={t.id} className="text-[11px] text-text-tertiary">
+                  {t.fromPerson} → {t.toPerson} ({t.purpose}){t.location ? ` — ${t.location}` : ""} — logged by{" "}
+                  {t.recordedBy.name} ({formatTimestamp(new Date(t.occurredAt))})
+                  {t.witness1Name && `; witness: ${t.witness1Name}`}
+                  {t.witness2Name && `, ${t.witness2Name}`}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {!evidence.forensicExpert && evidence.courtDirectionRef && (
+            <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
+              <p className="text-[11px] font-medium text-text-secondary">Section 63 BSA Part B — forwarding in progress</p>
+              <p className="text-[11px] text-text-tertiary">
+                Court has directed independent expert examination (ref: {evidence.courtDirectionRef}); expert findings
+                not yet received.
+              </p>
+            </div>
+          )}
+
+          {evidence.forensicExpert && (
+            <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
+              <p className="text-[11px] font-medium text-text-secondary">Section 63 BSA Part B — forensic expert</p>
+              <p className="text-[11px] text-text-tertiary">
+                {evidence.forensicExpert.name}, {evidence.forensicExpert.designation} — lab ref{" "}
+                {evidence.forensicExpert.labRef}
+              </p>
+            </div>
+          )}
+          </TabsContent>
         </div>
 
         <div className="min-w-0 rounded-lg border border-border-subtle bg-surface-sunken p-4">
@@ -444,119 +557,7 @@ export function EvidenceCard({
           </div>
         </div>
       </div>
-
-      {evidence.fusionVerdict && (
-        <div className="rounded-lg border border-border-subtle bg-surface-sunken p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
-            {isDocumentPdf ? "Document integrity" : "Evidence fusion"}
-          </p>
-          <RealFusionSignals
-            signalBreakdownJson={evidence.fusionVerdict.signalBreakdownJson}
-            coverageCount={evidence.fusionVerdict.coverageCount}
-            confidenceCeiling={evidence.fusionVerdict.confidenceCeiling}
-            verdict={evidence.fusionVerdict.verdict}
-            confidence={evidence.fusionVerdict.confidence}
-            explanation={evidence.fusionVerdict.explanation}
-            {...(isDocumentPdf
-              ? {
-                  signals: DOCUMENT_FUSION_SIGNALS,
-                  totalSignals: 2,
-                  introText:
-                    "There is no ML classifier for documents in this build — this verdict comes purely from the two structural signals below, never a content-authenticity claim.",
-                }
-              : {})}
-          />
-        </div>
-      )}
-
-      {evidence.overrides.length > 0 && (
-        <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
-          <p className="text-[11px] font-medium text-text-secondary">Human override history</p>
-          {evidence.overrides.map((o) => (
-            <p key={o.id} className="text-[11px] text-text-tertiary">
-              {o.previousVerdict.replace("_", "-")} → {o.newVerdict.replace("_", "-")} by {o.overriddenBy.name}
-              {" "}({formatTimestamp(new Date(o.timestamp))}): {o.reason}
-            </p>
-          ))}
-        </div>
-      )}
-
-      {evidence.declarantName && (
-        <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
-          <p className="text-[11px] font-medium text-text-secondary">Section 63 BSA Part A — declarant</p>
-          <p className="text-[11px] text-text-tertiary">
-            {evidence.declarantName}
-            {evidence.declarantRole ? `, ${evidence.declarantRole}` : ""}
-            {evidence.declarantOrg ? ` (${evidence.declarantOrg})` : ""}
-          </p>
-        </div>
-      )}
-
-      {evidence.custodyTransfers.length > 0 && (
-        <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
-          <p className="text-[11px] font-medium text-text-secondary">Physical chain of custody</p>
-          {evidence.custodyTransfers.map((t) => (
-            <p key={t.id} className="text-[11px] text-text-tertiary">
-              {t.fromPerson} → {t.toPerson} ({t.purpose}){t.location ? ` — ${t.location}` : ""} — logged by{" "}
-              {t.recordedBy.name} ({formatTimestamp(new Date(t.occurredAt))})
-              {t.witness1Name && `; witness: ${t.witness1Name}`}
-              {t.witness2Name && `, ${t.witness2Name}`}
-            </p>
-          ))}
-        </div>
-      )}
-
-      {!evidence.forensicExpert && evidence.courtDirectionRef && (
-        <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
-          <p className="text-[11px] font-medium text-text-secondary">Section 63 BSA Part B — forwarding in progress</p>
-          <p className="text-[11px] text-text-tertiary">
-            Court has directed independent expert examination (ref: {evidence.courtDirectionRef}); expert findings
-            not yet received.
-          </p>
-        </div>
-      )}
-
-      {evidence.forensicExpert && (
-        <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
-          <p className="text-[11px] font-medium text-text-secondary">Section 63 BSA Part B — forensic expert</p>
-          <p className="text-[11px] text-text-tertiary">
-            {evidence.forensicExpert.name}, {evidence.forensicExpert.designation} — lab ref{" "}
-            {evidence.forensicExpert.labRef}
-          </p>
-        </div>
-      )}
-
-      {hasRealMatches && (
-        <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
-          <p className="flex items-center gap-1.5 text-[11px] font-medium text-text-secondary">
-            <GitCompareArrows className="size-3.5" />
-            Matches found
-          </p>
-          {evidence.matchesFrom.map((m) => (
-            <Link
-              key={m.id}
-              href={`/cases/${m.matchedCaseId}`}
-              className="text-[11px] text-accent-primary hover:underline"
-            >
-              Same/near-identical file found in case {m.matchedCaseId} — {Math.round(m.similarity * 100)}% similar
-              (Hamming distance {m.hammingDistance})
-            </Link>
-          ))}
-          {evidence.corpusMatches.map((m) => (
-            <p key={m.id} className="text-[11px] text-text-secondary">
-              Matches seeded corpus item from {m.corpusItem.sourcePlatform} (first seen{" "}
-              {formatDateOnly(new Date(m.corpusItem.firstSeenAt))}) — {Math.round(m.similarity * 100)}% similar
-            </p>
-          ))}
-        </div>
-      )}
-      {!hasRealMatches && result && (result.corpusMatches > 0 || result.crossCaseMatches > 0) && (
-        <p className="text-[11px] text-text-tertiary">
-          {result.corpusMatches > 0 && `${result.corpusMatches} match(es) in the seeded corpus. `}
-          {result.crossCaseMatches > 0 && `${result.crossCaseMatches} match(es) found in other cases.`}{" "}
-          Refreshing…
-        </p>
-      )}
+      </Tabs>
     </div>
   );
 }

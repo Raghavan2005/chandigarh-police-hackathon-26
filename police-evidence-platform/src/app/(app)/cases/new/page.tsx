@@ -14,7 +14,9 @@ import { TabletCaptureHint } from "@/components/upload/tablet-capture-hint";
 import { buttonVariants } from "@/components/ui/button";
 import { KIND_ICON } from "@/components/shared/evidence-thumbnail";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, ArrowLeft, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Loader2, ShieldCheck, Sparkles } from "lucide-react";
+
+const DEMO_IMAGE_URL = "/evidence/case-image-evidence.jpg";
 
 export default function NewCasePage() {
   const router = useRouter();
@@ -51,6 +53,44 @@ export default function NewCasePage() {
 
   function removeFile(id: string) {
     setQueuedFiles((prev) => prev.filter((f) => f.id !== id));
+  }
+
+  const [demoFillStatus, setDemoFillStatus] = useState<"idle" | "loading">("idle");
+
+  // Populates the wizard with a plausible sample case for demoing the
+  // pipeline end to end — pulls a real image from public/evidence rather
+  // than a 1x1 placeholder so the file actually clears image-kind
+  // validation and produces a real detection result downstream.
+  async function fillDemoData() {
+    setFirNumber("0231/2026");
+    setFirDate("2026-09-05");
+    setPoliceStation("Cyber Crime Cell, Chandigarh");
+    setDistrict("Chandigarh (UT)");
+    setOffenceSections("BNS 336, IT Act 66C/66D/66E/67A");
+    setCourtJurisdiction("Court of the CJM, Chandigarh");
+    setComplainantName("Rajesh Kumar");
+    setComplainantContact("98765xxxxx");
+    setAccusedDetails("Unidentified");
+    setGdEntryNumber("GD No. 14 dated 05-09-2026");
+    setDispatchNumber("DAK/2026/0417");
+    setInvestigatorRank("Sub-Inspector");
+    setInvestigatorBadgeNo("PIS-04471");
+    setInvestigatorMobile("9876543210");
+    setTitle("Viral clip allegedly showing public official — authenticity disputed");
+    setSummary(
+      "Complainant reported a widely circulated video clip that appears to show a public official making inflammatory remarks. The clip's origin is unclear and playback shows possible signs of tampering. Forensic examination requested to establish authenticity and trace the earliest point of upload.",
+    );
+    setSensitivityLevel("standard");
+
+    if (queuedFiles.length === 0) {
+      setDemoFillStatus("loading");
+      const response = await fetch(DEMO_IMAGE_URL).catch(() => null);
+      if (response?.ok) {
+        const blob = await response.blob();
+        addFiles([new File([blob], "demo-evidence.jpg", { type: blob.type || "image/jpeg" })]);
+      }
+      setDemoFillStatus("idle");
+    }
   }
 
   const [investigatorName, setInvestigatorName] = useState<string | null>(null);
@@ -182,11 +222,26 @@ export default function NewCasePage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-xl font-semibold text-text-primary">New Case</h1>
-        <p className="text-sm text-text-tertiary">
-          Create a case and submit evidence for AI-assisted forensic analysis.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-text-primary">New Case</h1>
+          <p className="text-sm text-text-tertiary">
+            Create a case and submit evidence for AI-assisted forensic analysis.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={fillDemoData}
+          disabled={demoFillStatus === "loading" || status === "submitting"}
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
+        >
+          {demoFillStatus === "loading" ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Sparkles className="size-4" />
+          )}
+          Fill demo content
+        </button>
       </div>
 
       <StepperHeader step={step} />

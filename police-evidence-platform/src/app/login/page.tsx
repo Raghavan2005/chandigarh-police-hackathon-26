@@ -1,17 +1,21 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { LoginCarousel } from "@/components/login/login-carousel";
+
+const EMAIL_DOMAIN = "@chandigarhpolice.gov.in";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const [email, setEmail] = useState(EMAIL_DOMAIN);
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
@@ -40,8 +44,10 @@ function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
-      <div className="w-full max-w-sm rounded-lg border border-border-subtle bg-surface p-6 shadow-2xl">
+    <div className="flex min-h-screen items-center justify-center px-4 py-8">
+      <LoginCarousel />
+
+      <div className="relative z-10 w-full max-w-sm rounded-lg border border-border-subtle bg-surface p-6 shadow-2xl">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <Image src="/Chandigarh_Police_Logo.png" alt="Chandigarh Police" width={48} height={48} />
           <div>
@@ -56,14 +62,22 @@ function LoginForm() {
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="email">Email</Label>
             <Input
+              ref={emailInputRef}
               id="email"
               type="email"
               autoComplete="username"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onFocus={(e) => {
+                // Prefilled with just "@chandigarhpolice.gov.in" — put the
+                // caret before it so typing prepends the username instead
+                // of landing after the domain.
+                if (e.target.value === EMAIL_DOMAIN) {
+                  e.target.setSelectionRange(0, 0);
+                }
+              }}
               disabled={status === "submitting"}
-              placeholder="investigator@chandigarhpolice.gov.in"
             />
           </div>
 
